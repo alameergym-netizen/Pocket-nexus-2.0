@@ -41,20 +41,26 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
     private int pendingKey;
     private long lastUp;
 
-    private final Runnable holdFired = () -> {
-        if (down < 0) {
-            return;
+    // (Anonymous classes: they read the service, which a lambda here couldn't before it's set)
+    private final Runnable holdFired = new Runnable() {
+        @Override
+        public void run() {
+            if (down < 0) {
+                return;
+            }
+            held = true;
+            perform(down, downKey, GlobalButtons.get(service, down, GlobalButtons.HOLD));
         }
-        held = true;
-        GlobalButtons.Action a = GlobalButtons.get(service, down, GlobalButtons.HOLD);
-        perform(down, downKey, a);
     };
 
-    private final Runnable tapFired = () -> {
-        int button = pendingTap;
-        pendingTap = -1;
-        if (button >= 0) {
-            perform(button, pendingKey, GlobalButtons.get(service, button, GlobalButtons.TAP));
+    private final Runnable tapFired = new Runnable() {
+        @Override
+        public void run() {
+            int button = pendingTap;
+            pendingTap = -1;
+            if (button >= 0) {
+                perform(button, pendingKey, GlobalButtons.get(service, button, GlobalButtons.TAP));
+            }
         }
     };
 
