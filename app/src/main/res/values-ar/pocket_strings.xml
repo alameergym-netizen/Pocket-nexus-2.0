@@ -467,7 +467,7 @@
     <string name="pocket_set_lsfg_open_sub">توليد إطارات Lossless Scaling كتطبيق طبقة فوق الشاشة، بملف Lossless.dll تبعك. اختاره من توليد الإطارات، شغّل الطبقة، وبعدين العب.</string>
     <string name="pocket_lsfg_installed">افتح</string>
     <string name="pocket_lsfg_missing">مش مثبت</string>
-    <string name="pocket_boot_tagline">جهازك بين إيديك</string>
+    <string name="pocket_boot_tagline">كل ألعابك... بمكان واحد</string>
     <string name="pocket_set_live_glass">زجاج حي</string>
     <string name="pocket_set_live_glass_sub">زجاج مثلّج حقيقي بيغبّش اللي وراه. طفيه إذا بدك توفر شوي بطارية.</string>
     <string name="pocket_header_sounds">الأصوات</string>
@@ -820,7 +820,7 @@
     <string name="pocket_page_source_igdb">من IGDB</string>
     <string name="pocket_page_source_play">من Google Play</string>
     <string name="pocket_page_no_youtube">ما في تطبيق بيفتح يوتيوب</string>
-    <string name="pocket_page_youtube_caption">%1$s · X: شوفه على يوتيوب</string>
+    <string name="pocket_page_youtube_caption">%1$s · X: شغّله</string>
     <string name="pocket_art_find_again">دوّر على صور من جديد</string>
     <string name="pocket_art_finding">عم دوّر بـ SteamGridDB وSteam وIGDB…</string>
     <string name="pocket_art_found_nothing">ما لقيت صور إلها. "غيّر الصور" بتختار بإيدك.</string>
@@ -1267,4 +1267,33 @@
     <string name="pocket_minutes_short">%1$d د</string>
     <string name="pocket_ambient_wake">اضغط أي زر</string>
     <string name="pocket_surprise">فاجئني</string>
+    <string name="pocket_retro_suggested">مقترحة إلك</string>
+    <string name="pocket_retro_scrape_all">دوّر على الصور الناقصة (كل الألعاب)</string>
+    <string name="pocket_retro_scrape_system">دوّر على الصور الناقصة (هالجهاز)</string>
+    <string name="pocket_retro_scrape_busy">عم يدوّر: %1$d من %2$d</string>
+    <string name="pocket_retro_scrape_checking">عم أشوف أي ألعاب ما إلها صور…</string>
+    <string name="pocket_retro_scrape_none">كل الألعاب هون إلها صورها</string>
+    <string name="pocket_retro_scrape_done">لقيت صور لـ %1$d من %2$d لعبة</string>
+    <string name="pocket_retro_scrape_progress">الصور %1$d/%2$d</string>
+    <string name="pocket_trophy_none_yet">لسا ما فتحت ولا إنجاز: أول واحد بستناك</string>
+    <string name="pocket_trophy_sign_in">سجّل دخولك على RetroAchievements من الإعدادات عشان تشوف إنجازات هاللعبة هون</string>
+    <string name="pocket_page_gameplay">قيمبلاي</string>
+    <string name="pocket_video_hints">Ⓐ إيقاف    ◀ ▶ ١٠ ث    L1 R1 ٣٠ ث    Ⓧ كتم    Ⓨ يوتيوب    Ⓑ إغلاق</string>
+    <string name="pocket_video_not_here">صاحب الفيديو بخليه يشتغل على يوتيوب بس.\nⓎ بفتحه هناك.</string>
+    <string name="pocket_video_failed">الفيديو مش راضي يشتغل هلأ.\nⓎ بجرب على يوتيوب.</string>
+    <string name="pocket_emu_update">تحديث المحاكيات (Obtainium)</string>
+    <string name="pocket_emu_update_open">افتح Obtainium: حدّثهم كلهم</string>
+    <string name="pocket_emu_update_get">نزّل Obtainium (بحدّث التطبيقات من مصدرها)</string>
+    <string name="pocket_emu_update_pack">كل المحاكيات مرة وحدة: Emulation Pack</string>
+    <string name="pocket_emu_update_follow">ضيف واحد على Obtainium</string>
+    <string name="pocket_emu_update_note">Obtainium بنزّل كل محاكي وبحدّثه من صفحة إصدارات مشروعه نفسه. الـ Emulation Pack ملف بتستورده جوا Obtainium (Import/Export ثم Obtainium Import).</string>
+    <string name="pocket_emu_update_cant">ما في شي هون بيفتح هاد</string>
+    <plurals name="pocket_retro_scrape_start">
+        <item quantity="zero">ما في ألعاب ناقصها صور</item>
+        <item quantity="one">عم يدوّر على صور للعبة وحدة…</item>
+        <item quantity="two">عم يدوّر على صور للعبتين…</item>
+        <item quantity="few">عم يدوّر على صور لـ %1$d ألعاب…</item>
+        <item quantity="many">عم يدوّر على صور لـ %1$d لعبة…</item>
+        <item quantity="other">عم يدوّر على صور لـ %1$d لعبة…</item>
+    </plurals>
 </resources>

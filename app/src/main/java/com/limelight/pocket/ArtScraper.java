@@ -44,6 +44,9 @@ public final class ArtScraper {
         public int steamAppId;
         /** An Android app's package (its Google Play page is a source). */
         public String playPackage;
+        /** A retro game: its system and its file's name (libretro's thumbnails are a source). */
+        public String retroSystem;
+        public String retroFile;
 
         public Item(String uuid, int appId, String name) {
             this.uuid = uuid;
@@ -111,7 +114,12 @@ public final class ArtScraper {
         boolean changed = false;
         // 1. SteamGridDB: the community's art (needs its key)
         changed |= PocketArt.fillFromSteamGridDb(app, it.uuid, it.appId, it.name, true);
-        // 2. Steam: the store's own art (the app, or a game of exactly this name)
+        // 2. libretro's thumbnails: a retro game's box and a screenshot, by its ROM set's name
+        if (it.retroSystem != null && (missing(app, it, PocketArt.COVER) || missing(app, it, PocketArt.HERO))) {
+            changed |= com.limelight.pocket.retro.LibretroThumbs.fill(app, it.uuid, it.appId, it.retroSystem,
+                    it.retroFile, it.name);
+        }
+        // 3. Steam: the store's own art (the app, or a game of exactly this name)
         if (missing(app, it, PocketArt.COVER) || missing(app, it, PocketArt.HERO) || missing(app, it, PocketArt.LOGO)) {
             int steam = it.steamAppId > 0 ? it.steamAppId : steamIdByName(it.name);
             if (steam > 0) {
@@ -122,7 +130,7 @@ public final class ArtScraper {
                 changed |= save(app, it, PocketArt.LOGO, base + "logo.png");
             }
         }
-        // 3. IGDB: covers and artworks of any game (needs its Twitch app)
+        // 4. IGDB: covers and artworks of any game (needs its Twitch app)
         if ((missing(app, it, PocketArt.COVER) || missing(app, it, PocketArt.HERO)) && Igdb.configured(app)) {
             try {
                 String[] art = ExtraParsers.igdbArt(Igdb.search(app, it.name), it.name);
@@ -133,7 +141,7 @@ public final class ArtScraper {
             } catch (IOException ignored) {
             }
         }
-        // 4. Google Play: an Android app's feature graphic as its background
+        // 5. Google Play: an Android app's feature graphic as its background
         if (it.playPackage != null && missing(app, it, PocketArt.HERO)) {
             ExtraParsers.PlayApp play = GameInfoService.playApp(it.playPackage);
             if (play != null) {

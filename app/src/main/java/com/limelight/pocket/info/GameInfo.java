@@ -45,6 +45,8 @@ public final class GameInfo {
     public List<Rating> ratings = new ArrayList<>();
     /** Which version of the ratings lookup filled this in (older answers are looked up again). */
     public int ratingsVersion;
+    /** Which way its YouTube videos were found (older answers get gameplay videos added). */
+    public int videosVersion;
 
     /** One rating: who gave it, the score as they wrote it and on 0..100. */
     public static final class Rating {

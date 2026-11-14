@@ -69,6 +69,12 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
     private static final int REQUEST_TREE = 7312;
     private static final String SYS_RECENT = "@recent";
     private static final String SYS_FAVS = "@favorites";
+    private static final String SYS_SUGGEST = "@suggested";
+    private static final int SUGGEST_MAX = 18;
+
+    /** Today's suggestions (worked out once per library, per day, per game played). */
+    private List<RomScanner.Rom> suggestedCache;
+    private String suggestedFor;
 
     static final int KIND_SYSTEM = 0;
     static final int KIND_GAME = 1;
@@ -113,6 +119,9 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
     private final ExecutorService systemWork = Executors.newFixedThreadPool(2);
     private static final LruCache<String, Bitmap> BACKDROPS = new LruCache<>(3);
     private TextView about;
+    /** The focused game's trophies, at the top end over the art (carousel only). */
+    private com.limelight.pocket.ui.TrophyCard trophyCard;
+    private Runnable trophyLoad;
     private static final LruCache<String, Bitmap> CARDS = new LruCache<String, Bitmap>(12 * 1024 * 1024) {
         @Override
         protected int sizeOf(String key, Bitmap value) {
@@ -135,6 +144,14 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
+            // Built again (a new layout for this system): back in the same place
+            inSystem = savedInstanceState.getString(STATE_SYSTEM);
+            systemsFocus = savedInstanceState.getString(STATE_SYSTEMS_FOCUS);
+            heroKey = savedInstanceState.getString(STATE_HERO);
+        }
+        // Each system has its own layout (and the list of systems its own)
+        PocketPrefs.setLayoutScope(scopeFor(inSystem));
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_app_view);
         TextView title = findViewById(R.id.appListText);
@@ -154,6 +171,9 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         carousel.setAdapter(new CarouselAdapter(adapter, this, 14));
         com.limelight.pocket.ui.LibraryLayout.apply(this, carousel);
         keyArt = KeyArtStage.find(this);
+        if (com.limelight.pocket.ui.LibraryLayout.MODE_CAROUSEL.equals(PocketPrefs.viewMode(this))) {
+            trophyCard = com.limelight.pocket.ui.TrophyCard.attach(this);
+        }
         heroFocus = HeroFocus.install(this, new HeroFocus.Host() {
             @Override
             public boolean heroCanLift() {
@@ -223,8 +243,54 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         }
     }
 
+    private static final String STATE_SYSTEM = "retro_system";
+    private static final String STATE_SYSTEMS_FOCUS = "retro_systems_focus";
+    private static final String STATE_HERO = "retro_hero";
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle out) {
+        super.onSaveInstanceState(out);
+        out.putString(STATE_SYSTEM, inSystem);
+        out.putString(STATE_SYSTEMS_FOCUS, systemsFocus);
+        out.putString(STATE_HERO, heroKey != null ? heroKey : (heroPos >= 0 && entryAt(heroPos) != null
+                ? entryAt(heroPos).key : null));
+    }
+
+    /** Whose layout this screen reads: a system's own, or the list of systems'. */
+    private static String scopeFor(String system) {
+        return "retro:" + (system != null ? system : "systems");
+    }
+
+    /** The layout read now, to tell whether another library's is different. */
+    private String layoutNow() {
+        return PocketPrefs.viewMode(this) + "/" + PocketPrefs.cardStyle(this);
+    }
+
+    /**
+     * Moving to another library (into a system, back to the systems, the next system): when
+     * its layout differs from this one, the screen is built again in it (in the same place).
+     */
+    private boolean rebuildFor(String system) {
+        String before = layoutNow();
+        PocketPrefs.setLayoutScope(scopeFor(system));
+        if (before.equals(layoutNow())) {
+            return false;
+        }
+        inSystem = system;
+        recreate();
+        return true;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // The other screens read the layout every library shares
+        PocketPrefs.setLayoutScope(null);
+    }
+
     @Override
     protected void onResume() {
+        PocketPrefs.setLayoutScope(scopeFor(inSystem));
         super.onResume();
         RetroLauncher.forget();
         if (!resumedOnce) {
@@ -436,6 +502,14 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             e.count = favs.size();
             out.add(e);
         }
+        // Games to try next (the ones not played yet, from the systems played most)
+        List<RomScanner.Rom> picks = suggested();
+        if (picks.size() >= 4) {
+            Entry e = new Entry(KIND_SYSTEM, "sys:" + SYS_SUGGEST, getString(R.string.pocket_retro_suggested));
+            e.system = SYS_SUGGEST;
+            e.count = picks.size();
+            out.add(e);
+        }
         boolean showEmpty = RetroLibrary.showEmptySystems(this);
         List<Entry> real = new ArrayList<>();
         for (EsdeConfig.SystemDef s : cfg.systems()) {
@@ -463,7 +537,30 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         return any ? out : new ArrayList<Entry>();
     }
 
+    private List<RomScanner.Rom> suggested() {
+        if (lib == null) {
+            return new ArrayList<>();
+        }
+        List<String[]> recent = RetroLibrary.recentEntries(this);
+        String sig = System.identityHashCode(lib) + "|" + (System.currentTimeMillis() / (24L * 60 * 60 * 1000))
+                + "|" + (recent.isEmpty() ? "" : recent.get(0)[1]);
+        if (suggestedCache == null || !sig.equals(suggestedFor)) {
+            suggestedCache = RetroLibrary.suggested(this, lib, SUGGEST_MAX);
+            suggestedFor = sig;
+        }
+        return suggestedCache;
+    }
+
+    /** The colour of a collection's card (recently played, favourites, suggestions), or 0. */
+    private static int collectionColor(String system) {
+        return SYS_FAVS.equals(system) ? 0xFFF9A825 : SYS_RECENT.equals(system) ? 0xFF37474F
+                : SYS_SUGGEST.equals(system) ? 0xFF7E57C2 : 0;
+    }
+
     private List<RomScanner.Rom> romsOf(String system) {
+        if (SYS_SUGGEST.equals(system)) {
+            return new ArrayList<>(suggested());
+        }
         if (SYS_RECENT.equals(system)) {
             return RetroLibrary.recent(this, lib);
         }
@@ -491,6 +588,9 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         if (SYS_FAVS.equals(system)) {
             return getString(R.string.pocket_retro_favorites);
         }
+        if (SYS_SUGGEST.equals(system)) {
+            return getString(R.string.pocket_retro_suggested);
+        }
         EsdeConfig.SystemDef s = cfg.system(system);
         return s != null ? s.fullName : system;
     }
@@ -510,10 +610,15 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         focusAt(target, 0);
     }
 
+    /** The section line as it is without the art search's progress. */
+    private String sectionText;
+
     private void updateSection(String text, int count) {
         TextView section = findViewById(R.id.pocketSectionTitle);
+        sectionText = text + "  ·  " + count;
         if (section != null) {
-            section.setText(text + "  ·  " + count);
+            section.setText(sectionText);
+            showScrapeProgress();
         }
     }
 
@@ -621,7 +726,51 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         if (changed) {
             showAbout(e.kind == KIND_SYSTEM ? SystemArt.cachedInfo(e.system) : null);
             showArt(e);
+            showTrophies(e);
         }
+    }
+
+    /**
+     * The focused game's trophies on their card: what's known at once, the latest once the
+     * focus rests on it a moment (scrolling past games doesn't ask RetroAchievements).
+     */
+    private void showTrophies(final Entry e) {
+        if (trophyCard == null) {
+            return;
+        }
+        if (trophyLoad != null) {
+            main.removeCallbacks(trophyLoad);
+            trophyLoad = null;
+        }
+        if (e == null || e.kind != KIND_GAME || Achievements.consoleId(e.rom.system) <= 0) {
+            trophyCard.hide();
+            return;
+        }
+        if (!Achievements.hasRa(this)) {
+            trophyCard.showHint(getString(R.string.pocket_trophy_sign_in));
+            return;
+        }
+        final Achievements.Target t = Achievements.Target.retro(e.rom.system, e.rom.relPath, e.rom.name);
+        Achievements.Set known = Achievements.cached(this, t);
+        if (known != null && known.total > 0) {
+            trophyCard.show(known);
+        }
+        else {
+            trophyCard.hide();
+        }
+        final String key = e.key;
+        trophyLoad = () -> Achievements.load(this, t, false, set -> {
+            if (isFinishing() || trophyCard == null || !key.equals(heroKey)) {
+                return;
+            }
+            if (set != null && set.total > 0) {
+                trophyCard.show(set);
+            }
+            else {
+                trophyCard.hide();
+            }
+        });
+        main.postDelayed(trophyLoad, 650);
     }
 
     private String sysArtLabel() {
@@ -685,7 +834,9 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         }
         String text = info != null ? info.description : null;
         if (text == null || text.isEmpty()) {
-            about.setVisibility(View.GONE);
+            // Among the systems its room stays (moving from one with a story to one without
+            // never moves the row); a system's games have none
+            about.setVisibility(inSystem == null ? View.INVISIBLE : View.GONE);
             return;
         }
         boolean was = about.getVisibility() == View.VISIBLE && about.getText().length() > 0;
@@ -715,7 +866,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             final int bw = Math.max(640, getResources().getDisplayMetrics().widthPixels * 2 / 3);
             final int bh = Math.round(bw * 9f / 16f);
             final String system = e.system;
-            final int color = SYS_FAVS.equals(system) ? 0xFFF9A825 : SYS_RECENT.equals(system) ? 0xFF37474F : colorOf(system);
+            final int color = collectionColor(system) != 0 ? collectionColor(system) : colorOf(system);
             Bitmap ready = BACKDROPS.get(system + "|" + PocketArt.version());
             if (keyArt != null) {
                 keyArt.show(ready);
@@ -883,7 +1034,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 if (local) {
                     refreshArt();
                 }
-                ArtScraper.scrape(this, new ArtScraper.Item(RetroLibrary.UUID, rom.id(), name), force, changed -> {
+                ArtScraper.scrape(this, artItem(rom), force, changed -> {
                     if (isFinishing()) {
                         return;
                     }
@@ -896,6 +1047,113 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 });
             });
         });
+    }
+
+    /** What the art is looked for by: its name, and its system and file for libretro's thumbnails. */
+    private static ArtScraper.Item artItem(RomScanner.Rom rom) {
+        ArtScraper.Item item = new ArtScraper.Item(RetroLibrary.UUID, rom.id(), RomScanner.searchName(rom.name));
+        item.retroSystem = rom.system;
+        item.retroFile = rom.file != null ? rom.file.getName() : rom.relPath;
+        return item;
+    }
+
+    // ---- Find missing art (every game here without a cover or a background) -----------------
+
+    private int scrapeTotal;
+    private int scrapeDone;
+    private int scrapeFound;
+    private boolean scrapeRefreshQueued;
+
+    /** system: that system's games (a collection's too), null: every game. */
+    private void scrapeMissing(String system) {
+        if (lib == null) {
+            return;
+        }
+        hideConsolePanel();
+        if (scrapeTotal > 0 && scrapeDone < scrapeTotal) {
+            Toast.makeText(this, getString(R.string.pocket_retro_scrape_busy, scrapeDone, scrapeTotal), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final List<RomScanner.Rom> pool = new ArrayList<>();
+        if (system != null) {
+            pool.addAll(romsOf(system));
+        }
+        else {
+            for (List<RomScanner.Rom> l : lib.games.values()) {
+                pool.addAll(l);
+            }
+        }
+        Toast.makeText(this, R.string.pocket_retro_scrape_checking, Toast.LENGTH_SHORT).show();
+        work.execute(() -> {
+            final List<RomScanner.Rom> missing = new ArrayList<>();
+            for (RomScanner.Rom r : pool) {
+                // ES-DE's downloaded media first (no internet needed)
+                RetroLibrary.importEsdeMedia(this, r);
+                if (!PocketArt.has(this, RetroLibrary.UUID, r.id(), PocketArt.COVER)
+                        || !PocketArt.has(this, RetroLibrary.UUID, r.id(), PocketArt.HERO)) {
+                    missing.add(r);
+                }
+            }
+            main.post(() -> startScrapes(missing));
+        });
+    }
+
+    private void startScrapes(List<RomScanner.Rom> missing) {
+        if (isFinishing()) {
+            return;
+        }
+        refreshArt();
+        if (missing.isEmpty()) {
+            Toast.makeText(this, R.string.pocket_retro_scrape_none, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        scrapeTotal = missing.size();
+        scrapeDone = 0;
+        scrapeFound = 0;
+        Toast.makeText(this, getResources().getQuantityString(R.plurals.pocket_retro_scrape_start,
+                missing.size(), missing.size()), Toast.LENGTH_LONG).show();
+        PocketSounds.play(this, PocketSounds.SELECT);
+        for (RomScanner.Rom r : missing) {
+            ArtScraper.scrape(this, artItem(r), true, changed -> {
+                scrapeDone++;
+                if (changed) {
+                    scrapeFound++;
+                }
+                if (isFinishing()) {
+                    return;
+                }
+                showScrapeProgress();
+                if (scrapeDone >= scrapeTotal) {
+                    refreshArt();
+                    Toast.makeText(this, getString(R.string.pocket_retro_scrape_done, scrapeFound, scrapeTotal),
+                            Toast.LENGTH_LONG).show();
+                }
+                else if (changed && !scrapeRefreshQueued) {
+                    // New covers show up as they come (not more than every few seconds)
+                    scrapeRefreshQueued = true;
+                    main.postDelayed(() -> {
+                        scrapeRefreshQueued = false;
+                        if (!isFinishing()) {
+                            refreshArt();
+                        }
+                    }, 3000);
+                }
+            });
+        }
+        showScrapeProgress();
+    }
+
+    private void showScrapeProgress() {
+        TextView section = findViewById(R.id.pocketSectionTitle);
+        if (section == null || sectionText == null) {
+            return;
+        }
+        if (scrapeTotal > 0 && scrapeDone < scrapeTotal) {
+            section.setText(sectionText + "  ·  " + getString(R.string.pocket_retro_scrape_progress, scrapeDone, scrapeTotal));
+        }
+        else {
+            section.setText(sectionText);
+        }
     }
 
     private void refreshArt() {
@@ -956,8 +1214,11 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
 
     private void enterSystem(Entry e) {
         systemsFocus = e.key;
-        inSystem = e.system;
         heroKey = null;
+        if (rebuildFor(e.system)) {
+            return;
+        }
+        inSystem = e.system;
         PocketSounds.play(this, PocketSounds.OPEN);
         updateHints();
         showEntries();
@@ -965,8 +1226,11 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
     }
 
     private void leaveSystem() {
-        inSystem = null;
         heroKey = systemsFocus;
+        if (rebuildFor(null)) {
+            return;
+        }
+        inSystem = null;
         updateHints();
         showEntries();
     }
@@ -1244,6 +1508,8 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 Toast.makeText(this, R.string.pocket_art_finding, Toast.LENGTH_SHORT).show();
                 scrape(rom, true);
             }));
+            final String here = inSystem != null ? inSystem : rom.system;
+            items.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_scrape_system), () -> scrapeMissing(here)));
             items.add(StreamMenuView.Item.header(rom.file.getAbsolutePath()));
         }
         else if (e.kind == KIND_SYSTEM) {
@@ -1251,6 +1517,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             subtitle = getResources().getQuantityString(R.plurals.pocket_retro_games, e.count, e.count);
             if (e.count > 0) {
                 items.add(StreamMenuView.Item.action(getString(R.string.pocket_apps_open), () -> enterSystem(e)));
+                items.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_scrape_system), () -> scrapeMissing(e.system)));
             }
             if (!e.system.startsWith("@") || SystemArt.enabled(this)) {
                 final String searchName = s != null ? s.fullName : e.label;
@@ -1321,6 +1588,12 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
     /** The ROM folder's settings (in every options menu here). */
     private void addLibraryItems(List<StreamMenuView.Item> items) {
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_surprise), this::surpriseMe));
+        // Covers and backgrounds for every game here that has none (libretro, SteamGridDB...)
+        items.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_scrape_all), () -> scrapeMissing(null))
+                .withValue(scrapeTotal > 0 && scrapeDone < scrapeTotal ? scrapeDone + " / " + scrapeTotal : null));
+        // The emulators kept up to date from their own release pages (Obtainium)
+        items.add(StreamMenuView.Item.submenu(getString(R.string.pocket_emu_update), () ->
+                pushConsolePage(getString(R.string.pocket_emu_update), EmulatorUpdates.items(this))));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_rescan), () -> {
             Toast.makeText(this, R.string.pocket_retro_looking, Toast.LENGTH_SHORT).show();
             RetroLibrary.reloadConfig();
@@ -1392,10 +1665,13 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         for (int step = 1; step <= systems.size(); step++) {
             Entry next = systems.get(((at + direction * step) % systems.size() + systems.size()) % systems.size());
             if (next.count > 0) {
-                inSystem = next.system;
                 systemsFocus = next.key;
                 heroKey = null;
                 PocketSounds.play(this, PocketSounds.NAV);
+                if (rebuildFor(next.system)) {
+                    return true;
+                }
+                inSystem = next.system;
                 showEntries();
                 TextView section = findViewById(R.id.pocketSectionTitle);
                 if (section != null) {
@@ -1556,6 +1832,9 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             else if (SYS_FAVS.equals(e.system)) {
                 b = drawCard("★", e.label, String.valueOf(e.count), 0xFFF9A825, w, h);
             }
+            else if (SYS_SUGGEST.equals(e.system)) {
+                b = drawCard("✦", e.label, String.valueOf(e.count), 0xFF7E57C2, w, h);
+            }
             else {
                 EsdeConfig.SystemDef s = cfg.system(e.system);
                 String full = s != null ? s.fullName : e.label;
@@ -1633,7 +1912,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 if (e.kind == KIND_SYSTEM && (e.count > 0 || e.system.startsWith("@")) && (themeArt || collection != null)) {
                     // The console's own art, once it's here (downloaded the first time)
                     final String system = e.system;
-                    final int color = SYS_FAVS.equals(system) ? 0xFFF9A825 : SYS_RECENT.equals(system) ? 0xFF37474F : colorOf(system);
+                    final int color = collectionColor(system) != 0 ? collectionColor(system) : colorOf(system);
                     final String count = String.valueOf(e.count);
                     final boolean ready = SystemArt.has(RetroActivity.this, system, style);
                     final String collectionName = e.label;

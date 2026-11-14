@@ -301,6 +301,17 @@ public final class LibraryLayout {
                     }, 350);
                     return a.getString(l.label);
                 }));
+        // Every game's logo bigger or smaller, seen straight away behind the menu
+        if (MODE_CAROUSEL.equals(viewMode(a))) {
+            items.add(StreamMenuView.Item.value(a.getString(R.string.pocket_logo_size),
+                    PocketPrefs.logoScale(a) + "%", direction -> {
+                        int now = PocketPrefs.logoScale(a);
+                        int next = direction == 0 ? PocketPrefs.cycleLogoScale(now) : PocketPrefs.stepLogoScale(now, direction);
+                        PocketPrefs.prefs(a).edit().putInt(PocketPrefs.KEY_LOGO_SCALE, next).apply();
+                        a.refreshHeroLogoSize();
+                        return next + "%";
+                    }));
+        }
     }
 
     private static Layouts.Layout previous(Context c) {

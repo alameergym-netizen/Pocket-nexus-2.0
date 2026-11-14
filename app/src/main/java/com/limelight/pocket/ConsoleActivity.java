@@ -133,8 +133,20 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         applyHeroLogoSize();
     }
 
-    /** The library heroes' logo box at the size picked in settings (logos bigger or smaller). */
-    private void applyHeroLogoSize() {
+    /** The logo size setting just changed (an options menu): the hero follows it now. */
+    public void refreshHeroLogoSize() {
+        applyHeroLogoSize();
+    }
+
+    /** A library hero's logo box at 100% (dp): the logo size setting scales it. */
+    private static final float HERO_LOGO_DP = 88f;
+
+    /**
+     * The library heroes' logo box at the size picked in settings (logos bigger or smaller).
+     * Called when the screen is built and whenever it comes back (the setting may have changed);
+     * screens with a hero of their own (Home) do theirs.
+     */
+    protected void applyHeroLogoSize() {
         View box = findViewById(R.id.pocketHeroName);
         android.widget.ImageView logo = findViewById(R.id.pocketHeroLogo);
         if (box == null || logo == null) {
@@ -142,18 +154,24 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         }
         float f = PocketPrefs.logoScale(this) / 100f;
         float d = getResources().getDisplayMetrics().density;
-        // The box keeps one height for every game (nothing under it moves), a little less
-        // generous than the logo can be so the row keeps its room
-        float h = Math.max(44f, Math.min(118f, 74f * f));
+        // The box keeps one height for every game (nothing under it moves)
+        float want = HERO_LOGO_DP * f;
+        float h = Math.max(48f, Math.min(156f, want));
         ViewGroup.LayoutParams lp = box.getLayoutParams();
-        lp.height = Math.round(h * d);
-        box.setLayoutParams(lp);
+        int height = Math.round(h * d);
+        if (lp.height != height) {
+            lp.height = height;
+            box.setLayoutParams(lp);
+        }
         // The logo fills the box's height (LogoView scales it), as wide as the size allows
         ViewGroup.LayoutParams llp = logo.getLayoutParams();
-        int width = Math.round(Math.min(480f, 340f * Math.max(1f, f)) * d);
-        if (lp.height != box.getHeight() || llp.width != width) {
+        int width = Math.round(Math.min(540f, 360f * Math.max(1f, f)) * d);
+        if (llp.width != width) {
             llp.width = width;
             logo.setLayoutParams(llp);
+        }
+        if (logo instanceof com.limelight.pocket.ui.LogoView) {
+            ((com.limelight.pocket.ui.LogoView) logo).setGrow(want / h);
         }
     }
 
@@ -982,13 +1000,13 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             consolePanel = new StreamMenuView(this);
             consolePanel.setConfirmLabel(getString(R.string.pocket_sm_confirm));
             // Options sit at the right, like a console's options menu over its home screen
-            consolePanel.setPlacement(true, 292);
+            consolePanel.setPlacement(true, 336);
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 // The screen behind is blurred while the panel is open: acrylic, it shows through
-                consolePanel.setBaseColor(0xBF1C1C1F);
+                consolePanel.setBaseColor(0xC714141A);
             }
             else {
-                consolePanel.setBaseColor(0xF21C1C1F);
+                consolePanel.setBaseColor(0xF514141A);
             }
             consolePanel.setListener(() -> PocketUi.setBackdropBlur(blurTarget(), false));
             ViewGroup content = findViewById(android.R.id.content);

@@ -48,6 +48,8 @@ public final class GameInfoService {
     private static final long MISS_MS = TimeUnit.DAYS.toMillis(3);
     /** Answers from before this version of the ratings get their ratings looked up once more. */
     static final int RATINGS_VERSION = 2;
+    /** 1: a gameplay video besides the trailer (first for an older game). */
+    static final int VIDEOS_VERSION = 1;
     private static final int MAX_BYTES = 4 * 1024 * 1024;
     private static final String KEY_STEAM_ID = "pocket_info_steam_";
     private static final String KEY_PLAY_PKG = "pocket_info_play_";
@@ -117,7 +119,8 @@ public final class GameInfoService {
         final long now = System.currentTimeMillis();
         Entry hit = MEMORY.get(key);
         if (!refresh && hit != null && now - hit.at < (hit.info != null ? FRESH_MS : MISS_MS)
-                && (hit.info == null || hit.info.ratingsVersion >= RATINGS_VERSION)) {
+                && (hit.info == null || (hit.info.ratingsVersion >= RATINGS_VERSION
+                && hit.info.videosVersion >= VIDEOS_VERSION))) {
             callback.onInfo(hit.info);
             return;
         }
@@ -126,6 +129,12 @@ public final class GameInfoService {
             // Kept from before the ratings: just its ratings, now (not the whole lookup again)
             if (entry != null && entry.info != null && now - entry.at < FRESH_MS
                     && entry.info.ratingsVersion < RATINGS_VERSION && addRatings(app, entry.info, name)) {
+                writeDisk(app, key, entry);
+            }
+            // Kept from before the gameplay videos: just those, now
+            if (entry != null && entry.info != null && now - entry.at < FRESH_MS
+                    && entry.info.videosVersion < VIDEOS_VERSION) {
+                addVideos(app, entry.info, name);
                 writeDisk(app, key, entry);
             }
             if (entry == null || now - entry.at >= (entry.info != null ? FRESH_MS : MISS_MS)) {
@@ -386,23 +395,83 @@ public final class GameInfoService {
         return finish(context, info, name);
     }
 
+    /**
+     * No trailer of its own (Steam's, IGDB's): YouTube's. Its trailer, and a video of it being
+     * played; an older game (from before trailers were online, a retro game) gets gameplay
+     * first. Blocking.
+     */
+    static void addVideos(Context context, GameInfo info, String name) {
+        info.videosVersion = VIDEOS_VERSION;
+        for (GameInfo.Movie m : info.movies) {
+            if (m.playable() != null) {
+                return; // it has a trailer that plays here
+            }
+        }
+        if (!isLookupable(name)) {
+            return;
+        }
+        String gameplayName = context.getString(com.limelight.R.string.pocket_page_gameplay);
+        String trailerName = context.getString(com.limelight.R.string.pocket_page_trailer);
+        String year = info.releaseYear();
+        boolean old = year != null && year.compareTo("2008") < 0;
+        // What it has already (IGDB's trailers on YouTube, an earlier search's)
+        String trailer = null;
+        boolean hasGameplay = false;
+        for (GameInfo.Movie m : info.movies) {
+            if (gameplayName.equals(m.name)) {
+                hasGameplay = true;
+            }
+            else if (m.youtube != null && trailer == null) {
+                trailer = m.youtube;
+            }
+        }
+        if (trailer == null && !old) {
+            trailer = youtubeFirst(name + " official trailer");
+            addYouTube(info, trailer, trailerName, true);
+        }
+        if (!hasGameplay) {
+            String gameplay = youtubeFirst(name + " gameplay");
+            if (gameplay != null && !gameplay.equals(trailer)) {
+                if (old) {
+                    // An older game: how it plays comes first
+                    for (GameInfo.Movie m : info.movies) {
+                        m.highlight = false;
+                    }
+                    addYouTube(info, gameplay, gameplayName, true);
+                    info.movies.add(0, info.movies.remove(info.movies.size() - 1));
+                }
+                else {
+                    addYouTube(info, gameplay, gameplayName, trailer == null);
+                }
+            }
+        }
+    }
+
+    /** The first video YouTube finds for this, or null (no network, nothing found). */
+    private static String youtubeFirst(String query) {
+        try {
+            return ExtraParsers.youtubeFirst(httpHtml("https://www.youtube.com/results?search_query=" + enc(query)));
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static void addYouTube(GameInfo info, String id, String name, boolean first) {
+        if (id == null) {
+            return;
+        }
+        GameInfo.Movie m = new GameInfo.Movie();
+        m.name = name;
+        m.youtube = id;
+        m.thumb = "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg";
+        m.highlight = first;
+        info.movies.add(m);
+    }
+
     /** What every answer gets: a trailer and pictures from elsewhere when its source had none. */
     private static GameInfo finish(Context context, GameInfo info, String name) {
-        // No trailer anywhere: the first YouTube result for its trailer (any game, any store)
-        if (info != null && info.movies.isEmpty()) {
-            try {
-                String id = ExtraParsers.youtubeFirst(httpHtml("https://www.youtube.com/results?search_query="
-                        + enc(name + " official trailer")));
-                if (id != null) {
-                    GameInfo.Movie m = new GameInfo.Movie();
-                    m.name = "Trailer";
-                    m.youtube = id;
-                    m.thumb = "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg";
-                    m.highlight = true;
-                    info.movies.add(m);
-                }
-            } catch (IOException | RuntimeException ignored) {
-            }
+        if (info != null) {
+            addVideos(context, info, name);
         }
         // No screenshots: SteamGridDB's backgrounds of the game (with the user's key)
         if (info != null && info.screenshots.isEmpty() && com.limelight.pocket.PocketArt.hasKey(context)) {

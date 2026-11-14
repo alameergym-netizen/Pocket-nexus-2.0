@@ -120,10 +120,8 @@ public final class Layouts {
             i = (i + 1) % ALL.length;
         }
         Layout l = ALL[i];
-        PocketPrefs.setViewMode(c, l.mode());
-        if (l.arrange != LIST) {
-            PocketPrefs.setCardStyle(c, l.shape);
-        }
+        // This library's own when it has one (a Retro system), else every library's
+        PocketPrefs.setLibraryLayout(c, l.mode(), l.arrange != LIST ? l.shape : null);
         pendingChip = i;
         pendingAt = SystemClock.uptimeMillis();
         return l;

@@ -538,6 +538,71 @@ public final class RetroLibrary {
         return out;
     }
 
+    /**
+     * Games to try next: ones not played yet, from the systems played most (a favourite never
+     * played, or one with its art, first), a new handful each day. At most max, no more than a
+     * third from any one system.
+     */
+    public static List<RomScanner.Rom> suggested(Context context, Library lib, int max) {
+        Map<String, Integer> plays = new HashMap<>();
+        Set<String> played = new HashSet<>();
+        int n = 0;
+        for (String l : recentLines(context)) {
+            String key = l.substring(l.indexOf('\t') + 1);
+            played.add(key);
+            int slash = key.indexOf('/');
+            if (slash > 0) {
+                String sys = key.substring(0, slash);
+                // The latest plays count for more
+                plays.put(sys, (plays.containsKey(sys) ? plays.get(sys) : 0) + (n < 10 ? 3 : 1));
+            }
+            n++;
+        }
+        long day = System.currentTimeMillis() / (24L * 60 * 60 * 1000);
+        java.util.Random rnd = new java.util.Random(day * 7919L + lib.gameCount());
+        final Map<RomScanner.Rom, Float> score = new HashMap<>();
+        List<RomScanner.Rom> pool = new ArrayList<>();
+        for (Map.Entry<String, List<RomScanner.Rom>> e : lib.games.entrySet()) {
+            Integer p = plays.get(e.getKey());
+            float affinity = p != null ? Math.min(6f, 1.5f + p * 0.5f) : 0f;
+            for (RomScanner.Rom r : e.getValue()) {
+                if (played.contains(r.key())) {
+                    continue;
+                }
+                float sc = affinity + rnd.nextFloat() * 3.5f;
+                if (isFavorite(context, lib, r)) {
+                    sc += 4f;
+                }
+                score.put(r, sc);
+                pool.add(r);
+            }
+        }
+        Collections.sort(pool, (a, b) -> Float.compare(score.get(b), score.get(a)));
+        // The best few: those with art go first (they look like something)
+        List<RomScanner.Rom> top = new ArrayList<>(pool.subList(0, Math.min(pool.size(), max * 3)));
+        for (RomScanner.Rom r : top) {
+            if (PocketArt.has(context, UUID, r.id(), PocketArt.COVER)) {
+                score.put(r, score.get(r) + 2f);
+            }
+        }
+        Collections.sort(top, (a, b) -> Float.compare(score.get(b), score.get(a)));
+        List<RomScanner.Rom> out = new ArrayList<>();
+        Map<String, Integer> per = new HashMap<>();
+        int cap = Math.max(2, max / 3);
+        for (RomScanner.Rom r : top) {
+            int k = per.containsKey(r.system) ? per.get(r.system) : 0;
+            if (k >= cap && lib.games.size() > 1) {
+                continue;
+            }
+            per.put(r.system, k + 1);
+            out.add(r);
+            if (out.size() >= max) {
+                break;
+            }
+        }
+        return out;
+    }
+
     public static boolean isFavorite(Context context, Library lib, RomScanner.Rom rom) {
         Set<String> favs = PocketPrefs.prefs(context).getStringSet(KEY_FAVS, Collections.<String>emptySet());
         if (favs.contains(rom.key())) {

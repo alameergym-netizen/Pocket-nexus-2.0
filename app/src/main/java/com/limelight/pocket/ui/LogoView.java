@@ -32,6 +32,8 @@ public class LogoView extends ImageView {
 
     private final Matrix matrix = new Matrix();
     private boolean centered;
+    /** More weight than the box's height gives (a bigger size than there's height for). */
+    private float grow = 1f;
 
     public LogoView(Context context) {
         super(context);
@@ -51,6 +53,18 @@ public class LogoView extends ImageView {
     private void init() {
         setScaleType(ScaleType.MATRIX);
         setAdjustViewBounds(false);
+    }
+
+    /**
+     * Asked for bigger than the box could be made: wide logos take more of the width (a square
+     * one is held by the height, so it stays as it is). 1: as the box says.
+     */
+    public void setGrow(float grow) {
+        float g = Math.max(1f, Math.min(2.2f, grow));
+        if (g != this.grow) {
+            this.grow = g;
+            place();
+        }
     }
 
     /** Centred in its box (a launch screen) rather than at the bottom start (a hero). */
@@ -108,7 +122,7 @@ public class LogoView extends ImageView {
         }
         float a = c.width() / Math.max(1f, c.height());
         // The same "weight" for every shape: the area of a logo that just fills the height
-        float area = vh * vh * BALANCE;
+        float area = vh * vh * BALANCE * grow * grow;
         float h = (float) Math.sqrt(area / Math.max(0.05f, a));
         float w = h * a;
         if (h > vh) {

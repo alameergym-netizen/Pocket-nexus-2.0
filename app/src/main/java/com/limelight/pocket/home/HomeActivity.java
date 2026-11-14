@@ -148,8 +148,13 @@ public class HomeActivity extends ConsoleActivity {
     /** The logo's room at its usual size (dp), worked out from the screen; the size setting scales it. */
     private float logoBaseH = 112f;
     private float logoBaseW = 340f;
-    /** How much taller a logo may get here before it would run into the row (dp). */
-    private float logoRoomH = 112f;
+    /**
+     * How tall the logo may be here with 0, 1 or 2 lines of description under it before the
+     * hero would run into what's above it (dp). A bigger logo takes the description's lines.
+     */
+    private float[] logoRoom = {112f, 112f, 112f};
+    /** What the hero needs besides its logo and description: the line under it, the buttons (dp). */
+    private static final float HERO_FIXED = 4 + 12 + 26 + 18 + 40;
     private int defaultDescLines = 2;
     /** The description's lines with this logo (a big logo takes one of them). */
     private int descLimit = 4;
@@ -603,12 +608,17 @@ public class HomeActivity extends ConsoleActivity {
         }
         String uuid = item != null ? artUuid(item) : null;
         float f = PocketPrefs.logoScale(this, uuid, item != null ? artId(item) : 0) / 100f;
-        float h = logoBaseH * f;
+        float want = logoBaseH * f;
         int lines = defaultDescLines;
-        if (h > logoBaseH && h > logoRoomH - 18 && lines > 1) {
-            lines = 1;
+        // A bigger logo takes the description's lines first (Home is the logo's)
+        while (lines > 0 && want > roomFor(lines)) {
+            lines--;
         }
-        h = Math.max(36f, Math.min(h, Math.max(logoBaseH, logoRoomH)));
+        float h = Math.max(36f, Math.min(want, Math.max(logoBaseH, roomFor(lines))));
+        if (logo instanceof com.limelight.pocket.ui.LogoView) {
+            // Bigger than the height allows: a wide logo still grows, across
+            ((com.limelight.pocket.ui.LogoView) logo).setGrow(want / h);
+        }
         // The logo's box (LogoView scales the logo to it, up as well as down)
         ViewGroup.LayoutParams lp = logo.getLayoutParams();
         int px = Math.round(h * d);
@@ -618,10 +628,51 @@ public class HomeActivity extends ConsoleActivity {
             logo.setLayoutParams(lp);
         }
         descLimit = lines;
-        if (desc != null && desc.getMaxLines() > lines) {
-            desc.setMaxLines(lines);
-        }
+        applyDescLimit();
         logo.requestLayout();
+    }
+
+    /** The logo size setting changed (settings, the options): the logo shown now follows it. */
+    @Override
+    protected void applyHeroLogoSize() {
+        if (logo == null) {
+            return; // the screen isn't built yet
+        }
+        HomeStore.Entry e = entryAt(heroPos);
+        applyLogoScale(e != null ? e.item : null);
+    }
+
+    private float roomFor(int lines) {
+        return logoRoom[Math.max(0, Math.min(logoRoom.length - 1, lines))];
+    }
+
+    /**
+     * The description's lines now: what the logo left of the hero, or (a name in the logo's
+     * place, which is shorter) what the name leaves.
+     */
+    private int descLinesNow() {
+        boolean name = logo == null || logo.getVisibility() != View.VISIBLE;
+        if (name && title != null) {
+            float left = roomFor(0) - (title.getLineCount() > 1 ? 86f : 50f);
+            return left >= 10 + 17 * 2 ? 2 : (left >= 10 + 17 ? 1 : 0);
+        }
+        return Math.max(0, Math.min(2, descLimit));
+    }
+
+    /** Shows the description with as many lines as there's room for now (none: hidden). */
+    private void applyDescLimit() {
+        if (desc == null) {
+            return;
+        }
+        int lines = descLinesNow();
+        if (lines <= 0) {
+            desc.setVisibility(View.GONE);
+            return;
+        }
+        desc.setMaxLines(lines);
+        if (desc.getText().length() > 0 && desc.getVisibility() != View.VISIBLE) {
+            desc.setVisibility(View.VISIBLE);
+        }
     }
 
     // ---- The hero ------------------------------------------------------------------------------
@@ -726,13 +777,18 @@ public class HomeActivity extends ConsoleActivity {
 
     private void setDesc(String text) {
         if (text == null || text.trim().isEmpty()) {
+            desc.setText("");
             desc.setVisibility(View.GONE);
             return;
         }
-        // Two lines under a one-line name, one under a long name or a logo (the row stays clear)
-        boolean tall = title.getVisibility() == View.VISIBLE && title.getLineCount() > 1;
-        desc.setMaxLines(tall ? 1 : Math.min(2, descLimit));
         desc.setText(text.trim());
+        // As many lines as the logo (or the name) leaves room for: none on a short screen
+        int lines = descLinesNow();
+        if (lines <= 0) {
+            desc.setVisibility(View.GONE);
+            return;
+        }
+        desc.setMaxLines(lines);
         if (desc.getVisibility() != View.VISIBLE) {
             desc.setVisibility(View.VISIBLE);
             if (PocketPrefs.animationsEnabled(this)) {
@@ -798,6 +854,7 @@ public class HomeActivity extends ConsoleActivity {
                 logo.setImageBitmap(bitmap);
                 logo.setVisibility(View.VISIBLE);
                 title.setVisibility(View.GONE);
+                applyDescLimit();
                 if (PocketPrefs.animationsEnabled(this)) {
                     logo.animate().cancel();
                     logo.setAlpha(0f);
@@ -815,6 +872,7 @@ public class HomeActivity extends ConsoleActivity {
                 logo.setVisibility(View.GONE);
                 title.setVisibility(View.VISIBLE);
                 title.setText(displayName(e.item));
+                title.post(this::applyDescLimit);
             }
         });
         // Art for what has none yet
@@ -1214,6 +1272,8 @@ public class HomeActivity extends ConsoleActivity {
         FrameLayout.LayoutParams hlp = (FrameLayout.LayoutParams) heroView.getLayoutParams();
         int logoMax = shelf ? 112 : 96;
         int descLines = shelf ? 2 : 4;
+        // The hero's height from the top bar down to its buttons' step above the row (dp)
+        float heroRoom = 260f;
         View sideScrim = findViewById(R.id.homeSideScrim);
         if (shelf) {
             AnchoredLayoutManager lm = new AnchoredLayoutManager(this);
@@ -1228,14 +1288,7 @@ public class HomeActivity extends ConsoleActivity {
             // The hero gets what's left above the row and its label: its logo and description
             // fit themselves to that (so nothing runs into the row on a shorter screen)
             float screenH = getResources().getDisplayMetrics().heightPixels / d;
-            float avail = screenH - (bottom + tileH / d + 20 + 24) - 44;
-            float fixed = 116;
-            float room = avail - fixed - 46;
-            if (room < 80) {
-                descLines = 1;
-                room = avail - fixed - 28;
-            }
-            logoMax = Math.round(Math.max(48, Math.min(112, room)));
+            heroRoom = screenH - (bottom + tileH / d + 20 + 26) - 44;
             // The hero stands on the row (its buttons a fixed step above it) and grows upward:
             // a tall logo, a long name or a longer description never moves Play or the row
             hlp.topMargin = 0;
@@ -1265,14 +1318,7 @@ public class HomeActivity extends ConsoleActivity {
                 rlp.height = grown + Math.round(16 * d);
                 row.setPadding(Math.round(22 * d), Math.round(6 * d), Math.round(320 * d), Math.round(6 * d));
                 float top = 50 + rlp.height / d + 18;
-                float availP = screenH - top - 44;
-                float roomP = availP - 116 - 46;
-                descLines = 2;
-                if (roomP < 80) {
-                    descLines = 1;
-                    roomP = availP - 116 - 28;
-                }
-                logoMax = Math.round(Math.max(48, Math.min(112, roomP)));
+                heroRoom = screenH - top - 44;
                 hlp.bottomMargin = Math.round(44 * d);
                 rowLabel.setVisibility(View.GONE);
             }
@@ -1316,9 +1362,22 @@ public class HomeActivity extends ConsoleActivity {
         }
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
+        if (shelf) {
+            // The logo first, the description in what it leaves: two lines when there's room
+            // for both, else one, else none (a console's home shows the logo, not a blurb)
+            float[] room = new float[3];
+            for (int n = 0; n < room.length; n++) {
+                room[n] = heroRoom - HERO_FIXED - (n == 0 ? 0 : 10 + 17 * n);
+            }
+            descLines = room[2] >= 100 ? 2 : (room[1] >= 92 ? 1 : 0);
+            logoMax = Math.round(Math.max(56, Math.min(132, room[descLines])));
+            logoRoom = room;
+        }
+        else {
+            logoRoom = new float[]{150f, 150f, 150f};
+        }
         logoBaseW = shelf ? 340 : 290;
         logoBaseH = logoMax;
-        logoRoomH = shelf ? logoMax + (descLines > 1 ? 18 : 0) : 150;
         defaultDescLines = descLines;
         HomeStore.Entry shownEntry = entryAt(heroPos);
         if (shownEntry != null) {
@@ -1328,7 +1387,7 @@ public class HomeActivity extends ConsoleActivity {
             applyLogoScale(null);
         }
         title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, shelf ? (logoMax < 80 ? 32f : 38f) : 30f);
-        desc.setMaxLines(Math.min(descLines, descLimit));
+        applyDescLimit();
         if (relayout) {
             TILE_ART.evictAll();
         }
@@ -1778,7 +1837,7 @@ public class HomeActivity extends ConsoleActivity {
             items.add(StreamMenuView.Item.value(getString(R.string.pocket_logo_size),
                     PocketPrefs.logoScale(this, uuid, artId(item)) + "%", direction -> {
                         int now = PocketPrefs.logoScale(this, uuid, artId(item));
-                        int next = PocketPrefs.stepLogoScale(now, direction == 0 ? 1 : direction);
+                        int next = direction == 0 ? PocketPrefs.cycleLogoScale(now) : PocketPrefs.stepLogoScale(now, direction);
                         PocketPrefs.setLogoScale(this, uuid, artId(item), next == PocketPrefs.logoScale(this) ? 0 : next);
                         applyLogoScale(item);
                         return next + "%";

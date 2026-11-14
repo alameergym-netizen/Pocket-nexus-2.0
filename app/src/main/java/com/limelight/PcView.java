@@ -1476,7 +1476,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
                 play.setVisibility(View.GONE);
             }
             if (lastLine != null) {
-                lastLine.setVisibility(View.GONE);
+                lastLine.setVisibility(View.INVISIBLE); // keeps its room: nothing under it moves
             }
             pocketBackdropKey = null;
             pocketHeroArt().show(null);
@@ -1561,7 +1561,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
                 }
             }
             lastLine.setText(line);
-            lastLine.setVisibility(line.isEmpty() ? View.GONE : View.VISIBLE);
+            lastLine.setVisibility(line.isEmpty() ? View.INVISIBLE : View.VISIBLE);
         }
         int artId = computer.details.runningGameId != 0 ? computer.details.runningGameId : lastId;
         pocketBackdropFor(computer.details.uuid, artId, runningName != null ? runningName : lastName);
@@ -1900,7 +1900,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
                         System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS));
             }
             lastLine.setText(line);
-            lastLine.setVisibility(line.length() == 0 ? View.GONE : View.VISIBLE);
+            lastLine.setVisibility(line.length() == 0 ? View.INVISIBLE : View.VISIBLE);
         }
         // Its key art behind everything when it has one, else its colours
         pocketBackdropFor(uuid, appId, game.app.getAppName());

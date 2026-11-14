@@ -474,7 +474,7 @@
     <string name="pocket_set_lsfg_open_sub">Lossless Scaling frame generation as an overlay app, with your own Lossless.dll. Pick it under Frame generation, start its overlay, then play.</string>
     <string name="pocket_lsfg_installed">Open</string>
     <string name="pocket_lsfg_missing">Not installed</string>
-    <string name="pocket_boot_tagline">YOUR PC, IN YOUR HANDS</string>
+    <string name="pocket_boot_tagline">EVERY GAME. ONE PLACE.</string>
     <string name="pocket_set_live_glass">Live glass</string>
     <string name="pocket_set_live_glass_sub">Real frosted glass that blurs whatever is behind it. Turn off to save a little battery.</string>
     <string name="pocket_header_sounds">Sounds</string>
@@ -827,7 +827,7 @@
     <string name="pocket_page_source_igdb">From IGDB</string>
     <string name="pocket_page_source_play">From Google Play</string>
     <string name="pocket_page_no_youtube">No app here can open YouTube</string>
-    <string name="pocket_page_youtube_caption">%1$s · X: watch on YouTube</string>
+    <string name="pocket_page_youtube_caption">%1$s · X: play</string>
     <string name="pocket_art_find_again">Find art again</string>
     <string name="pocket_art_finding">Looking on SteamGridDB, Steam and IGDB…</string>
     <string name="pocket_art_found_nothing">No art found for it. Change art picks some by hand.</string>
@@ -1262,4 +1262,29 @@
     <string name="pocket_minutes_short">%1$d min</string>
     <string name="pocket_ambient_wake">Press any button</string>
     <string name="pocket_surprise">Surprise me</string>
+    <string name="pocket_retro_suggested">Suggested for you</string>
+    <string name="pocket_retro_scrape_all">Find missing art (every game)</string>
+    <string name="pocket_retro_scrape_system">Find missing art (this system)</string>
+    <string name="pocket_retro_scrape_busy">Already looking: %1$d of %2$d</string>
+    <string name="pocket_retro_scrape_checking">Checking which games have no art…</string>
+    <string name="pocket_retro_scrape_none">Every game here has its art</string>
+    <string name="pocket_retro_scrape_done">Art found for %1$d of %2$d games</string>
+    <string name="pocket_retro_scrape_progress">art %1$d/%2$d</string>
+    <string name="pocket_trophy_none_yet">None earned yet: the first one is waiting</string>
+    <string name="pocket_trophy_sign_in">Sign in to RetroAchievements in Settings to see this game\'s trophies here</string>
+    <string name="pocket_page_gameplay">Gameplay</string>
+    <string name="pocket_video_hints">Ⓐ Pause    ◀ ▶ 10 s    L1 R1 30 s    Ⓧ Mute    Ⓨ YouTube    Ⓑ Close</string>
+    <string name="pocket_video_not_here">This video\'s owner only lets it play on YouTube.\nⓎ opens it there.</string>
+    <string name="pocket_video_failed">This video can\'t play right now.\nⓎ tries YouTube.</string>
+    <string name="pocket_emu_update">Update emulators (Obtainium)</string>
+    <string name="pocket_emu_update_open">Open Obtainium: update them all</string>
+    <string name="pocket_emu_update_get">Get Obtainium (updates apps from their makers)</string>
+    <string name="pocket_emu_update_pack">Every emulator at once: the Emulation Pack</string>
+    <string name="pocket_emu_update_follow">Add one to Obtainium</string>
+    <string name="pocket_emu_update_note">Obtainium installs and updates each emulator from its own project\'s releases. The Emulation Pack is a file you import in Obtainium (Import/Export, Obtainium Import).</string>
+    <string name="pocket_emu_update_cant">Nothing here can open that</string>
+    <plurals name="pocket_retro_scrape_start">
+        <item quantity="one">Looking for art for %1$d game…</item>
+        <item quantity="other">Looking for art for %1$d games…</item>
+    </plurals>
 </resources>

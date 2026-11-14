@@ -511,6 +511,10 @@ public class GamePageActivity extends ConsoleActivity {
         media.setVisibility(hasMedia ? View.VISIBLE : View.GONE);
         trailerButton.setVisibility(found.mainTrailer() != null || found.youtubeTrailer() != null
                 ? View.VISIBLE : View.GONE);
+        // An older game's video shows it being played: the button says so
+        GameInfo.Movie first = found.mainTrailer() != null ? found.mainTrailer() : found.youtubeTrailer();
+        boolean gameplay = first != null && getString(R.string.pocket_page_gameplay).equals(first.name);
+        trailerButton.setText("▷  " + getString(gameplay ? R.string.pocket_page_gameplay : R.string.pocket_page_trailer));
         if (trailerButton.getVisibility() == View.VISIBLE) {
             PocketMotion.arrive(trailerButton, 0, -10, 0, 1f);
         }
@@ -1498,15 +1502,15 @@ public class GamePageActivity extends ConsoleActivity {
 
     // ---- Full screen viewer -------------------------------------------------------------------
 
-    /** A trailer that only exists on YouTube (IGDB's): it opens in YouTube. */
+    /**
+     * A video that only exists on YouTube (a trailer, or gameplay for an older game): played
+     * here, full screen with the controller (YouTube's own player, no need for the app).
+     */
     private void openYouTube(GameInfo.Movie movie) {
         PocketSounds.play(this, PocketSounds.SELECT);
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://www.youtube.com/watch?v=" + movie.youtube)));
-        } catch (RuntimeException e) {
-            android.widget.Toast.makeText(this, R.string.pocket_page_no_youtube, android.widget.Toast.LENGTH_SHORT).show();
-        }
+        main.removeCallbacks(startBackgroundTrailer);
+        stopBackgroundTrailer(true);
+        com.limelight.pocket.info.VideoPlayerActivity.open(this, movie.youtube, movie.name);
     }
 
     private void openTrailer() {

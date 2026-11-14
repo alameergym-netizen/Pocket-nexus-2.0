@@ -433,6 +433,15 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- Pocket Nexus: a trailer or gameplay video from YouTube, played here -->
+        <activity
+            android:name=".pocket.info.VideoPlayerActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" />
+
         <!-- Pocket Nexus: picking the right game for a game's details -->
         <activity
             android:name=".pocket.info.InfoPickerActivity"

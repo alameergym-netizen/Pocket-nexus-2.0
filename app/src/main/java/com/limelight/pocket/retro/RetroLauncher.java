@@ -55,6 +55,63 @@ public final class RetroLauncher {
     /** Looks for the emulators again (after one was installed or removed). */
     public static synchronized void forget() {
         FOUND.clear();
+        apps = null;
+    }
+
+    /** The apps with a launcher icon here: {package, its activity, its name made plain}. */
+    private static List<String[]> apps;
+
+    private static List<String[]> apps(PackageManager pm) {
+        if (apps != null) {
+            return apps;
+        }
+        List<String[]> out = new java.util.ArrayList<>();
+        try {
+            Intent main = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            for (android.content.pm.ResolveInfo ri : pm.queryIntentActivities(main, 0)) {
+                if (ri.activityInfo == null) {
+                    continue;
+                }
+                CharSequence label = ri.loadLabel(pm);
+                out.add(new String[]{ri.activityInfo.packageName, ri.activityInfo.name, plain(label)});
+            }
+        } catch (RuntimeException ignored) {
+        }
+        apps = out;
+        return out;
+    }
+
+    private static String plain(CharSequence s) {
+        return s == null ? "" : s.toString().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    /**
+     * An emulator under another name than its find rule knows: a build of it with its own
+     * package ("xendroid.compose.plus", a "Plus" or "Turbo" edition), or an app named after it
+     * ("XenDroid Plus"). Null when there's none.
+     */
+    static ComponentName lookalike(PackageManager pm, String emulator, List<String> entries) {
+        List<String[]> all = apps(pm);
+        for (String entry : entries) {
+            int slash = entry.indexOf('/');
+            String pkg = slash > 0 ? entry.substring(0, slash) : entry;
+            for (String[] app : all) {
+                if (app[0].startsWith(pkg + ".") || app[0].startsWith(pkg + "_") || app[0].equals(pkg + "plus")) {
+                    return new ComponentName(app[0], app[1]);
+                }
+            }
+        }
+        String name = plain(emulator);
+        // Names other apps share too ("Dolphin Browser") never count
+        boolean common = name.startsWith("dolphin") || name.startsWith("skyline") || name.startsWith("winlator");
+        if (name.length() >= 5 && !common) {
+            for (String[] app : all) {
+                if (app[2].startsWith(name)) {
+                    return new ComponentName(app[0], app[1]);
+                }
+            }
+        }
+        return null;
     }
 
     /** The first installed "package/activity" of a find rule, or null. */
@@ -66,7 +123,11 @@ public final class RetroLauncher {
         if (known != null) {
             return known == NONE ? null : (ComponentName) known;
         }
-        ComponentName found = find(context.getPackageManager(), cfg.emulatorEntries(emulator));
+        List<String> entries = cfg.emulatorEntries(emulator);
+        ComponentName found = find(context.getPackageManager(), entries);
+        if (found == null && !entries.isEmpty()) {
+            found = lookalike(context.getPackageManager(), emulator, entries);
+        }
         FOUND.put(emulator, found != null ? found : NONE);
         return found;
     }

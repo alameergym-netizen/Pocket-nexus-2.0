@@ -470,17 +470,56 @@ public final class PocketPrefs {
     public static final String KEY_CARD_STYLE = "pocket_card_style";
     private static final String KEY_NAME = "pocket_name_";
 
-    /** carousel, grid or xmb (see LibraryLayout). */
+    /**
+     * The library whose layout is read and changed now when it has one of its own (each Retro
+     * system can), else null: the layout every library shares. Set by the screen showing it.
+     */
+    private static String layoutScope;
+
+    public static void setLayoutScope(String scope) {
+        layoutScope = scope;
+    }
+
+    /** carousel, grid or xmb (see LibraryLayout): this library's own, else everyone's. */
     public static String viewMode(Context context) {
+        if (layoutScope != null) {
+            String own = prefs(context).getString(KEY_VIEW_MODE + "@" + layoutScope, null);
+            if (own != null) {
+                return own;
+            }
+        }
         return prefs(context).getString(KEY_VIEW_MODE, "carousel");
+    }
+
+    /**
+     * A layout picked in a library (SELECT, its options): kept for that library alone when it
+     * has a scope (the others keep theirs), else for every library. style null: as it was.
+     */
+    public static void setLibraryLayout(Context context, String mode, String style) {
+        if (layoutScope == null) {
+            setViewMode(context, mode);
+            if (style != null) {
+                setCardStyle(context, style);
+            }
+            return;
+        }
+        String keep = style != null ? style : cardStyle(context);
+        prefs(context).edit().putString(KEY_VIEW_MODE + "@" + layoutScope, mode)
+                .putString(KEY_CARD_STYLE + "@" + layoutScope, keep).apply();
     }
 
     public static void setViewMode(Context context, String mode) {
         prefs(context).edit().putString(KEY_VIEW_MODE, mode).apply();
     }
 
-    /** cover, wide or icon (see LibraryLayout). */
+    /** cover, wide or icon (see LibraryLayout): this library's own, else everyone's. */
     public static String cardStyle(Context context) {
+        if (layoutScope != null) {
+            String own = prefs(context).getString(KEY_CARD_STYLE + "@" + layoutScope, null);
+            if (own != null) {
+                return own;
+            }
+        }
         return prefs(context).getString(KEY_CARD_STYLE, "cover");
     }
 
@@ -508,7 +547,7 @@ public final class PocketPrefs {
     public static final String KEY_LOGO_SCALE = "pocket_logo_scale";
     private static final String KEY_LOGO_SCALE_GAME = "pocket_logo_scale_";
     /** The sizes a logo can take (percent of its usual size). */
-    public static final int[] LOGO_SCALES = {60, 70, 80, 90, 100, 115, 130, 145, 160};
+    public static final int[] LOGO_SCALES = {60, 70, 80, 90, 100, 115, 130, 150, 175, 200};
 
     /** How big games' logos are in place of their names, in percent (100: as designed). */
     public static int logoScale(Context context) {
@@ -538,6 +577,11 @@ public final class PocketPrefs {
         else {
             prefs(context).edit().putInt(KEY_LOGO_SCALE_GAME + uuid + "_" + id, percent).apply();
         }
+    }
+
+    /** A press of A on a logo size: one size up, from the biggest back to the smallest. */
+    public static int cycleLogoScale(int percent) {
+        return percent >= LOGO_SCALES[LOGO_SCALES.length - 1] ? LOGO_SCALES[0] : stepLogoScale(percent, 1);
     }
 
     /** The next size up or down from this one. */

@@ -162,51 +162,6 @@
             android:clipToPadding="false"
             android:orientation="vertical">
 
-            <!-- Where it comes from (a glass chip with its app's icon) and when it was played,
-                 a clear step above the logo -->
-            <LinearLayout
-                android:id="@+id/homeSourceRow"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/homeSource"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:drawablePadding="7dp"
-                    android:ellipsize="end"
-                    android:fontFamily="@font/inter_semibold"
-                    android:gravity="center_vertical"
-                    android:includeFontPadding="false"
-                    android:letterSpacing="0.01"
-                    android:maxLines="1"
-                    android:maxWidth="300dp"
-                    android:shadowColor="#80000000"
-                    android:shadowRadius="8"
-                    android:textColor="#F2FFFFFF"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/homeWhen"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:drawablePadding="5dp"
-                    android:ellipsize="end"
-                    android:fontFamily="@font/inter_medium"
-                    android:gravity="center_vertical"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:shadowColor="#99000000"
-                    android:shadowRadius="8"
-                    android:textColor="#BFFFFFFF"
-                    android:textSize="11.5sp"
-                    android:visibility="gone" />
-            </LinearLayout>
-
             <!-- A box of one size: the logo inside is measured by what's drawn and scaled to it
                  (bigger or smaller with the logo size setting), at its bottom start -->
             <com.limelight.pocket.ui.LogoView
@@ -232,15 +187,70 @@
                 android:textColor="#FFFFFFFF"
                 android:textSize="38sp" />
 
-            <!-- Rating, trophies, time played, genre (filled as they're known) -->
+            <!-- One line under the logo, a clear step below it: where it comes from (a glass chip
+                 with its app's icon), when it was played, then its rating, trophies, time
+                 played and genre (filled as they're known). The logo gets the room above. -->
             <LinearLayout
-                android:id="@+id/homeMeta"
-                android:layout_width="wrap_content"
+                android:id="@+id/homeInfoLine"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:visibility="gone" />
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/homeSourceRow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/homeSource"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawablePadding="7dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/inter_semibold"
+                        android:gravity="center_vertical"
+                        android:includeFontPadding="false"
+                        android:letterSpacing="0.01"
+                        android:maxLines="1"
+                        android:maxWidth="300dp"
+                        android:shadowColor="#80000000"
+                        android:shadowRadius="8"
+                        android:textColor="#F2FFFFFF"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/homeWhen"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:drawablePadding="5dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/inter_medium"
+                        android:gravity="center_vertical"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:shadowColor="#99000000"
+                        android:shadowRadius="8"
+                        android:textColor="#BFFFFFFF"
+                        android:textSize="11.5sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/homeMeta"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/homeDesc"
