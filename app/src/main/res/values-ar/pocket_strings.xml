@@ -1318,4 +1318,11 @@
     <string name="pocket_gb_enabled_sub">برا الستريم كمان (ألعاب أندرويد، محاكيات): الهوم، Quick Resume، القائمة الدائرية</string>
     <string name="pocket_gb_double_speed">سرعة الضغطتين</string>
     <string name="pocket_gb_double_speed_sub">قديش لازم تكون الضغطة الثانية سريعة (الـ Back العادي بستنى هالوقت)</string>
+    <string name="pocket_device_music">الموسيقى</string>
+    <string name="pocket_device_music_play">تشغيل</string>
+    <string name="pocket_device_music_pause">إيقاف مؤقت</string>
+    <string name="pocket_device_music_next">اللي بعدها</string>
+    <string name="pocket_device_music_previous">اللي قبلها</string>
+    <string name="pocket_device_music_open">افتح تطبيق الموسيقى</string>
+    <string name="pocket_device_handheld_tools">أدوات الجهاز (المروحة، الأداء، توليد الفريمات)</string>
 </resources>

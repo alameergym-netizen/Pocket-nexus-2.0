@@ -363,7 +363,7 @@
 
 
     <string name="keyboard_service_label">Pocket Nexus: buttons in every game</string>
-    <string name="accessibility_description_text">Pocket Nexus receives the controller's Back and Home/Guide buttons while another app is in front (an Android game, an emulator), to open its Home, Quick Resume and radial menu as you set them in Pocket Nexus (Settings, Buttons). It also learns which app is in front, to leave its own screens alone. While you stream, it passes Home and system keyboard shortcuts to your PC. It reads nothing on the screen and collects no text, passwords or other personal information.</string>
+    <string name="accessibility_description_text">Pocket Nexus receives the controller\'s Back and Home/Guide buttons while another app is in front (an Android game, an emulator), to open its Home, Quick Resume and radial menu as you set them in Pocket Nexus (Settings, Buttons). It also learns which app is in front, to leave its own screens alone. While you stream, it passes Home and system keyboard shortcuts to your PC. It reads nothing on the screen and collects no text, passwords or other personal information.</string>
 
 
     <!-- In Game menu -->

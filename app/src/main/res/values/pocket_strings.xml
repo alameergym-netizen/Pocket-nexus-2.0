@@ -1309,4 +1309,11 @@
     <string name="pocket_gb_enabled_sub">Outside the stream too (Android games, emulators): Home, Quick Resume, the radial menu</string>
     <string name="pocket_gb_double_speed">Double press speed</string>
     <string name="pocket_gb_double_speed_sub">How quick the second press must be (a single Back waits this long)</string>
+    <string name="pocket_device_music">Music</string>
+    <string name="pocket_device_music_play">Play</string>
+    <string name="pocket_device_music_pause">Pause</string>
+    <string name="pocket_device_music_next">Next</string>
+    <string name="pocket_device_music_previous">Previous</string>
+    <string name="pocket_device_music_open">Open the music app</string>
+    <string name="pocket_device_handheld_tools">Handheld tools (fan, performance, frame generation)</string>
 </resources>
