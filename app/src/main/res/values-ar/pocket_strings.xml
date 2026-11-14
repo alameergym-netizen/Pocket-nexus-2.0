@@ -1420,4 +1420,14 @@
     <string name="pocket_tab_look">الشكل</string>
     <string name="pocket_tab_library">المكتبات</string>
     <string name="pocket_header_layout">الترتيب وصفحات الألعاب</string>
+    <string name="pocket_stats_title">لعبك</string>
+    <string name="pocket_stats_sub">كل إشي شغّلته من Pocket Nexus: ألعاب أندرويد، ألعاب المحاكيات، الستريم</string>
+    <string name="pocket_stats_week">آخر سبع أيام</string>
+    <string name="pocket_stats_top">الأكثر لعباً</string>
+    <string name="pocket_stats_total">بالمجمل</string>
+    <string name="pocket_stats_this_week">هالأسبوع</string>
+    <string name="pocket_stats_today">اليوم</string>
+    <string name="pocket_stats_games">ألعاب لعبتها</string>
+    <string name="pocket_stats_none">0 دقيقة</string>
+    <string name="pocket_stats_empty">العب إشي من Pocket Nexus وبيطلع هون</string>
 </resources>

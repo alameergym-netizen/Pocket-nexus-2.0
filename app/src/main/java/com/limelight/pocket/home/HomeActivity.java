@@ -1860,6 +1860,10 @@ public class HomeActivity extends ConsoleActivity {
             hideConsolePanel();
             com.limelight.pocket.search.SearchActivity.open(this);
         }).withIcon("SPARKLE"));
+        items.add(StreamMenuView.Item.action(getString(R.string.pocket_stats_title), () -> {
+            hideConsolePanel();
+            StatsActivity.open(this);
+        }).withIcon("PULSE"));
         final String uuid = artUuid(item);
         final com.limelight.pocket.retro.Achievements.Target trophies =
                 com.limelight.pocket.retro.Achievements.forItem(this, item);

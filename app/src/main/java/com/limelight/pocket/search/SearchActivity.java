@@ -219,6 +219,8 @@ public class SearchActivity extends Activity {
         // Pocket Nexus's own places first (they're found by name like the rest)
         all.add(new Hit(getString(R.string.pocket_files_title), getString(R.string.pocket_search_tool), null,
                 () -> com.limelight.pocket.files.FilesActivity.open(this)));
+        all.add(new Hit(getString(R.string.pocket_stats_title), getString(R.string.pocket_search_tool), null,
+                () -> com.limelight.pocket.home.StatsActivity.open(this)));
         all.add(new Hit(getString(R.string.pocket_browser_title), getString(R.string.pocket_search_tool), null,
                 () -> com.limelight.pocket.browser.BrowserActivity.open(this, null)));
         all.add(new Hit(getString(R.string.pocket_set_title_all), getString(R.string.pocket_search_tool), null,

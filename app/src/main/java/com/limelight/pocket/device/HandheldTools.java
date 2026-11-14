@@ -39,6 +39,9 @@ public final class HandheldTools {
 
     /** The playing (or last paused) media session, or null (none, or no access). */
     static MediaController controller(Context c) {
+        if (!PocketNotifications.allowed(c)) {
+            return null; // no access to the sessions without the notification access
+        }
         try {
             MediaSessionManager m = (MediaSessionManager) c.getSystemService(Context.MEDIA_SESSION_SERVICE);
             if (m == null) {
@@ -59,6 +62,27 @@ public final class HandheldTools {
         } catch (RuntimeException e) {
             return null; // no notification access
         }
+    }
+
+    /** The session playing right now (not a paused one), or null. */
+    public static MediaController playing(Context c) {
+        MediaController mc = controller(c);
+        PlaybackState st = mc != null ? mc.getPlaybackState() : null;
+        return st != null && st.getState() == PlaybackState.STATE_PLAYING ? mc : null;
+    }
+
+    /** "Title · Artist" of what it plays, or null when it says nothing. */
+    public static String songLine(MediaController mc) {
+        MediaMetadata md = mc.getMetadata();
+        if (md == null) {
+            return null;
+        }
+        String title = md.getString(MediaMetadata.METADATA_KEY_TITLE);
+        String artist = md.getString(MediaMetadata.METADATA_KEY_ARTIST);
+        if (title == null || title.isEmpty()) {
+            return null;
+        }
+        return artist != null && !artist.isEmpty() ? title + "  ·  " + artist : title;
     }
 
     private static String nowPlaying(Context c, MediaController mc) {

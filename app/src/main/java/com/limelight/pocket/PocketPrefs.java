@@ -661,6 +661,8 @@ public final class PocketPrefs {
         String key = KEY_PLAYTIME_PREFIX + pcUuid + "_" + appId;
         SharedPreferences p = prefs(context);
         p.edit().putLong(key, p.getLong(key, 0) + seconds).apply();
+        // Streams count in the days' totals too (the play stats)
+        com.limelight.pocket.home.PlayTime.addToToday(context, seconds);
     }
 
     // Adaptive stream memory: after the stream had to lower its quality, start the next one

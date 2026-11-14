@@ -1411,4 +1411,14 @@
     <string name="pocket_tab_look">Look</string>
     <string name="pocket_tab_library">Libraries</string>
     <string name="pocket_header_layout">Layout and game pages</string>
+    <string name="pocket_stats_title">Your play</string>
+    <string name="pocket_stats_sub">Everything Pocket Nexus started: Android games, emulated games, streams</string>
+    <string name="pocket_stats_week">The last seven days</string>
+    <string name="pocket_stats_top">Played most</string>
+    <string name="pocket_stats_total">In all</string>
+    <string name="pocket_stats_this_week">This week</string>
+    <string name="pocket_stats_today">Today</string>
+    <string name="pocket_stats_games">Games played</string>
+    <string name="pocket_stats_none">0 min</string>
+    <string name="pocket_stats_empty">Play something from Pocket Nexus and it shows up here</string>
 </resources>

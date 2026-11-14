@@ -119,6 +119,10 @@ public final class DevicePanel {
             a.hideConsolePanel();
             com.limelight.pocket.search.SearchActivity.open(a);
         }).withIcon("SPARKLE"));
+        items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_stats_title), () -> {
+            a.hideConsolePanel();
+            com.limelight.pocket.home.StatsActivity.open(a);
+        }).withIcon("PULSE"));
         items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_files_title), () -> {
             a.hideConsolePanel();
             com.limelight.pocket.files.FilesActivity.open(a);

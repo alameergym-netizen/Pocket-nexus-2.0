@@ -100,6 +100,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             UsbBridge.probeAsync();
             updateClock();
             updateLinkChip();
+            updateMusicChip();
             onStatusTick();
             statusHandler.postDelayed(this, 2000);
         }
@@ -1471,6 +1472,68 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     // ---- Status bar ---------------------------------------------------------------------
+
+    private TextView musicChip;
+    private String musicShown;
+
+    /**
+     * What's playing in any music app (YouTube Music, Spotify...) as a small chip in the status
+     * bar, like a console's music card; pressing it (touch) pauses or plays. Nothing when
+     * nothing plays or the notification access isn't given.
+     */
+    private void updateMusicChip() {
+        View link = findViewById(R.id.pocketLinkChip);
+        if (link == null || !(link.getParent() instanceof LinearLayout)) {
+            return;
+        }
+        android.media.session.MediaController mc = com.limelight.pocket.device.HandheldTools.playing(this);
+        String line = mc != null ? com.limelight.pocket.device.HandheldTools.songLine(mc) : null;
+        if (line == null) {
+            if (musicChip != null && musicChip.getVisibility() == View.VISIBLE) {
+                musicChip.setVisibility(View.GONE);
+            }
+            musicShown = null;
+            return;
+        }
+        if (musicChip == null) {
+            LinearLayout bar = (LinearLayout) link.getParent();
+            float d = getResources().getDisplayMetrics().density;
+            musicChip = new TextView(this);
+            musicChip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f);
+            musicChip.setTextColor(0xE6FFFFFF);
+            musicChip.setTypeface(com.limelight.pocket.ui.PocketFonts.medium());
+            musicChip.setSingleLine(true);
+            musicChip.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            musicChip.setMaxWidth(Math.round(220 * d));
+            musicChip.setPadding(Math.round(10 * d), Math.round(3 * d), Math.round(10 * d), Math.round(3 * d));
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(0x26FFFFFF);
+            bg.setCornerRadius(12 * d);
+            musicChip.setBackground(bg);
+            musicChip.setOnClickListener(v -> {
+                android.media.session.MediaController now = com.limelight.pocket.device.HandheldTools.playing(this);
+                if (now != null) {
+                    now.getTransportControls().pause();
+                    updateMusicChip();
+                }
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.setMarginEnd(Math.round(12 * d));
+            bar.addView(musicChip, bar.indexOfChild(link), lp);
+        }
+        if (!line.equals(musicShown)) {
+            musicShown = line;
+            musicChip.setText("♪  " + line);
+            if (musicChip.getVisibility() != View.VISIBLE) {
+                musicChip.setVisibility(View.VISIBLE);
+                if (PocketPrefs.animationsEnabled(this)) {
+                    musicChip.setAlpha(0f);
+                    musicChip.animate().alpha(1f).setDuration(260).start();
+                }
+            }
+        }
+    }
 
     private void updateClock() {
         TextView clock = findViewById(R.id.pocketClock);
