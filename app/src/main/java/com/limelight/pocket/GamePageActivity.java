@@ -141,6 +141,7 @@ public class GamePageActivity extends ConsoleActivity {
     private TextView artButton;
     private TextView favButton;
     private TextView trophyButton;
+    private TextView manualButton;
     private TextView homeButton;
     private com.limelight.pocket.home.HomeItem homeItem;
     private TextView more;
@@ -229,8 +230,80 @@ public class GamePageActivity extends ConsoleActivity {
         skeleton.setVisibility(View.VISIBLE);
         shortText.setAlpha(0f);
         GameInfoService.get(this, name, false, this::onInfo);
+        findLocalMedia();
 
         playPageEntrance();
+    }
+
+    // ---- A retro game's own media (what ES-DE downloaded) -------------------------------------
+
+    /** The game's video snap (played here like a trailer), once found. */
+    private java.io.File localVideo;
+    private boolean localVideoAdded;
+
+    /**
+     * A retro game: its manual (a button to read it) and its video snap (it plays behind the
+     * page like a trailer, no internet needed), from ES-DE's media folder.
+     */
+    private void findLocalMedia() {
+        if (!com.limelight.pocket.retro.RetroLibrary.UUID.equals(uuid)) {
+            return;
+        }
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            com.limelight.pocket.retro.RomScanner.Rom rom = com.limelight.pocket.retro.Achievements.findRom(app, appId);
+            final java.io.File manual = com.limelight.pocket.retro.RetroLibrary.esdeManual(rom);
+            final java.io.File video = com.limelight.pocket.retro.RetroLibrary.esdeVideo(rom);
+            main.post(() -> {
+                if (isFinishing()) {
+                    return;
+                }
+                if (manual != null && manualButton != null) {
+                    manualButton.setText("▤  " + getString(R.string.pocket_page_manual));
+                    manualButton.setVisibility(View.VISIBLE);
+                    manualButton.setOnClickListener(v -> openFile(manual, "application/pdf"));
+                }
+                if (video != null) {
+                    localVideo = video;
+                    if (infoLoaded && info != null && !localVideoAdded) {
+                        onInfo(info);
+                    }
+                }
+            });
+        }, "pocket-local-media").start();
+    }
+
+    /** The local video first among the page's videos (it plays here, behind the page too). */
+    private void addLocalVideo(GameInfo found) {
+        if (localVideo == null || found == null || localVideoAdded) {
+            return;
+        }
+        localVideoAdded = true;
+        String uri = android.net.Uri.fromFile(localVideo).toString();
+        for (GameInfo.Movie other : found.movies) {
+            if (uri.equals(other.mp4)) {
+                return; // added on an earlier visit (the info is shared)
+            }
+        }
+        GameInfo.Movie m = new GameInfo.Movie();
+        m.name = getString(R.string.pocket_page_gameplay);
+        m.mp4 = uri;
+        m.highlight = true;
+        for (GameInfo.Movie other : found.movies) {
+            other.highlight = false;
+        }
+        found.movies.add(0, m);
+    }
+
+    private void openFile(java.io.File f, String mime) {
+        try {
+            android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
+            PocketSounds.play(this, PocketSounds.SELECT);
+            startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        } catch (RuntimeException e) {
+            android.widget.Toast.makeText(this, R.string.pocket_files_cant_open, android.widget.Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -299,6 +372,7 @@ public class GamePageActivity extends ConsoleActivity {
         artButton = findViewById(R.id.pageArtButton);
         favButton = findViewById(R.id.pageFavButton);
         trophyButton = findViewById(R.id.pageTrophyButton);
+        manualButton = findViewById(R.id.pageManualButton);
         homeButton = findViewById(R.id.pageHomeButton);
         more = findViewById(R.id.pageMore);
         mediaLabel = findViewById(R.id.pageMediaLabel);
@@ -439,6 +513,7 @@ public class GamePageActivity extends ConsoleActivity {
         if (isFinishing()) {
             return;
         }
+        addLocalVideo(found);
         info = found;
         infoLoaded = true;
         // Steam's achievements need the game's Steam id, which comes with its info
@@ -616,7 +691,7 @@ public class GamePageActivity extends ConsoleActivity {
         trailerButton.setText("▷  " + getString(R.string.pocket_page_trailer));
         artButton.setText(R.string.pocket_page_art);
         updateFavourite();
-        for (TextView b : new TextView[]{play, quit, trailerButton, artButton, favButton, trophyButton, homeButton}) {
+        for (TextView b : new TextView[]{play, quit, trailerButton, artButton, favButton, trophyButton, manualButton, homeButton}) {
             if (b != play) {
                 b.setForeground(buttonFace(accent, false));
             }

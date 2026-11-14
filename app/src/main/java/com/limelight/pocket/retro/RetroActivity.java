@@ -286,6 +286,10 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         super.onPause();
         // The other screens read the layout every library shares
         PocketPrefs.setLayoutScope(null);
+        stopSnap();
+        if (snapPlayer != null) {
+            snapPlayer.release();
+        }
     }
 
     @Override
@@ -314,6 +318,9 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (snapPlayer != null) {
+            snapPlayer.release();
+        }
         work.shutdownNow();
         systemWork.shutdownNow();
     }
@@ -727,6 +734,109 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             showAbout(e.kind == KIND_SYSTEM ? SystemArt.cachedInfo(e.system) : null);
             showArt(e);
             showTrophies(e);
+            scheduleSnap(e);
+        }
+    }
+
+    // ---- The game's video snap behind the hero (ES-DE's, after a moment on it) --------------
+
+    private static final String KEY_SNAPS = "pocket_retro_video_snaps";
+    private android.view.TextureView snapView;
+    private com.limelight.pocket.ui.TrailerPlayer snapPlayer;
+    private Runnable snapStart;
+    private String snapKey;
+
+    private boolean snapsOn() {
+        return PocketPrefs.prefs(this).getBoolean(KEY_SNAPS, true);
+    }
+
+    private void scheduleSnap(final Entry e) {
+        stopSnap();
+        if (e == null || e.kind != KIND_GAME || !snapsOn() || !com.limelight.pocket.ui.LibraryLayout.MODE_CAROUSEL
+                .equals(PocketPrefs.viewMode(this))) {
+            return;
+        }
+        final String key = e.key;
+        final RomScanner.Rom rom = e.rom;
+        snapKey = key;
+        snapStart = () -> work.execute(() -> {
+            final File video = RetroLibrary.esdeVideo(rom);
+            if (video == null) {
+                return;
+            }
+            main.post(() -> {
+                if (!isFinishing() && key.equals(snapKey) && key.equals(heroKey)) {
+                    playSnap(video);
+                }
+            });
+        });
+        main.postDelayed(snapStart, 1500);
+    }
+
+    private void playSnap(File video) {
+        ViewGroup backdrop = findViewById(R.id.pocketBackdrop);
+        View frame = findViewById(R.id.pocketKeyArtFrame);
+        if (backdrop == null) {
+            return;
+        }
+        if (snapView == null) {
+            snapView = new android.view.TextureView(this);
+            snapView.setAlpha(0f);
+            int at = frame != null ? backdrop.indexOfChild(frame) + 1 : 1;
+            backdrop.addView(snapView, Math.min(at, backdrop.getChildCount()), new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            snapPlayer = new com.limelight.pocket.ui.TrailerPlayer(this, snapView);
+        }
+        snapView.animate().cancel();
+        snapView.setAlpha(0f);
+        snapPlayer.play(android.net.Uri.fromFile(video).toString(), true, true,
+                new com.limelight.pocket.ui.TrailerPlayer.Listener() {
+                    @Override
+                    public void onFirstFrame() {
+                        if (snapView != null) {
+                            snapView.animate().alpha(0.92f).setDuration(600).start();
+                        }
+                    }
+
+                    @Override
+                    public void onError() {
+                        stopSnap();
+                    }
+
+                    @Override
+                    public void onVideoSize(int width, int height, float pixelRatio) {
+                        cropSnap(width * pixelRatio, height);
+                    }
+                });
+    }
+
+    /** The video fills the backdrop (cut at its edges, never stretched). */
+    private void cropSnap(float vw, float vh) {
+        if (snapView == null || vw <= 0 || vh <= 0) {
+            return;
+        }
+        float w = snapView.getWidth();
+        float h = snapView.getHeight();
+        if (w <= 0 || h <= 0) {
+            snapView.post(() -> cropSnap(vw, vh));
+            return;
+        }
+        float scale = Math.max(w / vw, h / vh);
+        android.graphics.Matrix m = new android.graphics.Matrix();
+        m.setScale(vw * scale / w, vh * scale / h, w / 2f, h / 2f);
+        snapView.setTransform(m);
+    }
+
+    private void stopSnap() {
+        if (snapStart != null) {
+            main.removeCallbacks(snapStart);
+            snapStart = null;
+        }
+        snapKey = null;
+        if (snapView != null && snapPlayer != null) {
+            final com.limelight.pocket.ui.TrailerPlayer player = snapPlayer;
+            snapView.animate().cancel();
+            snapView.animate().alpha(0f).setDuration(220).withEndAction(player::release).start();
         }
     }
 
@@ -1587,10 +1697,24 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
 
     /** The ROM folder's settings (in every options menu here). */
     private void addLibraryItems(List<StreamMenuView.Item> items) {
+        items.add(StreamMenuView.Item.action(getString(R.string.pocket_search_everything), () -> {
+            hideConsolePanel();
+            com.limelight.pocket.search.SearchActivity.open(this);
+        }));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_surprise), this::surpriseMe));
         // Covers and backgrounds for every game here that has none (libretro, SteamGridDB...)
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_scrape_all), () -> scrapeMissing(null))
                 .withValue(scrapeTotal > 0 && scrapeDone < scrapeTotal ? scrapeDone + " / " + scrapeTotal : null));
+        // The game's own short video behind the hero (ES-DE's video snaps), after a moment on it
+        items.add(StreamMenuView.Item.value(getString(R.string.pocket_retro_video_snaps),
+                getString(snapsOn() ? R.string.pocket_on : R.string.pocket_off), direction -> {
+                    boolean now = !snapsOn();
+                    PocketPrefs.prefs(this).edit().putBoolean(KEY_SNAPS, now).apply();
+                    if (!now) {
+                        stopSnap();
+                    }
+                    return getString(now ? R.string.pocket_on : R.string.pocket_off);
+                }));
         // The emulators kept up to date from their own release pages (Obtainium)
         items.add(StreamMenuView.Item.submenu(getString(R.string.pocket_emu_update), () ->
                 pushConsolePage(getString(R.string.pocket_emu_update), EmulatorUpdates.items(this))));

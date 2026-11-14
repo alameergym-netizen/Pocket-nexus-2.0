@@ -29,6 +29,10 @@ public final class TrailerPlayer {
         /** It reached the end (not called while looping). */
         default void onEnded() {
         }
+
+        /** The video's size (to fit or crop it to its view). */
+        default void onVideoSize(int width, int height, float pixelRatio) {
+        }
     }
 
     private final Context context;
@@ -74,6 +78,13 @@ public final class TrailerPlayer {
                 public void onPlayerError(@NonNull PlaybackException error) {
                     if (listener != null) {
                         listener.onError();
+                    }
+                }
+
+                @Override
+                public void onVideoSizeChanged(@NonNull androidx.media3.common.VideoSize size) {
+                    if (listener != null && size.width > 0 && size.height > 0) {
+                        listener.onVideoSize(size.width, size.height, size.pixelWidthHeightRatio);
                     }
                 }
 

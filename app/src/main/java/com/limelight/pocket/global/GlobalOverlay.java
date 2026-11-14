@@ -615,6 +615,12 @@ final class GlobalOverlay {
                 return "SLIDERS";
             case PLAY_PAUSE:
                 return "PLAY_PAUSE";
+            case SEARCH:
+                return "SPARKLE";
+            case FILES:
+                return "LIST";
+            case BROWSER:
+                return "WIFI";
             case NEXT_TRACK:
                 return "PLAY";
             case VOLUME_UP:

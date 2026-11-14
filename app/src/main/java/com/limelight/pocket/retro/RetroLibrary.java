@@ -711,6 +711,34 @@ public final class RetroLibrary {
         return null;
     }
 
+    /** The video snap ES-DE downloaded for the game (a short clip of it being played), or null. */
+    public static File esdeVideo(RomScanner.Rom rom) {
+        return esdeFile(rom, "videos", new String[]{".mp4", ".mkv", ".webm", ".avi", ".mov"});
+    }
+
+    /** The game's manual ES-DE downloaded (a PDF), or null. */
+    public static File esdeManual(RomScanner.Rom rom) {
+        return esdeFile(rom, "manuals", new String[]{".pdf", ".PDF"});
+    }
+
+    private static File esdeFile(RomScanner.Rom rom, String folder, String[] exts) {
+        if (rom == null) {
+            return null;
+        }
+        File sys = new File(mediaDir(), rom.system);
+        String rel = rom.relPath;
+        int slash = rel.lastIndexOf('/');
+        int dot = rel.lastIndexOf('.');
+        String relNoExt = dot > slash + 1 ? rel.substring(0, dot) : rel;
+        for (String ext : exts) {
+            File f = new File(new File(sys, folder), relNoExt + ext);
+            if (f.isFile()) {
+                return f;
+            }
+        }
+        return null;
+    }
+
     /**
      * Takes the cover, background and logo ES-DE downloaded for the game, for what it's still
      * missing here (blocking). True when something was added.

@@ -54,11 +54,14 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private interface BoolSetter { void set(boolean value); }
     private interface TextGetter { String get(); }
 
-    private static final int TAB_STREAM = 0;
-    private static final int TAB_BUTTONS = 1;
-    private static final int TAB_CONTROLS = 2;
-    private static final int TAB_CONNECTION = 3;
-    private static final int TAB_SYSTEM = 4;
+    // Look and the libraries first (Pocket Nexus is every game's home now), streaming after
+    private static final int TAB_LOOK = 0;
+    private static final int TAB_LIBRARY = 1;
+    private static final int TAB_STREAM = 2;
+    private static final int TAB_BUTTONS = 3;
+    private static final int TAB_CONTROLS = 4;
+    private static final int TAB_CONNECTION = 5;
+    private static final int TAB_SYSTEM = 6;
 
     private static final int[] BITRATES_MBPS = {5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150};
     private static final int[] DEADZONES = {0, 2, 3, 4, 5, 6, 8, 10, 15, 20};
@@ -67,7 +70,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private final List<Runnable> rowRefreshers = new ArrayList<>();
     private LinearLayout rowsContainer;
     private ScrollView rowsScroll;
-    private int currentTab = TAB_STREAM;
+    private int currentTab = TAB_LOOK;
     private boolean capturingHotkey;
     // What the capture panel is assigning: the menu button, or which key is Back / Home
     private static final int CAPTURE_MENU = 0;
@@ -94,8 +97,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
         rowsScroll = findViewById(R.id.pocketRowsScroll);
 
         LinearLayout tabBar = findViewById(R.id.pocketTabs);
-        int[] tabNames = {R.string.pocket_tab_stream, R.string.pocket_tab_buttons, R.string.pocket_tab_controls,
-                R.string.pocket_tab_connection, R.string.pocket_tab_system};
+        int[] tabNames = {R.string.pocket_tab_look, R.string.pocket_tab_library, R.string.pocket_tab_stream,
+                R.string.pocket_tab_buttons, R.string.pocket_tab_controls, R.string.pocket_tab_connection,
+                R.string.pocket_tab_system};
+        String[] tabIcons = {"SPARKLE", "LIST", "PLAY", "GAMEPAD", "KEYBOARD", "WIFI", "SLIDERS"};
         for (int i = 0; i < tabNames.length; i++) {
             final int index = i;
             TextView tab = new TextView(this);
@@ -107,6 +112,13 @@ public class QuickSettingsActivity extends ConsoleActivity {
             tab.setPaddingRelative(dp(14), 0, dp(10), 0);
             tab.setText(tabNames[i]);
             tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            // Each tab with its icon, like a console's settings
+            android.graphics.drawable.Drawable icon = com.limelight.pocket.ui.PocketIcons.drawable(tabIcons[i], dp(15), 0xD9FFFFFF);
+            if (icon != null) {
+                icon.setBounds(0, 0, dp(15), dp(15));
+                tab.setCompoundDrawablesRelative(icon, null, null, null);
+                tab.setCompoundDrawablePadding(dp(10));
+            }
             tab.setTypeface(com.limelight.pocket.ui.PocketFonts.medium());
             tab.setTextColor(ContextCompat.getColorStateList(this, R.color.pocket_tab_text));
             tab.setBackground(com.limelight.pocket.ui.PocketTheme.tabGlide(this));
@@ -138,7 +150,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
         com.limelight.pocket.ui.FocusGlider.install(rowsContainer, com.limelight.pocket.ui.PocketTheme.withAlpha(accent, 0xF2),
                 14 * getResources().getDisplayMetrics().density);
 
-        int startTab = getIntent().getIntExtra("tab", TAB_STREAM);
+        int startTab = Math.max(0, Math.min(tabNames.length - 1, getIntent().getIntExtra("tab", TAB_LOOK)));
         selectTab(startTab, true);
         tabs.get(startTab).requestFocus();
         ConsoleActivity.reveal(findViewById(R.id.pocketSettingsBody), 0);
@@ -237,6 +249,12 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 break;
             case TAB_CONNECTION:
                 buildConnectionTab();
+                break;
+            case TAB_LOOK:
+                buildLookTab();
+                break;
+            case TAB_LIBRARY:
+                buildLibraryTab();
                 break;
             case TAB_SYSTEM:
             default:
@@ -728,6 +746,39 @@ public class QuickSettingsActivity extends ConsoleActivity {
         }
     }
 
+    /** The controller keyboard: switching it on, using it, its language and key size. */
+    private void addKeyboardRows() {
+        addHeader(R.string.pocket_header_keyboard);
+        addAction(getString(R.string.pocket_kb_turn_on), getString(R.string.pocket_kb_turn_on_sub),
+                () -> getString(com.limelight.pocket.keyboard.PocketKeyboardService.enabled(this)
+                        ? R.string.pocket_service_on : R.string.pocket_service_off),
+                () -> {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
+                    } catch (RuntimeException ignored) {
+                    }
+                });
+        addAction(getString(R.string.pocket_kb_use), getString(R.string.pocket_kb_use_sub), null, () -> {
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showInputMethodPicker();
+            }
+        });
+        addChoice(getString(R.string.pocket_kb_language), null,
+                new String[]{getString(R.string.pocket_kb_english), getString(R.string.pocket_kb_arabic)},
+                () -> "ar".equals(prefs().getString(com.limelight.pocket.keyboard.PocketKeyboardService.KEY_LANG,
+                        "ar".equals(java.util.Locale.getDefault().getLanguage()) ? "ar" : "en")) ? 1 : 0,
+                index -> prefs().edit().putString(com.limelight.pocket.keyboard.PocketKeyboardService.KEY_LANG,
+                        index == 1 ? "ar" : "en").apply(), null);
+        addChoice(getString(R.string.pocket_kb_size), null,
+                new String[]{getString(R.string.pocket_kb_size_small), getString(R.string.pocket_kb_size_medium),
+                        getString(R.string.pocket_kb_size_large)},
+                () -> prefs().getInt(com.limelight.pocket.keyboard.PocketKeyboardService.KEY_SIZE, 1),
+                index -> prefs().edit().putInt(com.limelight.pocket.keyboard.PocketKeyboardService.KEY_SIZE, index).apply(),
+                null);
+    }
+
     private interface GlobalPicked { void picked(com.limelight.pocket.global.GlobalButtons.Action action); }
 
     private void pickGlobal(String title, final com.limelight.pocket.global.GlobalButtons.Action[] actions,
@@ -777,6 +828,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
     // ---- Controls -----------------------------------------------------------------------
 
     private void buildControlsTab() {
+        addKeyboardRows();
+
         addHeader(R.string.pocket_header_buttons);
 
         addToggle(getString(R.string.pocket_set_flip), getString(R.string.pocket_set_flip_sub),
@@ -876,7 +929,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     // ---- System -------------------------------------------------------------------------
 
-    private void buildSystemTab() {
+    /** How it looks and sounds: theme, accent, glass, size, sounds, music. */
+    private void buildLookTab() {
         addHeader(R.string.pocket_header_app);
 
         final int[] scaleValues = {75, 80, 85, 90, 100, 110, 120};
@@ -897,7 +951,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 index -> {
                     prefs().edit().putInt(PocketPrefs.KEY_UI_SCALE, scaleValues[index]).apply();
                     // Rebuild this screen at the new size; the others follow when you go back
-                    getIntent().putExtra("tab", TAB_SYSTEM);
+                    getIntent().putExtra("tab", currentTab);
                     rowsContainer.postDelayed(this::recreate, 350);
                 }, null);
 
@@ -912,7 +966,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
                     com.limelight.pocket.ui.PocketTheme.applyTheme(this, index);
                     PocketSounds.reload(this);
                     rowsContainer.postDelayed(() -> PocketSounds.preview(this, PocketSounds.CATEGORY_MENU), 260);
-                    getIntent().putExtra("tab", TAB_SYSTEM);
+                    getIntent().putExtra("tab", currentTab);
                     rowsContainer.postDelayed(this::recreate, 420);
                 }, getString(R.string.pocket_value_custom));
 
@@ -962,7 +1016,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 },
                 index -> {
                     prefs().edit().putInt(PocketPrefs.KEY_ACCENT, com.limelight.pocket.ui.PocketTheme.ACCENTS[index]).apply();
-                    getIntent().putExtra("tab", TAB_SYSTEM);
+                    getIntent().putExtra("tab", currentTab);
                     rowsContainer.postDelayed(this::recreate, 250);
                 }, null);
 
@@ -974,7 +1028,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> indexOf(backdropValues, PocketPrefs.backdrop(this)),
                 index -> {
                     prefs().edit().putString(PocketPrefs.KEY_BACKDROP, backdropValues[index]).apply();
-                    getIntent().putExtra("tab", TAB_SYSTEM);
+                    getIntent().putExtra("tab", currentTab);
                     rowsContainer.postDelayed(this::recreate, 250);
                 }, null);
 
@@ -991,7 +1045,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
                     () -> PocketPrefs.liveGlass(this),
                     value -> {
                         prefs().edit().putBoolean(PocketPrefs.KEY_LIVE_GLASS, value).apply();
-                        getIntent().putExtra("tab", TAB_SYSTEM);
+                        getIntent().putExtra("tab", currentTab);
                         rowsContainer.postDelayed(this::recreate, 300);
                     });
         }
@@ -1001,7 +1055,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
                     () -> PocketPrefs.frost(this),
                     value -> {
                         PocketPrefs.setFrost(this, value);
-                        getIntent().putExtra("tab", TAB_SYSTEM);
+                        getIntent().putExtra("tab", currentTab);
                         rowsContainer.postDelayed(this::recreate, 300);
                     });
         }
@@ -1009,26 +1063,6 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addToggle(getString(R.string.pocket_set_console_home), getString(R.string.pocket_set_console_home_sub),
                 () -> PocketPrefs.consoleHome(this),
                 value -> PocketPrefs.setConsoleHome(this, value));
-
-        final String[] modeLabels = {getString(R.string.pocket_view_carousel), getString(R.string.pocket_view_grid),
-                getString(R.string.pocket_view_xmb)};
-        addChoice(getString(R.string.pocket_view_mode), getString(R.string.pocket_view_mode_sub), modeLabels,
-                () -> java.util.Arrays.asList(com.limelight.pocket.ui.LibraryLayout.MODES).indexOf(PocketPrefs.viewMode(this)),
-                index -> PocketPrefs.setViewMode(this, com.limelight.pocket.ui.LibraryLayout.MODES[index]), null);
-        final String[] cardLabels = {getString(R.string.pocket_cards_cover), getString(R.string.pocket_cards_wide),
-                getString(R.string.pocket_cards_icon)};
-        addChoice(getString(R.string.pocket_cards_style), getString(R.string.pocket_cards_style_sub), cardLabels,
-                () -> java.util.Arrays.asList(com.limelight.pocket.ui.LibraryLayout.STYLES).indexOf(PocketPrefs.cardStyle(this)),
-                index -> PocketPrefs.setCardStyle(this, com.limelight.pocket.ui.LibraryLayout.STYLES[index]), null);
-
-        // Game pages: the trailer plays muted behind the page after a moment
-        addToggle(getString(R.string.pocket_set_trailer_autoplay), getString(R.string.pocket_set_trailer_autoplay_sub),
-                () -> PocketPrefs.trailerAutoplay(this),
-                value -> PocketPrefs.setTrailerAutoplay(this, value));
-        addAction(getString(R.string.pocket_set_clear_info), getString(R.string.pocket_set_clear_info_sub), null, () -> {
-            com.limelight.pocket.info.GameInfoService.clearAll(this);
-            Toast.makeText(this, R.string.pocket_info_cleared, Toast.LENGTH_SHORT).show();
-        });
 
         addToggle(getString(R.string.pocket_set_haptics), getString(R.string.pocket_set_haptics_sub),
                 () -> PocketPrefs.hapticsEnabled(this),
@@ -1098,6 +1132,32 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addToggle(getString(R.string.pocket_set_color_art), getString(R.string.pocket_set_color_art_sub),
                 () -> PocketPrefs.colorBackgroundArt(this),
                 value -> prefs().edit().putBoolean(PocketPrefs.KEY_COLOR_ART, value).apply());
+
+    }
+
+    /** The libraries: layouts, game pages, sorting, trophies, art. */
+    private void buildLibraryTab() {
+        addHeader(R.string.pocket_header_layout);
+
+        final String[] modeLabels = {getString(R.string.pocket_view_carousel), getString(R.string.pocket_view_grid),
+                getString(R.string.pocket_view_xmb)};
+        addChoice(getString(R.string.pocket_view_mode), getString(R.string.pocket_view_mode_sub), modeLabels,
+                () -> java.util.Arrays.asList(com.limelight.pocket.ui.LibraryLayout.MODES).indexOf(PocketPrefs.viewMode(this)),
+                index -> PocketPrefs.setViewMode(this, com.limelight.pocket.ui.LibraryLayout.MODES[index]), null);
+        final String[] cardLabels = {getString(R.string.pocket_cards_cover), getString(R.string.pocket_cards_wide),
+                getString(R.string.pocket_cards_icon)};
+        addChoice(getString(R.string.pocket_cards_style), getString(R.string.pocket_cards_style_sub), cardLabels,
+                () -> java.util.Arrays.asList(com.limelight.pocket.ui.LibraryLayout.STYLES).indexOf(PocketPrefs.cardStyle(this)),
+                index -> PocketPrefs.setCardStyle(this, com.limelight.pocket.ui.LibraryLayout.STYLES[index]), null);
+
+        // Game pages: the trailer plays muted behind the page after a moment
+        addToggle(getString(R.string.pocket_set_trailer_autoplay), getString(R.string.pocket_set_trailer_autoplay_sub),
+                () -> PocketPrefs.trailerAutoplay(this),
+                value -> PocketPrefs.setTrailerAutoplay(this, value));
+        addAction(getString(R.string.pocket_set_clear_info), getString(R.string.pocket_set_clear_info_sub), null, () -> {
+            com.limelight.pocket.info.GameInfoService.clearAll(this);
+            Toast.makeText(this, R.string.pocket_info_cleared, Toast.LENGTH_SHORT).show();
+        });
 
         addHeader(R.string.pocket_header_library);
 
@@ -1183,6 +1243,18 @@ public class QuickSettingsActivity extends ConsoleActivity {
             PocketSounds.play(this, PocketSounds.TOGGLE_OFF);
             Toast.makeText(this, R.string.pocket_art_cleared, Toast.LENGTH_SHORT).show();
         });
+
+    }
+
+    /** Accounts, the device, and the advanced things. */
+    private void buildSystemTab() {
+        addHeader(R.string.pocket_device_tools);
+        addAction(getString(R.string.pocket_search_title), getString(R.string.pocket_search_sub), null,
+                () -> com.limelight.pocket.search.SearchActivity.open(this));
+        addAction(getString(R.string.pocket_files_title), getString(R.string.pocket_files_sub), null,
+                () -> com.limelight.pocket.files.FilesActivity.open(this));
+        addAction(getString(R.string.pocket_browser_title), getString(R.string.pocket_browser_sub), null,
+                () -> com.limelight.pocket.browser.BrowserActivity.open(this, null));
 
         addHeader(R.string.pocket_header_accounts);
 

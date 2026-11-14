@@ -48,7 +48,10 @@ public final class GlobalButtons {
         NEXT_TRACK("next", R.string.pocket_gb_next_track),
         VOLUME_UP("volup", R.string.pocket_act_volup),
         VOLUME_DOWN("voldown", R.string.pocket_act_voldown),
-        SETTINGS("settings", R.string.pocket_launcher_settings);
+        SETTINGS("settings", R.string.pocket_launcher_settings),
+        SEARCH("search", R.string.pocket_search_title),
+        FILES("files", R.string.pocket_files_title),
+        BROWSER("browser", R.string.pocket_browser_title);
 
         public final String id;
         public final int label;

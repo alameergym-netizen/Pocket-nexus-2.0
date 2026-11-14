@@ -238,6 +238,12 @@
                             android:visibility="gone" />
 
                         <TextView
+                            android:id="@+id/pageManualButton"
+                            style="@style/PocketPageButton"
+                            android:tag="glass"
+                            android:visibility="gone" />
+
+                        <TextView
                             android:id="@+id/pageHomeButton"
                             style="@style/PocketPageButton"
                             android:tag="glass"

@@ -113,6 +113,28 @@ public final class DevicePanel {
                     () -> PocketNotifications.askForAccess(a)));
         }
 
+        // Pocket Nexus's own tools, with the controller
+        items.add(StreamMenuView.Item.header(a.getString(R.string.pocket_device_tools)));
+        items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_search_title), () -> {
+            a.hideConsolePanel();
+            com.limelight.pocket.search.SearchActivity.open(a);
+        }).withIcon("SPARKLE"));
+        items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_files_title), () -> {
+            a.hideConsolePanel();
+            com.limelight.pocket.files.FilesActivity.open(a);
+        }).withIcon("LIST"));
+        items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_browser_title), () -> {
+            a.hideConsolePanel();
+            com.limelight.pocket.browser.BrowserActivity.open(a, null);
+        }).withIcon("WIFI"));
+        items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_kb_use), () -> {
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) a.getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showInputMethodPicker();
+            }
+        }).withIcon("KEYBOARD"));
+
         // The music playing in any app, and the handheld's own tools (fan, performance, frame gen)
         HandheldTools.addMusic(a, items);
         HandheldTools.addTools(a, items);

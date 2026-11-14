@@ -103,9 +103,12 @@ public final class ButtonActions {
     public static final String LAUNCHER_RETRO = "retro";
     public static final String LAUNCHER_CLOUD = "cloud";
     public static final String LAUNCHER_DEVICE = "device";
+    public static final String LAUNCHER_SEARCH = "search";
+    public static final String LAUNCHER_FILES = "files";
+    public static final String LAUNCHER_BROWSER = "browser";
     public static final String[] LAUNCHER_ACTIONS = {LAUNCHER_SETTINGS, LAUNCHER_QUICK_RESUME,
             LAUNCHER_GAME_PAGE, LAUNCHER_RESUME_LAST, LAUNCHER_APPS, LAUNCHER_RETRO, LAUNCHER_CLOUD,
-            LAUNCHER_DEVICE, LAUNCHER_NONE};
+            LAUNCHER_DEVICE, LAUNCHER_SEARCH, LAUNCHER_FILES, LAUNCHER_BROWSER, LAUNCHER_NONE};
 
     public static int launcherLabel(String action) {
         switch (action) {
@@ -117,6 +120,9 @@ public final class ButtonActions {
             case LAUNCHER_RETRO: return R.string.pocket_retro_title;
             case LAUNCHER_CLOUD: return R.string.pocket_cloud_title;
             case LAUNCHER_DEVICE: return R.string.pocket_device_title;
+            case LAUNCHER_SEARCH: return R.string.pocket_search_title;
+            case LAUNCHER_FILES: return R.string.pocket_files_title;
+            case LAUNCHER_BROWSER: return R.string.pocket_browser_title;
             default: return R.string.pocket_launcher_settings;
         }
     }

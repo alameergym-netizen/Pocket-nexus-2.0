@@ -211,6 +211,15 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
             case SETTINGS:
                 openPocket(HomeActivity.ACTION_SETTINGS);
                 return;
+            case SEARCH:
+                start(com.limelight.pocket.search.SearchActivity.class);
+                return;
+            case FILES:
+                start(com.limelight.pocket.files.FilesActivity.class);
+                return;
+            case BROWSER:
+                start(com.limelight.pocket.browser.BrowserActivity.class);
+                return;
             case RECENTS:
                 service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS);
                 return;
@@ -259,6 +268,15 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
         long t = SystemClock.uptimeMillis();
         am.dispatchMediaKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0));
         am.dispatchMediaKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_UP, code, 0));
+    }
+
+    /** One of Pocket Nexus's tools over the game. */
+    private void start(Class<?> screen) {
+        try {
+            service.startActivity(new Intent(service, screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (RuntimeException e) {
+            Toast.makeText(service, R.string.pocket_gb_cant_open, Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** Pocket Nexus's Home in front (the game stays where it is, behind), doing action there. */
