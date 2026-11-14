@@ -151,8 +151,8 @@
     <string name="pocket_hotkey_cleared">تم مسح زر القائمة</string>
     <string name="pocket_hotkey_reserved">هالزر بنحتاجه للقوائم. اختار زر ثاني.</string>
 
-    <string name="pocket_a11y_title">السماح لزر Home يشتغل كـ Guide</string>
-    <string name="pocket_a11y_message">أندرويد ما بيعطي زر Home للتطبيقات إلا عن طريق خدمة إمكانية الوصول. بالصفحة الجاية فعّل \"Pocket Nexus: Home button and keyboard capture\".\n\nبيشتغل بس وإنت عامل ستريم. عشان Home يصير Guide بكل التطبيقات، اتبع خطوات Key Mapper بدليل الإعداد.</string>
+    <string name="pocket_a11y_title">اسمح لأزرار Pocket Nexus</string>
+    <string name="pocket_a11y_message">أندرويد ما بيعطي تطبيق زر Back وزر Home/Guide وتطبيق ثاني قدامه إلا عن طريق خدمة إمكانية الوصول. بالصفحة الجاية فعّل \"Pocket Nexus: buttons in every game\".\n\nبتشوف بس هالأزرار وأي تطبيق قدامك (عشان ما تتدخل بشاشات Pocket Nexus نفسها). وإنت عامل ستريم بتبعث كمان Home واختصارات الكيبورد للـ PC.</string>
     <string name="pocket_a11y_open">افتح الإعدادات</string>
 
     <string name="pocket_menu_guide">اضغط Xbox Guide</string>
@@ -1296,4 +1296,26 @@
         <item quantity="many">عم يدوّر على صور لـ %1$d لعبة…</item>
         <item quantity="other">عم يدوّر على صور لـ %1$d لعبة…</item>
     </plurals>
+    <string name="pocket_gb_pass">وظيفته الأصلية</string>
+    <string name="pocket_gb_home">الهوم تبع Pocket Nexus</string>
+    <string name="pocket_gb_last_game">اللعبة اللي قبل هاي</string>
+    <string name="pocket_gb_recents">التطبيقات الأخيرة (أندرويد)</string>
+    <string name="pocket_gb_screenshot">لقطة شاشة</string>
+    <string name="pocket_gb_notifications">الإشعارات</string>
+    <string name="pocket_gb_quick_settings">الإعدادات السريعة (أندرويد)</string>
+    <string name="pocket_gb_next_track">المقطع اللي بعده</string>
+    <string name="pocket_gb_guide">Guide (هوم)</string>
+    <string name="pocket_gb_radial_hint">Ⓐ اختار · Ⓑ سكّر</string>
+    <string name="pocket_gb_quick_hint">Ⓐ روح عليها · Ⓑ ارجع للعبة</string>
+    <string name="pocket_gb_quick_empty">الألعاب اللي بتشغلها من Pocket Nexus بتطلع هون</string>
+    <string name="pocket_gb_now_playing">شغّالة هلأ</string>
+    <string name="pocket_gb_cant_open">ما قدر Pocket Nexus ينفتح</string>
+    <string name="pocket_header_everywhere">الأزرار بكل الألعاب</string>
+    <string name="pocket_header_everywhere_radial">القائمة الدائرية بكل الألعاب</string>
+    <string name="pocket_gb_service">اسمح فيها من أندرويد</string>
+    <string name="pocket_gb_service_sub">أندرويد ما بيعطي الأزرار لتطبيق فوق تطبيق ثاني إلا عن طريق خدمة إمكانية الوصول: فعّل تبعت Pocket Nexus</string>
+    <string name="pocket_gb_enabled">Back و Guide بكل الألعاب</string>
+    <string name="pocket_gb_enabled_sub">برا الستريم كمان (ألعاب أندرويد، محاكيات): الهوم، Quick Resume، القائمة الدائرية</string>
+    <string name="pocket_gb_double_speed">سرعة الضغطتين</string>
+    <string name="pocket_gb_double_speed_sub">قديش لازم تكون الضغطة الثانية سريعة (الـ Back العادي بستنى هالوقت)</string>
 </resources>

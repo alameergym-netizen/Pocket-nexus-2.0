@@ -18,6 +18,9 @@ public class KeyboardAccessibilityService extends AccessibilityService {
 
     public static volatile KeyTestListener keyTestListener;
 
+    /** Pocket Nexus: Back and Guide in every game (Home, Quick Resume, the radial menu). */
+    private com.limelight.pocket.global.GlobalButtonEngine global;
+
     //不屏蔽的按键列表
     private final static List BLACKLIST_KEYS = Arrays.asList(
             KeyEvent.KEYCODE_VOLUME_UP,
@@ -62,6 +65,10 @@ public class KeyboardAccessibilityService extends AccessibilityService {
             }
         }
 
+        // Another app in front (an Android game, an emulator): Pocket Nexus's buttons there
+        if (global != null && global.onKeyEvent(event)) {
+            return true;
+        }
         return super.onKeyEvent(event);
     }
 
@@ -69,17 +76,30 @@ public class KeyboardAccessibilityService extends AccessibilityService {
     public void onServiceConnected() {
         LimeLog.info("Keyboard service is connected");
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
-        info.packageNames = new String[] { BuildConfig.APPLICATION_ID };
-        info.eventTypes = AccessibilityEvent.TYPES_ALL_MASK;
+        // Every app's window changes (just which app is in front, for the buttons in every game)
+        info.packageNames = null;
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
         info.notificationTimeout = 100;
         info.flags = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_SPOKEN;
         setServiceInfo(info);
+        global = new com.limelight.pocket.global.GlobalButtonEngine(this);
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent accessibilityEvent) {
-//        LimeLog.info("onAccessibilityEvent:"+accessibilityEvent.toString());
+        if (global != null) {
+            global.onAccessibilityEvent(accessibilityEvent);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        if (global != null) {
+            global.destroy();
+            global = null;
+        }
+        super.onDestroy();
     }
     @Override
     public void onInterrupt() {

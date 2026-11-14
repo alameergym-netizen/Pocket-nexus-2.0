@@ -260,6 +260,52 @@ public class HomeActivity extends ConsoleActivity {
             }
         });
         load();
+        handleGlobal(getIntent());
+    }
+
+    // ---- From the buttons in every game (GlobalButtonService) ---------------------------------
+
+    public static final String EXTRA_ACTION = "pocket_global_action";
+    public static final String EXTRA_ITEM = "pocket_global_item";
+    /** Start (or bring back) the game in EXTRA_ITEM (a HomeItem line). */
+    public static final String ACTION_LAUNCH = "launch";
+    public static final String ACTION_SETTINGS = "settings";
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleGlobal(intent);
+    }
+
+    /** What a button pressed in another app asked of Home (a game from Quick Resume...). */
+    private void handleGlobal(Intent intent) {
+        String action = intent != null ? intent.getStringExtra(EXTRA_ACTION) : null;
+        if (action == null) {
+            return;
+        }
+        intent.removeExtra(EXTRA_ACTION);
+        if (ACTION_SETTINGS.equals(action)) {
+            openQuickSettings();
+            return;
+        }
+        if (ACTION_LAUNCH.equals(action)) {
+            HomeItem item = HomeItem.parse(intent.getStringExtra(EXTRA_ITEM));
+            if (item == null) {
+                return;
+            }
+            switch (item.kind) {
+                case HomeItem.PC_GAMES:
+                    openPcGames(item.a, item.b, item.c);
+                    return;
+                case HomeItem.PC:
+                case HomeItem.PC_LIBRARY_GAME:
+                    launchOnPc(item, true);
+                    return;
+                default:
+                    HomeLauncher.launch(this, item);
+            }
+        }
     }
 
     @Override

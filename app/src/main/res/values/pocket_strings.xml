@@ -156,8 +156,8 @@
     <string name="pocket_hotkey_cleared">Menu button cleared</string>
     <string name="pocket_hotkey_reserved">That button is needed for menus. Pick another one.</string>
 
-    <string name="pocket_a11y_title">Allow Home as Guide</string>
-    <string name="pocket_a11y_message">Android only gives the Home button to apps through an accessibility service. In the next screen, turn on \"Pocket Nexus: Home button and keyboard capture\".\n\nIt only acts while you are streaming. To make Home act as Guide in every app, follow the Key Mapper steps in the setup guide.</string>
+    <string name="pocket_a11y_title">Allow Pocket Nexus\'s buttons</string>
+    <string name="pocket_a11y_message">Android only gives an app the Back and Home/Guide buttons while another app is in front through an accessibility service. In the next screen, turn on \"Pocket Nexus: buttons in every game\".\n\nIt sees only those buttons and which app is in front (to leave Pocket Nexus\'s own screens alone). While streaming it also passes Home and keyboard shortcuts to your PC.</string>
     <string name="pocket_a11y_open">Open settings</string>
 
     <!-- In-stream quick menu -->
@@ -1287,4 +1287,26 @@
         <item quantity="one">Looking for art for %1$d game…</item>
         <item quantity="other">Looking for art for %1$d games…</item>
     </plurals>
+    <string name="pocket_gb_pass">What it does anyway</string>
+    <string name="pocket_gb_home">Pocket Nexus Home</string>
+    <string name="pocket_gb_last_game">The game before this one</string>
+    <string name="pocket_gb_recents">Recent apps (Android)</string>
+    <string name="pocket_gb_screenshot">Screenshot</string>
+    <string name="pocket_gb_notifications">Notifications</string>
+    <string name="pocket_gb_quick_settings">Quick settings (Android)</string>
+    <string name="pocket_gb_next_track">Next track</string>
+    <string name="pocket_gb_guide">Guide (Home)</string>
+    <string name="pocket_gb_radial_hint">Ⓐ choose · Ⓑ close</string>
+    <string name="pocket_gb_quick_hint">Ⓐ switch to it · Ⓑ back to the game</string>
+    <string name="pocket_gb_quick_empty">Games you start from Pocket Nexus show up here</string>
+    <string name="pocket_gb_now_playing">NOW PLAYING</string>
+    <string name="pocket_gb_cant_open">Pocket Nexus couldn\'t open</string>
+    <string name="pocket_header_everywhere">Buttons in every game</string>
+    <string name="pocket_header_everywhere_radial">Radial menu in every game</string>
+    <string name="pocket_gb_service">Allow it in Android</string>
+    <string name="pocket_gb_service_sub">Android gives the buttons to an app over another one only through an accessibility service: turn on Pocket Nexus\'s</string>
+    <string name="pocket_gb_enabled">Back and Guide in every game</string>
+    <string name="pocket_gb_enabled_sub">Outside the stream too (Android games, emulators): Home, Quick Resume, the radial menu</string>
+    <string name="pocket_gb_double_speed">Double press speed</string>
+    <string name="pocket_gb_double_speed_sub">How quick the second press must be (a single Back waits this long)</string>
 </resources>

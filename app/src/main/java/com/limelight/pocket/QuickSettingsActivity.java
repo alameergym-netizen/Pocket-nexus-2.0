@@ -467,6 +467,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
     // ---- Buttons ------------------------------------------------------------------------
 
     private void buildButtonsTab() {
+        buildEverywhereButtons();
+
         addHeader(R.string.pocket_header_back);
         addAction(getString(R.string.pocket_set_which_back), getString(R.string.pocket_set_which_sub),
                 () -> PocketPrefs.describeButtonKey(this, PocketPrefs.getBackKey(this), R.string.pocket_key_auto_back),
@@ -662,6 +664,91 @@ public class QuickSettingsActivity extends ConsoleActivity {
                                 }
                             }));
         }
+    }
+
+    /**
+     * Back and Guide in every game, outside the stream too (an Android game, an emulator): what
+     * a press, a double press and a hold do, and the radial menu they open there.
+     */
+    private void buildEverywhereButtons() {
+        addHeader(R.string.pocket_header_everywhere);
+        addAction(getString(R.string.pocket_gb_service), getString(R.string.pocket_gb_service_sub),
+                () -> getString(isAccessibilityServiceEnabled(this) ? R.string.pocket_service_on : R.string.pocket_service_off),
+                this::showAccessibilityPrompt);
+        addToggle(getString(R.string.pocket_gb_enabled), getString(R.string.pocket_gb_enabled_sub),
+                () -> com.limelight.pocket.global.GlobalButtons.enabled(this),
+                value -> {
+                    com.limelight.pocket.global.GlobalButtons.setEnabled(this, value);
+                    if (value && !isAccessibilityServiceEnabled(this)) {
+                        showAccessibilityPrompt();
+                    }
+                });
+        for (int b = 0; b < com.limelight.pocket.global.GlobalButtons.BUTTON_COUNT; b++) {
+            final int button = b;
+            for (int g = 0; g < com.limelight.pocket.global.GlobalButtons.GESTURE_COUNT; g++) {
+                final int gesture = g;
+                final String title = getString(com.limelight.pocket.global.GlobalButtons.buttonLabel(button)) + " · "
+                        + getString(com.limelight.pocket.global.GlobalButtons.gestureLabel(gesture));
+                addAction(title, null,
+                        () -> getString(com.limelight.pocket.global.GlobalButtons.get(this, button, gesture).label),
+                        () -> pickGlobal(title, com.limelight.pocket.global.GlobalButtons.choices(false),
+                                com.limelight.pocket.global.GlobalButtons.get(this, button, gesture),
+                                a -> com.limelight.pocket.global.GlobalButtons.set(this, button, gesture, a)));
+            }
+        }
+        final int[] speeds = {200, 250, 300, 350, 400, 500};
+        String[] speedLabels = new String[speeds.length];
+        for (int i = 0; i < speeds.length; i++) {
+            speedLabels[i] = speeds[i] + " ms";
+        }
+        addChoice(getString(R.string.pocket_gb_double_speed), getString(R.string.pocket_gb_double_speed_sub), speedLabels,
+                () -> {
+                    int now = com.limelight.pocket.global.GlobalButtons.doubleMs(this);
+                    for (int i = 0; i < speeds.length; i++) {
+                        if (speeds[i] == now) {
+                            return i;
+                        }
+                    }
+                    return 2;
+                },
+                index -> prefs().edit().putInt(com.limelight.pocket.global.GlobalButtons.KEY_DOUBLE_MS, speeds[index]).apply(),
+                null);
+
+        addHeader(R.string.pocket_header_everywhere_radial);
+        String[] positions = getResources().getStringArray(R.array.pocket_radial_positions);
+        for (int i = 0; i < com.limelight.pocket.global.GlobalButtons.RADIAL_SLOTS; i++) {
+            final int slot = i;
+            final String title = positions[Math.min(i, positions.length - 1)];
+            addAction(title, null,
+                    () -> getString(com.limelight.pocket.global.GlobalButtons.radial(this, slot).label),
+                    () -> pickGlobal(getString(R.string.pocket_header_everywhere_radial) + " · " + title,
+                            com.limelight.pocket.global.GlobalButtons.choices(true),
+                            com.limelight.pocket.global.GlobalButtons.radial(this, slot),
+                            a -> com.limelight.pocket.global.GlobalButtons.setRadial(this, slot, a)));
+        }
+    }
+
+    private interface GlobalPicked { void picked(com.limelight.pocket.global.GlobalButtons.Action action); }
+
+    private void pickGlobal(String title, final com.limelight.pocket.global.GlobalButtons.Action[] actions,
+                            com.limelight.pocket.global.GlobalButtons.Action current, final GlobalPicked picked) {
+        String[] labels = new String[actions.length];
+        int checked = -1;
+        for (int i = 0; i < actions.length; i++) {
+            labels[i] = getString(actions[i].label);
+            if (actions[i] == current) {
+                checked = i;
+            }
+        }
+        com.limelight.pocket.ConsoleActivity.showImmersive(new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    picked.picked(actions[which]);
+                    dialog.dismiss();
+                    refreshRows();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .create());
     }
 
     private interface ActionPicked { void picked(PocketAction action); }
