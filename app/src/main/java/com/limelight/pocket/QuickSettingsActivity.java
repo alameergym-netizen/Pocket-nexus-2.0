@@ -56,12 +56,14 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     // Look and the libraries first (Pocket Nexus is every game's home now), streaming after
     private static final int TAB_LOOK = 0;
-    private static final int TAB_LIBRARY = 1;
-    private static final int TAB_STREAM = 2;
-    private static final int TAB_BUTTONS = 3;
-    private static final int TAB_CONTROLS = 4;
-    private static final int TAB_CONNECTION = 5;
-    private static final int TAB_SYSTEM = 6;
+    /** Home itself: being the home screen, the dock, apps coming and going. */
+    private static final int TAB_HOME = 1;
+    private static final int TAB_LIBRARY = 2;
+    private static final int TAB_STREAM = 3;
+    private static final int TAB_BUTTONS = 4;
+    private static final int TAB_CONTROLS = 5;
+    private static final int TAB_CONNECTION = 6;
+    private static final int TAB_SYSTEM = 7;
 
     private static final int[] BITRATES_MBPS = {5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150};
     private static final int[] DEADZONES = {0, 2, 3, 4, 5, 6, 8, 10, 15, 20};
@@ -97,10 +99,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
         rowsScroll = findViewById(R.id.pocketRowsScroll);
 
         LinearLayout tabBar = findViewById(R.id.pocketTabs);
-        int[] tabNames = {R.string.pocket_tab_look, R.string.pocket_tab_library, R.string.pocket_tab_stream,
-                R.string.pocket_tab_buttons, R.string.pocket_tab_controls, R.string.pocket_tab_connection,
-                R.string.pocket_tab_system};
-        String[] tabIcons = {"SPARKLE", "LIST", "PLAY", "GAMEPAD", "KEYBOARD", "WIFI", "SLIDERS"};
+        int[] tabNames = {R.string.pocket_tab_look, R.string.pocket_tab_home, R.string.pocket_tab_library,
+                R.string.pocket_tab_stream, R.string.pocket_tab_buttons, R.string.pocket_tab_controls,
+                R.string.pocket_tab_connection, R.string.pocket_tab_system};
+        String[] tabIcons = {"SPARKLE", "HOME", "LIST", "PLAY", "GAMEPAD", "KEYBOARD", "WIFI", "SLIDERS"};
         for (int i = 0; i < tabNames.length; i++) {
             final int index = i;
             TextView tab = new TextView(this);
@@ -199,6 +201,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
             handleCaptureKey(event);
             return true;
         }
+        if (isConsolePanelShowing()) {
+            // A list of actions is open: it has the buttons (B closes it)
+            return super.dispatchKeyEvent(event);
+        }
         if (swallowKeyUp >= 0 && event.getKeyCode() == swallowKeyUp) {
             // The release (and duplicate press) of the key that was just captured
             if (event.getAction() == KeyEvent.ACTION_UP) {
@@ -256,6 +262,9 @@ public class QuickSettingsActivity extends ConsoleActivity {
             case TAB_LIBRARY:
                 buildLibraryTab();
                 break;
+            case TAB_HOME:
+                buildHomeTab();
+                break;
             case TAB_SYSTEM:
             default:
                 buildSystemTab();
@@ -287,6 +296,42 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     private SharedPreferences prefs() {
         return PocketPrefs.prefs(this);
+    }
+
+    // ---- Home ---------------------------------------------------------------------------
+
+    /** Pocket Nexus as the handheld's home: nothing else needed. */
+    private void buildHomeTab() {
+        addHeader(R.string.pocket_header_home_screen);
+        addAction(getString(R.string.pocket_home_default), getString(R.string.pocket_home_default_sub),
+                () -> getString(com.limelight.pocket.apps.HomeScreen.isDefault(this) ? R.string.pocket_on : R.string.pocket_off),
+                () -> {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
+                    } catch (RuntimeException e) {
+                        startActivity(new Intent(Settings.ACTION_SETTINGS));
+                    }
+                });
+        addToggle(getString(R.string.pocket_apps_auto_add), getString(R.string.pocket_apps_auto_add_sub),
+                () -> prefs().getBoolean(com.limelight.pocket.apps.AppWatcher.KEY_AUTO_ADD, true),
+                value -> prefs().edit().putBoolean(com.limelight.pocket.apps.AppWatcher.KEY_AUTO_ADD, value).apply());
+
+        addHeader(R.string.pocket_header_dock);
+        addAction(getString(R.string.pocket_dock_how), getString(R.string.pocket_dock_how_sub), null, () -> {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            finish();
+        });
+        addAction(getString(R.string.pocket_dock_reset), null, null, () -> {
+            prefs().edit().remove("pocket_home_dock").apply();
+            PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+            Toast.makeText(this, R.string.pocket_dock_reset_done, Toast.LENGTH_SHORT).show();
+        });
+
+        addHeader(R.string.pocket_header_nexus_apps);
+        for (final com.limelight.pocket.apps.NexusApps.App app : com.limelight.pocket.apps.NexusApps.ALL) {
+            addAction(getString(app.label), getString(app.blurb), null,
+                    () -> com.limelight.pocket.apps.NexusApps.open(this, app.id));
+        }
     }
 
     // ---- Stream -------------------------------------------------------------------------
@@ -536,15 +581,9 @@ public class QuickSettingsActivity extends ConsoleActivity {
         }
 
         addHeader(R.string.pocket_header_radial);
-        String[] positions = getResources().getStringArray(R.array.pocket_radial_positions);
-        for (int i = 0; i < ButtonActions.RADIAL_SLOTS; i++) {
-            final int slot = i;
-            addAction(positions[i], null,
-                    () -> getString(ButtonActions.getRadial(this, slot).label),
-                    () -> pickAction(getString(R.string.pocket_header_radial) + " · " + positions[slot],
-                            PocketAction.forRadial(), ButtonActions.getRadial(this, slot),
-                            action -> ButtonActions.setRadial(this, slot, action)));
-        }
+        // The ring itself, edited on screen (point at a slice, A picks what it does)
+        addAction(getString(R.string.pocket_radial_edit), getString(R.string.pocket_radial_edit_stream_sub),
+                () -> radialSummary(false), () -> RadialEditorActivity.open(this, false));
 
         addHeader(R.string.pocket_header_more_buttons);
         addAction(getString(R.string.pocket_set_guide_help), getString(R.string.pocket_set_guide_help_sub), null,
@@ -576,25 +615,20 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addAction(getString(R.string.pocket_set_launcher), getString(R.string.pocket_set_launcher_sub),
                 () -> getString(ButtonActions.launcherLabel(ButtonActions.getLauncher(this, button))),
                 () -> {
-                    final String[] actions = ButtonActions.LAUNCHER_ACTIONS;
-                    String[] labels = new String[actions.length];
-                    int checked = 0;
                     String current = ButtonActions.getLauncher(this, button);
-                    for (int i = 0; i < actions.length; i++) {
-                        labels[i] = getString(ButtonActions.launcherLabel(actions[i]));
-                        if (actions[i].equals(current)) {
-                            checked = i;
-                        }
+                    List<com.limelight.pocket.ui.StreamMenuView.Item> items = new ArrayList<>();
+                    for (final String a : ButtonActions.LAUNCHER_ACTIONS) {
+                        items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(
+                                (a.equals(current) ? "\u2713  " : "") + getString(ButtonActions.launcherLabel(a)), () -> {
+                                    ButtonActions.setLauncher(this, button, a);
+                                    hideConsolePanel();
+                                    PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                                    refreshRows();
+                                }));
                     }
-                    com.limelight.pocket.ConsoleActivity.showImmersive(new AlertDialog.Builder(this)
-                            .setTitle(getString(ButtonActions.buttonLabel(button)) + " \u00b7 " + getString(R.string.pocket_set_launcher))
-                            .setSingleChoiceItems(labels, checked, (d, which) -> {
-                                ButtonActions.setLauncher(this, button, actions[which]);
-                                d.dismiss();
-                                refreshRows();
-                            })
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .create());
+                    PocketSounds.play(this, PocketSounds.OPEN);
+                    showConsolePanel(getString(ButtonActions.buttonLabel(button)) + " \u00b7 "
+                            + getString(R.string.pocket_set_launcher), getString(R.string.pocket_pick_action_sub), null, items);
                 });
     }
 
@@ -733,17 +767,25 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 null);
 
         addHeader(R.string.pocket_header_everywhere_radial);
-        String[] positions = getResources().getStringArray(R.array.pocket_radial_positions);
-        for (int i = 0; i < com.limelight.pocket.global.GlobalButtons.RADIAL_SLOTS; i++) {
-            final int slot = i;
-            final String title = positions[Math.min(i, positions.length - 1)];
-            addAction(title, null,
-                    () -> getString(com.limelight.pocket.global.GlobalButtons.radial(this, slot).label),
-                    () -> pickGlobal(getString(R.string.pocket_header_everywhere_radial) + " · " + title,
-                            com.limelight.pocket.global.GlobalButtons.choices(true),
-                            com.limelight.pocket.global.GlobalButtons.radial(this, slot),
-                            a -> com.limelight.pocket.global.GlobalButtons.setRadial(this, slot, a)));
+        addAction(getString(R.string.pocket_radial_edit), getString(R.string.pocket_radial_edit_everywhere_sub),
+                () -> radialSummary(true), () -> RadialEditorActivity.open(this, true));
+    }
+
+    /** "6 of 8 slices": how full a ring is. */
+    private String radialSummary(boolean global) {
+        int used = 0;
+        int n = global ? com.limelight.pocket.global.GlobalButtons.RADIAL_SLOTS : ButtonActions.RADIAL_SLOTS;
+        for (int i = 0; i < n; i++) {
+            if (global) {
+                com.limelight.pocket.global.GlobalButtons.Action a = com.limelight.pocket.global.GlobalButtons.radial(this, i);
+                used += a != com.limelight.pocket.global.GlobalButtons.Action.NONE
+                        && a != com.limelight.pocket.global.GlobalButtons.Action.PASS ? 1 : 0;
+            }
+            else {
+                used += ButtonActions.getRadial(this, i) != PocketAction.NONE ? 1 : 0;
+            }
         }
+        return getString(R.string.pocket_radial_summary, used, n);
     }
 
     /** The controller keyboard: switching it on, using it, its language and key size. */
@@ -783,46 +825,35 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     private void pickGlobal(String title, final com.limelight.pocket.global.GlobalButtons.Action[] actions,
                             com.limelight.pocket.global.GlobalButtons.Action current, final GlobalPicked picked) {
-        String[] labels = new String[actions.length];
-        int checked = -1;
-        for (int i = 0; i < actions.length; i++) {
-            labels[i] = getString(actions[i].label);
-            if (actions[i] == current) {
-                checked = i;
-            }
+        // A console list with each action's icon, the current one ticked
+        List<com.limelight.pocket.ui.StreamMenuView.Item> items = new ArrayList<>();
+        for (final com.limelight.pocket.global.GlobalButtons.Action a : actions) {
+            items.add(com.limelight.pocket.ui.StreamMenuView.Item.action((a == current ? "\u2713  " : "") + getString(a.label), () -> {
+                picked.picked(a);
+                hideConsolePanel();
+                PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                refreshRows();
+            }).withIcon(com.limelight.pocket.global.GlobalButtons.icon(a)));
         }
-        com.limelight.pocket.ConsoleActivity.showImmersive(new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    picked.picked(actions[which]);
-                    dialog.dismiss();
-                    refreshRows();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .create());
+        PocketSounds.play(this, PocketSounds.OPEN);
+        showConsolePanel(title, getString(R.string.pocket_pick_action_sub), null, items);
     }
 
     private interface ActionPicked { void picked(PocketAction action); }
 
     private void pickAction(String title, final java.util.List<PocketAction> actions, PocketAction current,
                             final ActionPicked picked) {
-        String[] labels = new String[actions.size()];
-        int checked = -1;
-        for (int i = 0; i < actions.size(); i++) {
-            labels[i] = getString(actions.get(i).label);
-            if (actions.get(i) == current) {
-                checked = i;
-            }
+        List<com.limelight.pocket.ui.StreamMenuView.Item> items = new ArrayList<>();
+        for (final PocketAction a : actions) {
+            items.add(com.limelight.pocket.ui.StreamMenuView.Item.action((a == current ? "\u2713  " : "") + getString(a.label), () -> {
+                picked.picked(a);
+                hideConsolePanel();
+                PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                refreshRows();
+            }).withIcon(a.name()));
         }
-        com.limelight.pocket.ConsoleActivity.showImmersive(new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    picked.picked(actions.get(which));
-                    dialog.dismiss();
-                    refreshRows();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .create());
+        PocketSounds.play(this, PocketSounds.OPEN);
+        showConsolePanel(title, getString(R.string.pocket_pick_action_sub), null, items);
     }
 
     // ---- Controls -----------------------------------------------------------------------

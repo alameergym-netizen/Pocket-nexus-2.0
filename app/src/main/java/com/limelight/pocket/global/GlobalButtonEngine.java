@@ -271,6 +271,9 @@ public final class GlobalButtonEngine {
             case BROWSER:
                 start(c, com.limelight.pocket.browser.BrowserActivity.class);
                 return;
+            case MUSIC:
+                start(c, com.limelight.pocket.music.MusicActivity.class);
+                return;
             case PLAY_PAUSE:
                 mediaKey(c, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 return;

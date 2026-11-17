@@ -487,6 +487,13 @@
             android:taskAffinity="${applicationId}.overlay"
             android:theme="@style/PocketOverlayTheme" />
 
+        <!-- Pocket Nexus: the radial menus, edited as themselves -->
+        <activity
+            android:name=".pocket.RadialEditorActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape" />
+
         <!-- Pocket Nexus: Xbox Cloud Gaming's games, as covers -->
         <activity
             android:name=".pocket.cloud.CloudGamesActivity"

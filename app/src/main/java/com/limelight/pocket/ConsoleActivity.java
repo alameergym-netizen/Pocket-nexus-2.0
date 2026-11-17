@@ -322,6 +322,10 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                 PocketSounds.play(this, PocketSounds.OPEN);
                 com.limelight.pocket.browser.BrowserActivity.open(this, null);
                 break;
+            case ButtonActions.LAUNCHER_MUSIC:
+                PocketSounds.play(this, PocketSounds.OPEN);
+                com.limelight.pocket.music.MusicActivity.open(this);
+                break;
             case ButtonActions.LAUNCHER_NONE:
                 break;
             default:

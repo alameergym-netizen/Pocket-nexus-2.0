@@ -51,7 +51,8 @@ public final class GlobalButtons {
         SETTINGS("settings", R.string.pocket_launcher_settings),
         SEARCH("search", R.string.pocket_search_title),
         FILES("files", R.string.pocket_files_title),
-        BROWSER("browser", R.string.pocket_browser_title);
+        BROWSER("browser", R.string.pocket_browser_title),
+        MUSIC("music", R.string.pocket_music_title);
 
         public final String id;
         public final int label;
@@ -204,11 +205,13 @@ public final class GlobalButtons {
             case PLAY_PAUSE:
                 return "PLAY_PAUSE";
             case SEARCH:
-                return "SPARKLE";
+                return "SEARCH";
             case FILES:
-                return "LIST";
+                return "FOLDER";
             case BROWSER:
-                return "WIFI";
+                return "GLOBE";
+            case MUSIC:
+                return "MUSIC";
             case NEXT_TRACK:
                 return "PLAY";
             case VOLUME_UP:
