@@ -1532,4 +1532,9 @@
     <string name="pocket_art_saved_moving">Moving art saved: it plays where the game is chosen</string>
     <string name="pocket_art_show_moving">Moving</string>
     <string name="pocket_art_show_still">Still</string>
+    <string name="pocket_files_kind_file">File</string>
+    <string name="pocket_browser_morning">Good morning</string>
+    <string name="pocket_browser_afternoon">Good afternoon</string>
+    <string name="pocket_browser_evening">Good evening</string>
+    <string name="pocket_browser_search_line">Search the web or type an address</string>
 </resources>

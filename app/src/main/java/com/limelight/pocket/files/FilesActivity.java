@@ -84,6 +84,10 @@ public class FilesActivity extends Activity {
     private static boolean clipCut;
 
     private final Handler main = new Handler(Looper.getMainLooper());
+    private Preview preview;
+    /** Where the last folder change went (1: into a folder, -1: up, 0: another place). */
+    private int moved;
+    private final Runnable showPreview = this::updatePreview;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final List<Entry> entries = new ArrayList<>();
     private final Set<File> marked = new HashSet<>();
@@ -148,6 +152,8 @@ public class FilesActivity extends Activity {
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         titleView = ConsoleScreen.title(this, getString(R.string.pocket_files_title));
+        titleView.setTypeface(com.limelight.pocket.ui.PocketFonts.display());
+        titleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 26);
         head.addView(titleView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         freeView = ConsoleScreen.text(this, 11.5f, 0x99FFFFFF, true);
         head.addView(freeView);
@@ -175,6 +181,12 @@ public class FilesActivity extends Activity {
 
         FrameLayout listBox = new FrameLayout(this);
         body.addView(listBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        // What's chosen, big: its picture (a photo, a video's frame, an app's icon, a song's
+        // cover) and its details
+        preview = new Preview(this);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(dp(290), ViewGroup.LayoutParams.MATCH_PARENT);
+        vlp.setMarginStart(dp(16));
+        body.addView(preview, vlp);
         list = new RecyclerView(this);
         list.setLayoutManager(new LinearLayoutManager(this));
         list.setItemAnimator(null);
@@ -284,17 +296,41 @@ public class FilesActivity extends Activity {
         for (final Place p : places) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(dp(14), dp(9), dp(10), dp(9));
+            row.setPadding(dp(14), dp(9), dp(10), dp(10));
             row.setFocusable(true);
             row.setClickable(true);
             final TextView name = ConsoleScreen.text(this, 13.5f, 0xF2FFFFFF, true);
             name.setText(p.name);
+            android.graphics.drawable.Drawable glyph = com.limelight.pocket.ui.PocketIcons.drawable(placeIcon(p.icon), dp(16), 0xFFFFFFFF);
+            glyph.setBounds(0, 0, dp(16), dp(16));
+            name.setCompoundDrawablesRelative(glyph, null, null, null);
+            name.setCompoundDrawablePadding(dp(8));
             row.addView(name);
             final TextView sub = ConsoleScreen.text(this, 10.5f, 0x8CFFFFFF, false);
             sub.setText(freeText(p.root));
             LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             sl.topMargin = dp(3);
             row.addView(sub, sl);
+            // How full it is
+            float used = usedFraction(p.root);
+            if (used >= 0) {
+                FrameLayout track = new FrameLayout(this);
+                android.graphics.drawable.GradientDrawable tb = new android.graphics.drawable.GradientDrawable();
+                tb.setCornerRadius(dp(2));
+                tb.setColor(0x26FFFFFF);
+                track.setBackground(tb);
+                View fill = new View(this);
+                android.graphics.drawable.GradientDrawable fb = new android.graphics.drawable.GradientDrawable();
+                fb.setCornerRadius(dp(2));
+                fb.setColor(used > 0.9f ? 0xFFFF6B6B : accent);
+                fill.setBackground(fb);
+                fill.setPivotX(0);
+                fill.setScaleX(used);
+                track.addView(fill, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3));
+                tl.topMargin = dp(7);
+                row.addView(track, tl);
+            }
             ConsoleScreen.lightRow(row, false, name, sub);
             row.setOnFocusChangeListener((v, has) -> {
                 ConsoleScreen.lightRow(row, has || p == place, name, sub);
@@ -307,6 +343,34 @@ public class FilesActivity extends Activity {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.bottomMargin = dp(6);
             placeList.addView(row, lp);
+        }
+    }
+
+    private static String placeIcon(String kind) {
+        switch (kind) {
+            case "sd":
+                return "SLIDERS";
+            case "down":
+                return "NEXT";
+            case "pic":
+                return "PHOTO";
+            case "roms":
+                return "GAMEPAD";
+            case "music":
+                return "MUSIC";
+            default:
+                return "FOLDER";
+        }
+    }
+
+    /** How full the storage is (0..1), or -1 when it can't be read. */
+    private static float usedFraction(File f) {
+        try {
+            StatFs s = new StatFs(f.getAbsolutePath());
+            long total = s.getTotalBytes();
+            return total > 0 ? 1f - s.getAvailableBytes() / (float) total : -1f;
+        } catch (RuntimeException e) {
+            return -1f;
         }
     }
 
@@ -350,9 +414,17 @@ public class FilesActivity extends Activity {
     }
 
     private void load(final File folder, final String focus) {
+        if (dir != null && place != null) {
+            String now = dir.getAbsolutePath();
+            String next = folder.getAbsolutePath();
+            moved = next.startsWith(now + "/") ? 1 : now.startsWith(next + "/") ? -1 : 0;
+        }
+        else {
+            moved = 0;
+        }
         dir = folder;
         focusName = focus;
-        pathView.setText(folder.getAbsolutePath());
+        pathView.setText(breadcrumb(folder));
         freeView.setText(freeText(folder));
         final int sort = sort();
         final boolean hidden = showHidden();
@@ -384,6 +456,18 @@ public class FilesActivity extends Activity {
                 entries.clear();
                 entries.addAll(out);
                 rows.notifyDataSetChanged();
+                if (com.limelight.pocket.PocketPrefs.animationsEnabled(FilesActivity.this)) {
+                    // Into a folder: it comes from the right; up: from the left
+                    list.animate().cancel();
+                    list.setAlpha(0f);
+                    list.setTranslationX(moved * dp(40));
+                    list.setTranslationY(moved == 0 ? dp(10) : 0);
+                    list.animate().alpha(1f).translationX(0).translationY(0).setDuration(260)
+                            .setInterpolator(com.limelight.pocket.ui.PocketMotion.DECELERATE).start();
+                }
+                if (out.isEmpty()) {
+                    preview.show(null);
+                }
                 emptyView.setVisibility(out.isEmpty() ? View.VISIBLE : View.GONE);
                 emptyView.setText(files == null ? R.string.pocket_files_cant_read : R.string.pocket_files_empty);
                 emptyView.setFocusable(false);
@@ -400,6 +484,33 @@ public class FilesActivity extends Activity {
                 }
             });
         });
+    }
+
+    /** "Internal storage  ›  Download  ›  Games": the folder from its place down. */
+    private String breadcrumb(File folder) {
+        String path = folder.getAbsolutePath();
+        if (place == null) {
+            return path;
+        }
+        String root = place.root.getAbsolutePath();
+        StringBuilder b = new StringBuilder(place.name);
+        if (path.startsWith(root)) {
+            for (String part : path.substring(root.length()).split("/")) {
+                if (!part.isEmpty()) {
+                    b.append("  \u203A  ").append(part);
+                }
+            }
+            return b.toString();
+        }
+        return path;
+    }
+
+    /** The chosen file in the pane on the right (after a moment's rest: moving fast stays smooth). */
+    private void updatePreview() {
+        Entry e = focused();
+        if (e != null) {
+            preview.show(e);
+        }
     }
 
     private void focusList() {
@@ -961,6 +1072,8 @@ public class FilesActivity extends Activity {
                 ConsoleScreen.lightRow(v, has, h.name, h.sub);
                 if (has) {
                     PocketSounds.play(FilesActivity.this, PocketSounds.NAV);
+                    main.removeCallbacks(showPreview);
+                    main.postDelayed(showPreview, 110);
                 }
             });
             h.itemView.setOnClickListener(v -> {
@@ -974,6 +1087,173 @@ public class FilesActivity extends Activity {
         @Override
         public int getItemCount() {
             return entries.size();
+        }
+    }
+
+    // ---- The pane on the right ----------------------------------------------------------
+
+    /** The chosen file, big: a picture of it when there is one, then its name and details. */
+    private final class Preview extends LinearLayout {
+        final ImageView art;
+        final TextView name;
+        final TextView details;
+        File showing;
+
+        Preview(Context c) {
+            super(c);
+            setOrientation(VERTICAL);
+            setPadding(dp(18), dp(18), dp(18), dp(18));
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setCornerRadius(dp(18));
+            bg.setColor(0x14FFFFFF);
+            bg.setStroke(Math.max(1, dp(1)), 0x14FFFFFF);
+            setBackground(bg);
+            art = new ImageView(c);
+            art.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            art.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, android.graphics.Outline outline) {
+                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dp(12));
+                }
+            });
+            art.setClipToOutline(true);
+            addView(art, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(170)));
+            name = ConsoleScreen.text(c, 15, 0xFFFFFFFF, true);
+            name.setTypeface(com.limelight.pocket.ui.PocketFonts.semibold());
+            name.setMaxLines(3);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            LayoutParams nl = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            nl.topMargin = dp(14);
+            addView(name, nl);
+            details = ConsoleScreen.text(c, 11.5f, 0x99FFFFFF, false);
+            details.setLineSpacing(0, 1.35f);
+            LayoutParams dl = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            dl.topMargin = dp(8);
+            addView(details, dl);
+            setAlpha(0f);
+        }
+
+        void show(final Entry e) {
+            if (e == null) {
+                showing = null;
+                animate().alpha(0f).setDuration(160).start();
+                return;
+            }
+            if (e.file.equals(showing)) {
+                return;
+            }
+            showing = e.file;
+            name.setText(e.file.getName());
+            StringBuilder b = new StringBuilder();
+            String ext = ext(e.file.getName());
+            if (e.folder) {
+                b.append(getString(R.string.pocket_files_items, e.count));
+            }
+            else {
+                b.append(ext.isEmpty() ? getString(R.string.pocket_files_kind_file) : ext.toUpperCase(Locale.ROOT))
+                        .append("  \u00B7  ").append(Formatter.formatShortFileSize(FilesActivity.this, e.size));
+            }
+            b.append("\n").append(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM,
+                    java.text.DateFormat.SHORT).format(new java.util.Date(e.modified)));
+            details.setText(b.toString());
+            art.setImageDrawable(new FileIcon(e.folder, e.file.getName(), accent));
+            art.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            art.setPadding(dp(46), dp(36), dp(46), dp(36));
+            art.setBackgroundColor(0x0FFFFFFF);
+            animate().cancel();
+            setAlpha(0.35f);
+            setTranslationX(dp(8));
+            animate().alpha(1f).translationX(0).setDuration(200).start();
+            if (e.folder) {
+                return;
+            }
+            final File f = e.file;
+            final int size = dp(290);
+            io.execute(() -> {
+                final android.graphics.Bitmap pic = picture(f, ext, size);
+                main.post(() -> {
+                    if (pic != null && f.equals(showing)) {
+                        art.setPadding(0, 0, 0, 0);
+                        art.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        art.setImageBitmap(pic);
+                        art.setAlpha(0f);
+                        art.animate().alpha(1f).setDuration(220).start();
+                    }
+                });
+            });
+        }
+    }
+
+    /** A picture of the file: a photo itself, a video's frame, an app's icon, a song's cover. */
+    private android.graphics.Bitmap picture(File f, String ext, int size) {
+        try {
+            switch (ext) {
+                case "jpg":
+                case "jpeg":
+                case "png":
+                case "webp":
+                case "gif":
+                case "bmp":
+                case "heic": {
+                    android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                    o.inJustDecodeBounds = true;
+                    android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+                    int sample = 1;
+                    while (o.outWidth / (sample * 2) >= size && o.outHeight / (sample * 2) >= size) {
+                        sample *= 2;
+                    }
+                    android.graphics.BitmapFactory.Options d = new android.graphics.BitmapFactory.Options();
+                    d.inSampleSize = sample;
+                    return android.graphics.BitmapFactory.decodeFile(f.getPath(), d);
+                }
+                case "mp4":
+                case "mkv":
+                case "webm":
+                case "mov":
+                case "avi":
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        return android.media.ThumbnailUtils.createVideoThumbnail(f, new android.util.Size(size, size), null);
+                    }
+                    return null;
+                case "mp3":
+                case "flac":
+                case "m4a":
+                case "ogg":
+                case "opus":
+                case "wav": {
+                    android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+                    try {
+                        r.setDataSource(f.getPath());
+                        byte[] pic = r.getEmbeddedPicture();
+                        return pic != null ? android.graphics.BitmapFactory.decodeByteArray(pic, 0, pic.length) : null;
+                    } finally {
+                        try {
+                            r.release();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+                case "apk": {
+                    android.content.pm.PackageInfo info = getPackageManager().getPackageArchiveInfo(f.getPath(), 0);
+                    if (info == null || info.applicationInfo == null) {
+                        return null;
+                    }
+                    info.applicationInfo.sourceDir = f.getPath();
+                    info.applicationInfo.publicSourceDir = f.getPath();
+                    android.graphics.drawable.Drawable icon = info.applicationInfo.loadIcon(getPackageManager());
+                    android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888);
+                    android.graphics.Canvas c = new android.graphics.Canvas(b);
+                    c.drawColor(0xFF1C1C24);
+                    int inset = size / 4;
+                    icon.setBounds(inset, inset, size - inset, size - inset);
+                    icon.draw(c);
+                    return b;
+                }
+                default:
+                    return null;
+            }
+        } catch (Exception | OutOfMemoryError e) {
+            return null;
         }
     }
 }

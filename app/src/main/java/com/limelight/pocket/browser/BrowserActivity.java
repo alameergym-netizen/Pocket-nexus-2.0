@@ -98,6 +98,7 @@ public class BrowserActivity extends Activity {
     private float scrollX;
     private float scrollY;
     private long lastFrame;
+    private long lastProbe;
     private int dpadX;
     private int dpadY;
 
@@ -113,17 +114,24 @@ public class BrowserActivity extends Activity {
             boolean moving = Math.abs(vx) > 0.01f || Math.abs(vy) > 0.01f;
             if (moving) {
                 float mag = (float) Math.min(1.0, Math.hypot(vx, vy));
-                float speed = (220 + 900 * mag * mag) * d;
+                // Over something to click, it slows a little (easier to land on)
+                float speed = (220 + 900 * mag * mag) * d * (pointer.onTarget() ? 0.62f : 1f);
                 movePointer(vx / Math.max(0.0001f, mag) * mag * speed * dt, vy / Math.max(0.0001f, mag) * mag * speed * dt);
             }
             if (Math.abs(scrollX) > 0.01f || Math.abs(scrollY) > 0.01f) {
                 wheel(scrollX * 1.6f * dt * 60f, scrollY * 1.6f * dt * 60f);
+            }
+            if ((moving || Math.abs(scrollX) > 0.01f || Math.abs(scrollY) > 0.01f) && now - lastProbe > 90) {
+                lastProbe = now;
+                probe();
             }
             if (moving || Math.abs(scrollX) > 0.01f || Math.abs(scrollY) > 0.01f) {
                 main.postDelayed(this, 16);
             }
             else {
                 lastFrame = 0;
+                // Settled: what's under it now, exactly
+                main.postDelayed(BrowserActivity.this::probe, 40);
             }
         }
     };
@@ -147,17 +155,17 @@ public class BrowserActivity extends Activity {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(14), dp(8), dp(14), dp(6));
-        TextView back = pill("◀");
+        TextView back = pill("PREV");
         back.setOnClickListener(v -> goBack());
         bar.addView(back);
-        TextView fwd = pill("▶");
+        TextView fwd = pill("NEXT");
         fwd.setOnClickListener(v -> {
             if (web.canGoForward()) {
                 web.goForward();
             }
         });
         bar.addView(fwd);
-        TextView reload = pill("⟳");
+        TextView reload = pill("RESTART");
         reload.setOnClickListener(v -> web.reload());
         bar.addView(reload);
         address = ConsoleScreen.text(this, 13, 0xE6FFFFFF, true);
@@ -284,10 +292,13 @@ public class BrowserActivity extends Activity {
         }
     }
 
-    private TextView pill(String glyph) {
+    private TextView pill(String icon) {
         TextView t = ConsoleScreen.text(this, 14, 0xE6FFFFFF, true);
-        t.setText(glyph);
         t.setGravity(Gravity.CENTER);
+        android.graphics.drawable.Drawable g = com.limelight.pocket.ui.PocketIcons.drawable(icon, dp(15), 0xE6FFFFFF);
+        g.setBounds(0, 0, dp(15), dp(15));
+        t.setCompoundDrawablesRelative(g, null, null, null);
+        t.setPadding(dp(8), 0, 0, 0);
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setColor(0x14FFFFFF);
         bg.setCornerRadius(dp(15));
@@ -357,29 +368,67 @@ public class BrowserActivity extends Activity {
         Uri u = Uri.parse(url);
         String host = u.getHost() != null ? u.getHost().replaceFirst("^www\\.", "") : url;
         address.setText(title != null && !title.isEmpty() && !title.equals(url) ? host + "  ·  " + title : url);
+        // A lock for a secure page
+        boolean secure = "https".equalsIgnoreCase(u.getScheme());
+        android.graphics.drawable.Drawable lock = secure
+                ? com.limelight.pocket.ui.PocketIcons.drawable("LOCK", dp(13), 0xB3FFFFFF) : null;
+        if (lock != null) {
+            lock.setBounds(0, 0, dp(13), dp(13));
+        }
+        address.setCompoundDrawablesRelative(lock, null, null, null);
+        address.setCompoundDrawablePadding(dp(7));
     }
 
-    /** The start page: the bookmarks as big tiles (the pointer clicks them). */
+    /**
+     * The start page: a greeting and the time, a search line (Y), and the bookmarks as big
+     * tiles with the sites' own icons (the pointer clicks them; they light up under it).
+     */
     private String homePage() {
         StringBuilder tiles = new StringBuilder();
         for (String[] b : bookmarks()) {
             String host = Uri.parse(b[1]).getHost();
             String letter = b[0].isEmpty() ? "?" : b[0].substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+            String base = Uri.parse(b[1]).getScheme() + "://" + host;
             tiles.append("<a class='t' href='").append(TextUtils.htmlEncode(b[1])).append("'><div class='l' style='background:")
-                    .append(color(host)).append("'>").append(TextUtils.htmlEncode(letter)).append("</div><div class='n'>")
-                    .append(TextUtils.htmlEncode(b[0])).append("</div></a>");
+                    .append(color(host)).append("'><span>").append(TextUtils.htmlEncode(letter))
+                    .append("</span><img src='").append(TextUtils.htmlEncode(base)).append("/favicon.ico' onerror=\"this.remove()\"")
+                    .append(" onload=\"this.parentNode.classList.add('i')\"></div><div class='n'>")
+                    .append(TextUtils.htmlEncode(b[0])).append("</div><div class='h'>")
+                    .append(TextUtils.htmlEncode(host != null ? host.replaceFirst("^www\\.", "") : ""))
+                    .append("</div></a>");
         }
         int accent = PocketTheme.accent(this) & 0xFFFFFF;
+        String acc = String.format("%06X", accent);
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
+        String hello = getString(hour < 12 ? R.string.pocket_browser_morning : hour < 18 ? R.string.pocket_browser_afternoon
+                : R.string.pocket_browser_evening);
+        String time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(cal.getTime());
         return "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
-                + "<style>body{margin:0;background:#0b0b0e;color:#fff;font-family:sans-serif;padding:28px 34px}"
-                + "h1{font-weight:600;font-size:24px;margin:6px 0 4px}p{color:#ffffff88;margin:0 0 22px;font-size:13px}"
-                + ".g{display:flex;flex-wrap:wrap;gap:16px}.t{width:128px;text-decoration:none;color:#fff;"
-                + "background:#ffffff10;border-radius:16px;padding:16px 10px;text-align:center;border:1px solid #ffffff14}"
-                + ".l{width:52px;height:52px;border-radius:14px;margin:0 auto 10px;font-size:24px;font-weight:700;"
-                + "line-height:52px}.n{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                + ".acc{color:#" + String.format("%06X", accent) + "}</style></head><body>"
-                + "<h1>" + TextUtils.htmlEncode(getString(R.string.pocket_browser_title)) + "</h1><p>"
-                + TextUtils.htmlEncode(getString(R.string.pocket_browser_home_sub)) + "</p><div class='g'>" + tiles + "</div></body></html>";
+                + "<style>*{box-sizing:border-box}body{margin:0;color:#fff;font-family:sans-serif;padding:34px 44px;"
+                + "background:radial-gradient(circle at 85% -10%,#" + acc + "33,transparent 55%),"
+                + "radial-gradient(circle at 0% 110%,#ffffff10,transparent 45%),#08080b;min-height:100vh}"
+                + ".top{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px}"
+                + "h1{font-weight:700;font-size:30px;margin:0;letter-spacing:-.5px}.time{font-size:15px;color:#ffffffaa}"
+                + ".s{display:flex;align-items:center;gap:12px;background:#ffffff12;border:1px solid #ffffff1c;border-radius:28px;"
+                + "padding:14px 20px;color:#ffffff99;font-size:15px;margin-bottom:28px}"
+                + ".k{background:#fff;color:#0b0b0e;font-weight:700;font-size:11px;border-radius:50%;width:22px;height:22px;"
+                + "display:inline-flex;align-items:center;justify-content:center}"
+                + ".g{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:16px}"
+                + ".t{text-decoration:none;color:#fff;background:linear-gradient(180deg,#ffffff14,#ffffff08);border-radius:18px;"
+                + "padding:18px 10px 14px;text-align:center;border:1px solid #ffffff14;transition:transform .15s}"
+                + ".t:hover,.t:focus{transform:scale(1.04);border-color:#" + acc + "}"
+                + ".l{position:relative;width:56px;height:56px;border-radius:16px;margin:0 auto 12px;font-size:24px;font-weight:700;"
+                + "line-height:56px;overflow:hidden;box-shadow:0 6px 18px #0006}.l img{position:absolute;inset:10px;width:36px;height:36px}"
+                + ".l.i{background:#fff!important}.l.i span{display:none}"
+                + ".n{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                + ".h{font-size:11px;color:#ffffff66;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                + ".f{margin-top:30px;font-size:12px;color:#ffffff55}"
+                + "</style></head><body><div class='top'><h1>" + TextUtils.htmlEncode(hello) + "</h1><div class='time'>"
+                + TextUtils.htmlEncode(time) + "</div></div><div class='s'><span class='k'>Y</span>"
+                + TextUtils.htmlEncode(getString(R.string.pocket_browser_search_line)) + "</div><div class='g'>" + tiles
+                + "</div><div class='f'>" + TextUtils.htmlEncode(getString(R.string.pocket_browser_home_sub))
+                + "</div></body></html>";
     }
 
     private static String color(String host) {
@@ -627,17 +676,100 @@ public class BrowserActivity extends Activity {
         web.requestFocus();
     }
 
+    /** What's under the pointer that can be clicked (a link, a button, a box): lit around. */
+    private void probe() {
+        if (web == null || customView != null) {
+            return;
+        }
+        @SuppressWarnings("deprecation")
+        final float scale = Math.max(0.1f, web.getScale());
+        float x = px / scale;
+        float y = py / scale;
+        String js = "(function(x,y){var e=document.elementFromPoint(x,y),n=0;while(e&&n<7){var t=e.tagName;"
+                + "if(t=='A'||t=='BUTTON'||t=='INPUT'||t=='SELECT'||t=='TEXTAREA'||t=='LABEL'||t=='SUMMARY'||e.onclick"
+                + "||(e.getAttribute&&(e.getAttribute('role')=='button'||e.getAttribute('role')=='link'"
+                + "||e.getAttribute('role')=='tab'||e.getAttribute('onclick'))))break;e=e.parentElement;n++;}"
+                + "if(!e||n>=7||e===document.body||e===document.documentElement)return '';"
+                + "var r=e.getBoundingClientRect();if(r.width>window.innerWidth*0.9&&r.height>window.innerHeight*0.5)return '';"
+                + "return r.left+','+r.top+','+r.width+','+r.height;})(" + x + "," + y + ")";
+        try {
+            web.evaluateJavascript(js, value -> {
+                if (pointer == null) {
+                    return;
+                }
+                String v = value != null ? value.replace("\"", "") : "";
+                String[] p = v.split(",");
+                if (p.length != 4) {
+                    pointer.target(null);
+                    return;
+                }
+                try {
+                    float l = Float.parseFloat(p[0]) * scale;
+                    float t = Float.parseFloat(p[1]) * scale;
+                    float w = Float.parseFloat(p[2]) * scale;
+                    float h = Float.parseFloat(p[3]) * scale;
+                    pointer.target(new android.graphics.RectF(l, t, l + w, t + h));
+                } catch (NumberFormatException e) {
+                    pointer.target(null);
+                }
+            });
+        } catch (RuntimeException ignored) {
+        }
+    }
+
     private void kick() {
         main.removeCallbacks(frame);
         main.post(frame);
     }
 
-    /** The pointer: an arrow with a soft ring that flashes on a click. */
+    /**
+     * The pointer: an arrow with a soft ring that flashes on a click; what it's over that can be
+     * clicked gets a glowing outline that glides from one thing to the next.
+     */
     private final class Pointer extends View {
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint lit = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path arrow = new Path();
         private float ring;
+        private final android.graphics.RectF box = new android.graphics.RectF();
+        private android.graphics.RectF goal;
+        private float boxAlpha;
+        private android.animation.ValueAnimator boxAnim;
+
+        boolean onTarget() {
+            return goal != null && goal.contains(px, py);
+        }
+
+        /** The thing under the pointer (null: none): the outline moves to it. */
+        void target(android.graphics.RectF r) {
+            if (r == null && goal == null) {
+                return;
+            }
+            if (r != null && goal != null && Math.abs(r.left - goal.left) < 1 && Math.abs(r.top - goal.top) < 1
+                    && Math.abs(r.width() - goal.width()) < 1) {
+                return;
+            }
+            final android.graphics.RectF from = new android.graphics.RectF(boxAlpha > 0.05f ? box : (r != null ? r : box));
+            final float fromAlpha = boxAlpha;
+            final android.graphics.RectF to = r != null ? r : new android.graphics.RectF(box);
+            final float toAlpha = r != null ? 1f : 0f;
+            goal = r;
+            if (boxAnim != null) {
+                boxAnim.cancel();
+            }
+            boxAnim = android.animation.ValueAnimator.ofFloat(0f, 1f);
+            boxAnim.setDuration(150);
+            boxAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f));
+            boxAnim.addUpdateListener(a -> {
+                float t = (float) a.getAnimatedValue();
+                box.set(from.left + (to.left - from.left) * t, from.top + (to.top - from.top) * t,
+                        from.right + (to.right - from.right) * t, from.bottom + (to.bottom - from.bottom) * t);
+                boxAlpha = fromAlpha + (toAlpha - fromAlpha) * t;
+                invalidate();
+            });
+            boxAnim.start();
+        }
 
         Pointer(Context c) {
             super(c);
@@ -662,6 +794,18 @@ public class BrowserActivity extends Activity {
         @Override
         protected void onDraw(Canvas c) {
             float d = getResources().getDisplayMetrics().density;
+            if (boxAlpha > 0.01f) {
+                int accent = PocketTheme.accent(getContext());
+                float pad = 4 * d;
+                android.graphics.RectF r = new android.graphics.RectF(box.left - pad, box.top - pad, box.right + pad, box.bottom + pad);
+                lit.setStyle(Paint.Style.FILL);
+                lit.setColor((accent & 0x00FFFFFF) | (Math.round(36 * boxAlpha) << 24));
+                c.drawRoundRect(r, 9 * d, 9 * d, lit);
+                lit.setStyle(Paint.Style.STROKE);
+                lit.setStrokeWidth(2.2f * d);
+                lit.setColor((accent & 0x00FFFFFF) | (Math.round(230 * boxAlpha) << 24));
+                c.drawRoundRect(r, 9 * d, 9 * d, lit);
+            }
             if (ring > 0) {
                 Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
                 p.setColor((PocketTheme.accent(getContext()) & 0x00FFFFFF) | (Math.round(140 * ring) << 24));
