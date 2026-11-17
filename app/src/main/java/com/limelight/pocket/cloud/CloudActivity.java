@@ -53,6 +53,12 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
         return false;
     }
 
+    /** This section's layout is its own (changing another section's leaves it alone). */
+    @Override
+    protected String layoutScope() {
+        return "cloud";
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -228,6 +234,7 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
             }
             keyArt.show(back);
         });
+        setHeroGame(uuid, id);
         com.limelight.pocket.PocketArt.load(this, uuid, id, com.limelight.pocket.PocketArt.LOGO, bitmap -> {
             if (heroPos == position && bitmap != null && logo != null && title != null) {
                 logo.setImageBitmap(bitmap);

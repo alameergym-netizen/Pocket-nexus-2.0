@@ -143,6 +143,11 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
     }
 
     @Override
+    protected String layoutScope() {
+        return scopeFor(inSystem);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         if (savedInstanceState != null) {
             // Built again (a new layout for this system): back in the same place
@@ -1084,6 +1089,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 });
             });
         });
+        setHeroGame(RetroLibrary.UUID, gameId);
         PocketArt.load(this, RetroLibrary.UUID, gameId, PocketArt.LOGO, bitmap -> {
             if (key.equals(heroKey) && bitmap != null && logo != null && title != null) {
                 logo.setImageBitmap(bitmap);

@@ -253,6 +253,9 @@ public final class HomeStore {
         }
 
         for (HomeItem p : pins) {
+            if (gone(app, p)) {
+                continue; // uninstalled (it comes back if it's installed again)
+            }
             Long t = used.get(p.key());
             all.put(p.key(), new Entry(p, t != null ? t : 0, true, pcNames.get(p.a)));
         }
@@ -261,7 +264,7 @@ public final class HomeStore {
             candidates.addAll(streamed);
             candidates.addAll(retro);
             for (HomeItem h : candidates) {
-                if (all.containsKey(h.key()) || hid.contains(h.key())) {
+                if (all.containsKey(h.key()) || hid.contains(h.key()) || gone(app, h)) {
                     continue;
                 }
                 Long t = used.get(h.key());
@@ -270,6 +273,12 @@ public final class HomeStore {
         }
         // The pins, in the order you put them
         return new ArrayList<>(all.values());
+    }
+
+    /** An Android app or another app's shortcut whose app isn't on the handheld any more. */
+    private static boolean gone(Context c, HomeItem h) {
+        return (HomeItem.ANDROID.equals(h.kind) || HomeItem.SHORTCUT.equals(h.kind)) && !h.a.isEmpty()
+                && !com.limelight.pocket.apps.AppWatcher.installed(c, h.a);
     }
 
     /** The paired PCs (uuid, name, address) for "PC games" and the PC widget. Blocking. */

@@ -183,6 +183,25 @@ public class AppDrawerActivity extends ConsoleActivity {
         }
     }
 
+    /** An app was installed or removed: the drawer shows it straight away. */
+    private final AppWatcher.Listener appsChanged = () -> {
+        if (!isFinishing()) {
+            load();
+        }
+    };
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        AppWatcher.listen(appsChanged);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        AppWatcher.stop(appsChanged);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();

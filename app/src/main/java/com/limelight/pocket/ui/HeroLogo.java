@@ -40,6 +40,9 @@ public final class HeroLogo {
         this.name = name;
         forUuid = uuid;
         forAppId = appId;
+        if (activity instanceof com.limelight.pocket.ConsoleActivity) {
+            ((com.limelight.pocket.ConsoleActivity) activity).setHeroGame(uuid, appId);
+        }
         if (PocketArt.cached(activity, uuid, appId, PocketArt.LOGO) == null) {
             if (view.getVisibility() == View.VISIBLE && PocketArt.logosForNames(activity)
                     && PocketArt.has(activity, uuid, appId, PocketArt.LOGO)) {
@@ -65,6 +68,9 @@ public final class HeroLogo {
     public void clear(CharSequence name) {
         forUuid = null;
         forAppId = -1;
+        if (activity instanceof com.limelight.pocket.ConsoleActivity) {
+            ((com.limelight.pocket.ConsoleActivity) activity).setHeroGame(null, 0);
+        }
         this.name = name;
         show(null);
     }

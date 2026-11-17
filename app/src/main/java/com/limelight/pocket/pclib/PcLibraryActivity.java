@@ -119,6 +119,12 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
         return false;
     }
 
+    /** This section's layout is its own (changing another section's leaves it alone). */
+    @Override
+    protected String layoutScope() {
+        return "pclib";
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -526,6 +532,7 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
         if (logo == null || title == null) {
             return;
         }
+        setHeroGame(uuid, pageId(g));
         // A logo picked or found for it (any store) comes first
         if (com.limelight.pocket.PocketArt.has(this, uuid, pageId(g), com.limelight.pocket.PocketArt.LOGO)) {
             final String key = g.key();

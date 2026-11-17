@@ -1192,7 +1192,7 @@
     <string name="pocket_art_change_icon">Change icon</string>
     <string name="pocket_sysart_change">Change the console art</string>
     <string name="pocket_hint_quick_play">Quick play</string>
-    <string name="pocket_logo_size">Logo size</string>
+    <string name="pocket_logo_size">Every logo\'s size</string>
     <string name="pocket_logo_size_sub">How big games\' logos are in place of their names (each game can have its own size from its options)</string>
     <string name="pocket_info_pick">Find the right details</string>
     <string name="pocket_info_kicker">Game details</string>
@@ -1496,4 +1496,14 @@
     <string name="pocket_apps_filter_nexus">Nexus Apps</string>
     <string name="pocket_apps_nexus_sub">Music, Files, the browser and more, made for the controller</string>
     <string name="pocket_apps_type_nexus">Pocket Nexus app</string>
+    <string name="pocket_kb_h_type">Type</string>
+    <string name="pocket_kb_h_delete">Delete</string>
+    <string name="pocket_kb_h_space">Space</string>
+    <string name="pocket_kb_h_cursor">Cursor</string>
+    <string name="pocket_kb_h_shift">Shift</string>
+    <string name="pocket_kb_h_symbols">?123</string>
+    <string name="pocket_kb_h_language">Language</string>
+    <string name="pocket_kb_h_enter">Enter</string>
+    <string name="pocket_kb_h_close">Close</string>
+    <string name="pocket_logo_size_this">This logo\'s size</string>
 </resources>

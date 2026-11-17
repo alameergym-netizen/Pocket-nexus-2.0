@@ -153,6 +153,12 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         return false;
     }
 
+    /** The Android section's layout is its own (changing it leaves Cloud's alone). */
+    @Override
+    protected String layoutScope() {
+        return "android";
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -188,6 +194,7 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         }, R.id.appFragmentContainer);
 
         heroIdle(getString(R.string.pocket_apps_loading));
+        AppWatcher.listen(appsChanged);
         setHints(hintA(this, R.string.pocket_hint_details),
                 hintStart(this, R.string.pocket_hint_quick_play),
                 hintY(this, R.string.pocket_hint_options),
@@ -228,9 +235,18 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         }
     }
 
+    /** An app was installed or removed: the row shows it straight away. */
+    private final AppWatcher.Listener appsChanged = () -> {
+        if (!isFinishing()) {
+            ICONS.evictAll();
+            load();
+        }
+    };
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        AppWatcher.stop(appsChanged);
         work.shutdownNow();
     }
 
@@ -506,11 +522,13 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             logo.setVisibility(View.GONE);
         }
         if (!e.hasArt()) {
+            setHeroGame(null, 0);
             if (keyArt != null) {
                 keyArt.show(null);
             }
             return;
         }
+        setHeroGame(e.uuid(), e.id());
         final String key = e.key;
         PocketArt.load(this, e.uuid(), e.id(), PocketArt.HERO, bitmap -> {
             if (key.equals(heroKey) && keyArt != null) {

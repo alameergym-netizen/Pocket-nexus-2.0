@@ -111,10 +111,21 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         super.attachBaseContext(PocketUi.wrapWithUiScale(newBase));
     }
 
+    /**
+     * Which library's layout this screen uses (its own, apart from every other section's: the
+     * Android section's layout isn't Cloud's), or null for the one they share.
+     */
+    protected String layoutScope() {
+        return null;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         PocketSetup.applyFirstRunDefaults(this);
+        PocketPrefs.setLayoutScope(layoutScope());
         super.onCreate(savedInstanceState);
+        // Apps installed or removed while Pocket Nexus runs show (or leave) everywhere at once
+        com.limelight.pocket.apps.AppWatcher.start(this);
         createdWithScale = PocketPrefs.uiScalePercent(this);
         createdWithLook = lookSignature();
         bootOnLaunch = savedInstanceState == null && isTaskRoot() && allowsAutoResume()
@@ -139,6 +150,28 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         applyHeroLogoSize();
     }
 
+    /** The game the hero shows now (its art's uuid and id; null: none), for its own logo size. */
+    private String heroUuid;
+    private int heroId;
+
+    /** The hero now shows this game: its logo at its own size (or everyone's). */
+    public void setHeroGame(String uuid, int id) {
+        boolean changed = uuid == null ? heroUuid != null : !uuid.equals(heroUuid) || id != heroId;
+        heroUuid = uuid;
+        heroId = id;
+        if (changed) {
+            applyHeroLogoSize();
+        }
+    }
+
+    public String heroUuid() {
+        return heroUuid;
+    }
+
+    public int heroId() {
+        return heroId;
+    }
+
     /** A library hero's logo box at 100% (dp): the logo size setting scales it. */
     private static final float HERO_LOGO_DP = 88f;
 
@@ -153,7 +186,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         if (box == null || logo == null) {
             return;
         }
-        float f = PocketPrefs.logoScale(this) / 100f;
+        float f = PocketPrefs.logoScale(this, heroUuid, heroId) / 100f;
         float d = getResources().getDisplayMetrics().density;
         // The box keeps one height for every game (nothing under it moves)
         float want = HERO_LOGO_DP * f;
@@ -465,6 +498,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     @Override
     protected void onResume() {
+        PocketPrefs.setLayoutScope(layoutScope());
         super.onResume();
         // Back from a game: no more watching for its achievements
         com.limelight.pocket.retro.TrophyWatch.stop(this);
@@ -565,6 +599,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        // The other screens read their own layout (or the shared one)
+        PocketPrefs.setLayoutScope(null);
         com.limelight.pocket.device.PocketNotifications.setListener(null);
         PocketMusic.screenHidden();
         pausedSinceLaunch = true;

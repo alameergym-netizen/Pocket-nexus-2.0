@@ -31,9 +31,18 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
     public static final String KEY_SIZE = "pocket_kb_size";
     public static final int[] SIZES = {32, 38, 44};
 
+    /**
+     * Its settings. The keyboard runs in a process of its own (so typing into Pocket Nexus's own
+     * screens never waits on itself), so they're read fresh from the file each time.
+     */
+    @SuppressWarnings("deprecation")
+    static android.content.SharedPreferences prefs(Context c) {
+        return c.getSharedPreferences(c.getPackageName() + "_preferences", Context.MODE_MULTI_PROCESS);
+    }
+
     /** The keys' height in dp (small, medium, large). */
     public static int keySizeDp(Context c) {
-        int i = PocketPrefs.prefs(c).getInt(KEY_SIZE, 1);
+        int i = prefs(c).getInt(KEY_SIZE, 1);
         return SIZES[Math.max(0, Math.min(SIZES.length - 1, i))];
     }
 
@@ -91,6 +100,7 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
             return;
         }
         view.setEnterLabel(enterLabel(info));
+        view.setPlaceholder(info != null ? info.hintText : null);
         // A sentence starts with a capital where the field asks for it
         boolean caps = info != null && (info.inputType & InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) != 0;
         view.setShift(caps && before(1).length() == 0);
@@ -114,7 +124,7 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
 
     private String enterLabel(EditorInfo info) {
         if (info == null || (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0) {
-            return "⏎";
+            return "";
         }
         switch (info.imeOptions & EditorInfo.IME_MASK_ACTION) {
             case EditorInfo.IME_ACTION_GO:
@@ -128,7 +138,7 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
             case EditorInfo.IME_ACTION_DONE:
                 return getString(R.string.pocket_kb_done);
             default:
-                return "⏎";
+                return "";
         }
     }
 
@@ -188,6 +198,14 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
 
     @Override
     public void onKey(KeyboardView.Key key) {
+        try {
+            type(key);
+        } catch (RuntimeException e) {
+            // A field that went away mid-press: nothing to do (never a crash)
+        }
+    }
+
+    private void type(KeyboardView.Key key) {
         InputConnection ic = getCurrentInputConnection();
         switch (key.type) {
             case KeyboardView.CHAR:
@@ -269,7 +287,7 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
     private void switchLanguage() {
         String next = "ar".equals(view.language()) ? "en" : "ar";
         view.setLanguage(next);
-        PocketPrefs.prefs(this).edit().putString(KEY_LANG, next).apply();
+        prefs(this).edit().putString(KEY_LANG, next).apply();
         click(AudioManager.FX_KEYPRESS_STANDARD);
     }
 
@@ -316,6 +334,14 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
         if (!ours(keyCode, event)) {
             return super.onKeyDown(keyCode, event);
         }
+        try {
+            return button(keyCode, event);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    private boolean button(int keyCode, KeyEvent event) {
         boolean first = event.getRepeatCount() == 0;
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_UP:

@@ -286,6 +286,7 @@ public class HomeActivity extends ConsoleActivity {
         });
         load();
         handleGlobal(getIntent());
+        com.limelight.pocket.apps.AppWatcher.listen(appsChanged);
         // Pocket Nexus's own apps' covers (drawn once)
         work.execute(() -> {
             com.limelight.pocket.apps.NexusApps.ensureArt(this);
@@ -391,9 +392,21 @@ public class HomeActivity extends ConsoleActivity {
         }
     }
 
+    /** An app was installed or removed: Home and the dock show it straight away. */
+    private final com.limelight.pocket.apps.AppWatcher.Listener appsChanged = () -> {
+        if (isFinishing()) {
+            return;
+        }
+        if (dock != null) {
+            dock.refresh();
+        }
+        load();
+    };
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        com.limelight.pocket.apps.AppWatcher.stop(appsChanged);
         if (widgets != null) {
             widgets.onDestroy();
         }
@@ -1975,11 +1988,14 @@ public class HomeActivity extends ConsoleActivity {
                 com.limelight.pocket.retro.AchievementsActivity.open(this, trophies, uuid, artId(item));
             }).withValue(have));
         }
-        if (uuid != null) {
+        boolean nexus = HomeItem.NEXUS.equals(item.kind);
+        if (uuid != null && !nexus) {
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_hint_details), () -> {
                 hideConsolePanel();
                 openPage(e);
             }));
+        }
+        if (uuid != null) {
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_rename), () -> {
                 hideConsolePanel();
                 rename(uuid, artId(item), displayName(item), item.name);
@@ -1997,10 +2013,12 @@ public class HomeActivity extends ConsoleActivity {
                         applyLogoScale(item);
                         return next + "%";
                     }));
-            items.add(StreamMenuView.Item.action(getString(R.string.pocket_info_pick), () -> {
-                hideConsolePanel();
-                com.limelight.pocket.info.InfoPickerActivity.open(this, RomScanner.searchName(displayName(item)));
-            }));
+            if (!nexus) {
+                items.add(StreamMenuView.Item.action(getString(R.string.pocket_info_pick), () -> {
+                    hideConsolePanel();
+                    com.limelight.pocket.info.InfoPickerActivity.open(this, RomScanner.searchName(displayName(item)));
+                }));
+            }
         }
         if (position > 0) {
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_home_move_left), () -> {
@@ -2032,6 +2050,16 @@ public class HomeActivity extends ConsoleActivity {
             hideConsolePanel();
             openSection(item);
         }));
+        if (HomeItem.ANDROID.equals(item.kind)) {
+            // Off the handheld altogether (it leaves Home by itself once it's gone)
+            items.add(StreamMenuView.Item.confirm(getString(R.string.pocket_apps_uninstall), () -> {
+                hideConsolePanel();
+                try {
+                    startActivity(new Intent(Intent.ACTION_DELETE, android.net.Uri.parse("package:" + item.a)));
+                } catch (RuntimeException ignored) {
+                }
+            }).withIcon("TRASH"));
+        }
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_home_add_more), this::showAddPanel));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_drawer_title), () -> {
             hideConsolePanel();
