@@ -69,6 +69,12 @@ public abstract class CloudPlayerActivity extends Activity {
 
     protected abstract CloudService service();
 
+    /** A game's own page to open (null: the service's start page). */
+    public static final String EXTRA_URL = "pocket_cloud_url";
+    private static final int REQUEST_MIC = 7801;
+    private PermissionRequest pendingMic;
+    private boolean googleAsked;
+
     private static final long HOLD_FOR_MENU_MS = 900;
 
     private WebView web;
@@ -116,8 +122,9 @@ public abstract class CloudPlayerActivity extends Activity {
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
         configure();
+        String start = getIntent() != null ? getIntent().getStringExtra(EXTRA_URL) : null;
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) {
-            web.loadUrl(service().url);
+            web.loadUrl(start != null && !start.isEmpty() ? start : service().url);
         }
         web.requestFocus();
         Toast.makeText(this, R.string.pocket_cloud_menu_tip, Toast.LENGTH_LONG).show();
@@ -154,11 +161,21 @@ public abstract class CloudPlayerActivity extends Activity {
                         return;
                     }
                     List<String> grant = new ArrayList<>();
+                    boolean mic = false;
                     for (String r : request.getResources()) {
                         if (PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID.equals(r)
                                 || PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) {
                             grant.add(r);
                         }
+                        mic |= PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r);
+                    }
+                    if (mic && Build.VERSION.SDK_INT >= 23
+                            && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        // The page's microphone needs Android's first (asked once)
+                        pendingMic = request;
+                        requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_MIC);
+                        return;
                     }
                     if (grant.isEmpty()) {
                         request.deny();
@@ -174,6 +191,11 @@ public abstract class CloudPlayerActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri u = request.getUrl();
                 String scheme = u.getScheme();
+                if ("accounts.google.com".equalsIgnoreCase(u.getHost())) {
+                    // Google lets you sign in only in a real browser: offer Chrome
+                    offerBrowserForGoogle();
+                    return true;
+                }
                 if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
                     return false;
                 }
@@ -215,6 +237,67 @@ public abstract class CloudPlayerActivity extends Activity {
                     + ".0.0.0 Safari/537.36 Edg/" + major + ".0.0.0";
         }
         return def.replace("; wv", "").replaceAll("Version/\\d+(\\.\\d+)* ", "");
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String url = intent.getStringExtra(EXTRA_URL);
+        if (url != null && !url.isEmpty() && web != null) {
+            // A game picked from Pocket Nexus: straight to it
+            web.loadUrl(url);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != REQUEST_MIC || pendingMic == null) {
+            return;
+        }
+        PermissionRequest r = pendingMic;
+        pendingMic = null;
+        boolean ok = results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        List<String> grant = new ArrayList<>();
+        for (String res : r.getResources()) {
+            if (PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID.equals(res)
+                    || (ok && PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(res))) {
+                grant.add(res);
+            }
+        }
+        if (grant.isEmpty()) {
+            r.deny();
+        }
+        else {
+            r.grant(grant.toArray(new String[0]));
+        }
+    }
+
+    /** Google's sign-in page was opened: it works only in a browser, so Chrome is offered. */
+    private void offerBrowserForGoogle() {
+        if (googleAsked || isFinishing()) {
+            return;
+        }
+        googleAsked = true;
+        final CloudService s = service();
+        final CloudClients.Client chrome = CloudClients.browserClient(this);
+        AlertDialog.Builder b = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(R.string.pocket_cloud_google_title)
+                .setMessage(getString(R.string.pocket_cloud_google_message, getString(s.name)))
+                .setNegativeButton(R.string.pocket_cloud_google_stay, (d, w) -> googleAsked = false);
+        if (chrome != null) {
+            b.setPositiveButton(R.string.pocket_cloud_google_chrome, (d, w) -> {
+                CloudClients.setPreferred(this, s, chrome);
+                String here = web != null ? web.getUrl() : null;
+                CloudClients.play(this, s, chrome, here != null && here.startsWith("http") ? here : null);
+                closing = true;
+                finishAndRemoveTask();
+            });
+        }
+        AlertDialog dialog = b.create();
+        dialog.setOnDismissListener(d -> ConsoleActivity.hideSystemBars(this));
+        dialog.show();
     }
 
     @Override

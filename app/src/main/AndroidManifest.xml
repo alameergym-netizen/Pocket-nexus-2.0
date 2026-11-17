@@ -71,6 +71,15 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- Cloud gaming in a real browser tab (Chrome), and links opened in apps -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
     </queries>
 
     <application
@@ -477,6 +486,13 @@
             android:resizeableActivity="false"
             android:taskAffinity="${applicationId}.overlay"
             android:theme="@style/PocketOverlayTheme" />
+
+        <!-- Pocket Nexus: Xbox Cloud Gaming's games, as covers -->
+        <activity
+            android:name=".pocket.cloud.CloudGamesActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape" />
 
         <!-- Pocket Nexus: Music (its player plays on in the background, with media controls) -->
         <activity

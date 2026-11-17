@@ -53,6 +53,9 @@ public final class HomeItem {
             case RETRO:
             case SHORTCUT:
                 return kind + ":" + a + ":" + b;
+            case CLOUD:
+                // A service, or one of its games (its own link)
+                return b.isEmpty() ? kind + ":" + a : kind + ":" + a + ":" + b;
             default:
                 return kind + ":" + a;
         }

@@ -16,6 +16,7 @@ import com.limelight.PcView;
 import com.limelight.R;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.pocket.PocketSounds;
+import com.limelight.pocket.cloud.CloudClients;
 import com.limelight.pocket.cloud.CloudService;
 import com.limelight.pocket.pclib.PcLaunchTicket;
 import com.limelight.pocket.pclib.PcLibrary;
@@ -53,7 +54,8 @@ public final class HomeLauncher {
                 }
                 HomeStore.record(a, item);
                 PocketSounds.play(a, PocketSounds.SELECT);
-                a.startActivity(s.playerIntent(a));
+                // A game of it starts straight in it (its own link), in the client picked
+                CloudClients.play(a, s, item.b.isEmpty() ? null : item.b);
                 return;
             }
             case HomeItem.RETRO:

@@ -1506,4 +1506,25 @@
     <string name="pocket_kb_h_enter">Enter</string>
     <string name="pocket_kb_h_close">Close</string>
     <string name="pocket_logo_size_this">This logo\'s size</string>
+    <string name="pocket_cloud_with_official">%1$s (official app)</string>
+    <string name="pocket_cloud_with_app">%1$s</string>
+    <string name="pocket_cloud_with_browser">%1$s (Google sign-in and the mic work)</string>
+    <string name="pocket_cloud_with_builtin">Pocket Nexus player (built in)</string>
+    <string name="pocket_cloud_cant_open">That couldn\'t open. Pick another way to play in the options (Y).</string>
+    <string name="pocket_cloud_google_title">Sign in with Google in Chrome</string>
+    <string name="pocket_cloud_google_message">Google only lets you sign in inside a real browser, not inside apps. Play %1$s in Chrome instead? You sign in there once and it stays signed in; the microphone works there too.</string>
+    <string name="pocket_cloud_google_stay">Not now</string>
+    <string name="pocket_cloud_google_chrome">Play in Chrome</string>
+    <string name="pocket_cloud_games_eyebrow">XBOX CLOUD GAMING</string>
+    <string name="pocket_cloud_games_title">Cloud games</string>
+    <string name="pocket_cloud_games_loading">Getting the games…</string>
+    <string name="pocket_cloud_games_offline">The games couldn\'t be loaded. Check the connection and try again.</string>
+    <string name="pocket_cloud_games_none">No game called “%1$s”. B clears the search.</string>
+    <string name="pocket_cloud_games_search">Search</string>
+    <string name="pocket_cloud_games_search_hint">A game\'s name</string>
+    <string name="pocket_cloud_games_refresh">Look the games up again</string>
+    <string name="pocket_cloud_games">Games</string>
+    <string name="pocket_cloud_play_with">Play with</string>
+    <string name="pocket_cloud_plays_with">Plays with %1$s</string>
+    <string name="pocket_cloud_clients_note">The official app is best when it\'s installed. Chrome is for Google sign-in and the mic. The built-in player is quickest and has the controller menu.</string>
 </resources>

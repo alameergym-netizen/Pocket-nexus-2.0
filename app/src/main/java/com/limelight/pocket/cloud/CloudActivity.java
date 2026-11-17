@@ -92,6 +92,7 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
             }
         }, R.id.appFragmentContainer);
         setHints(hintA(this, R.string.pocket_hero_play),
+                hintX(this, R.string.pocket_cloud_games),
                 hintY(this, R.string.pocket_hint_options),
                 hintShoulders(this, R.string.pocket_retro_hint_sections),
                 hintStart(this, R.string.pocket_hint_settings));
@@ -195,7 +196,7 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
         TextView subtitle = findViewById(R.id.pocketHeroSubtitle);
         if (subtitle != null) {
             subtitle.setVisibility(View.VISIBLE);
-            String sub = getString(s.about);
+            String sub = getString(R.string.pocket_cloud_plays_with, CloudClients.preferred(this, s).label);
             if (s.isRunning(this)) {
                 sub = getString(R.string.pocket_cloud_running) + "  ·  " + sub;
             }
@@ -247,11 +248,36 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
     private void play(CloudService s) {
         PocketSounds.play(this, PocketSounds.SELECT);
         com.limelight.pocket.home.HomeStore.record(this, homeItem(s));
-        try {
-            startActivity(s.playerIntent(this));
-        } catch (RuntimeException e) {
-            Toast.makeText(this, R.string.pocket_cloud_no_webview, Toast.LENGTH_LONG).show();
+        // Its official app, another full app, Chrome or the built-in player: the one picked
+        CloudClients.play(this, s, null);
+    }
+
+    /** X: Xbox Cloud Gaming's games, as covers (each starts straight away). */
+    @Override
+    protected boolean onButtonX() {
+        if (heroPos >= 0 && CloudService.ALL[heroPos] == CloudService.XCLOUD) {
+            PocketSounds.play(this, PocketSounds.OPEN);
+            CloudGamesActivity.open(this);
+            return true;
         }
+        return false;
+    }
+
+    /** Which way it's played, picked from what's on the handheld. */
+    private void pushClients(final CloudService s) {
+        List<StreamMenuView.Item> items = new ArrayList<>();
+        CloudClients.Client now = CloudClients.preferred(this, s);
+        for (final CloudClients.Client cl : CloudClients.available(this, s)) {
+            items.add(StreamMenuView.Item.action((cl.id().equals(now.id()) ? "\u2713  " : "") + cl.label, () -> {
+                CloudClients.setPreferred(this, s, cl);
+                PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                hideConsolePanel();
+                heroPos = -1;
+                updateHero(Math.max(0, java.util.Arrays.asList(CloudService.ALL).indexOf(s)));
+            }));
+        }
+        items.add(StreamMenuView.Item.note(getString(R.string.pocket_cloud_clients_note)));
+        pushConsolePage(getString(R.string.pocket_cloud_play_with), items);
     }
 
     @Override
@@ -275,6 +301,14 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
         List<StreamMenuView.Item> items = new ArrayList<>();
         items.add(StreamMenuView.Item.action(getString(s.isRunning(this) ? R.string.pocket_cloud_return : R.string.pocket_hero_play),
                 () -> play(s)));
+        if (s == CloudService.XCLOUD) {
+            items.add(StreamMenuView.Item.action(getString(R.string.pocket_cloud_games), () -> {
+                hideConsolePanel();
+                CloudGamesActivity.open(this);
+            }).withIcon("GAMEPAD"));
+        }
+        items.add(StreamMenuView.Item.submenu(getString(R.string.pocket_cloud_play_with), () -> pushClients(s))
+                .withValue(CloudClients.preferred(this, s).label));
         final String official = s.installedOfficial(this);
         if (official != null) {
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_cloud_open_official), () -> {
