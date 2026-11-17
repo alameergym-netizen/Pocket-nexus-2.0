@@ -279,6 +279,106 @@ public final class PocketIcons {
                 poly(c, p, false, false, new float[]{8f, 12.5f, 4f, 16.5f, 8f, 20.5f});
                 c.drawLine(4f, 16.5f, 18f, 16.5f, stroke(p));
                 break;
+            case "MUSIC":
+                c.drawLine(9f, 17f, 9f, 5.5f, stroke(p));
+                poly(c, p, false, false, new float[]{9f, 5.5f, 19f, 3.5f, 19f, 15f});
+                circle(c, p, 6.6f, 17.2f, 2.6f, true);
+                circle(c, p, 16.6f, 15.2f, 2.6f, true);
+                break;
+            case "FOLDER":
+                poly(c, p, true, false, new float[]{3.5f, 6.5f, 3.5f, 5f, 9.5f, 5f, 11.5f, 7f, 20.5f, 7f, 20.5f, 19f, 3.5f, 19f});
+                c.drawLine(3.5f, 10f, 20.5f, 10f, stroke(p));
+                break;
+            case "GLOBE":
+                circle(c, p, 12f, 12f, 9f, false);
+                c.drawLine(3f, 12f, 21f, 12f, stroke(p));
+                PATH.reset();
+                PATH.moveTo(12f, 3f);
+                PATH.cubicTo(8.6f, 6.6f, 8.6f, 17.4f, 12f, 21f);
+                PATH.moveTo(12f, 3f);
+                PATH.cubicTo(15.4f, 6.6f, 15.4f, 17.4f, 12f, 21f);
+                c.drawPath(PATH, stroke(p));
+                break;
+            case "SEARCH":
+                circle(c, p, 10.5f, 10.5f, 6.5f, false);
+                c.drawLine(15.3f, 15.3f, 20.5f, 20.5f, stroke(p));
+                break;
+            case "CHART":
+                c.drawLine(4f, 20f, 20f, 20f, stroke(p));
+                rect(c, p, 5.5f, 12f, 8.5f, 17.5f, 1f, true);
+                rect(c, p, 10.5f, 7f, 13.5f, 17.5f, 1f, true);
+                rect(c, p, 15.5f, 4f, 18.5f, 17.5f, 1f, true);
+                break;
+            case "GEAR":
+                circle(c, p, 12f, 12f, 3f, false);
+                for (int i = 0; i < 8; i++) {
+                    double a = Math.PI * 2 * i / 8;
+                    c.drawLine(12f + (float) Math.cos(a) * 6.4f, 12f + (float) Math.sin(a) * 6.4f,
+                            12f + (float) Math.cos(a) * 9f, 12f + (float) Math.sin(a) * 9f, stroke(p));
+                }
+                circle(c, p, 12f, 12f, 6.4f, false);
+                break;
+            case "PHOTO":
+                rect(c, p, 3.5f, 5f, 20.5f, 19f, 2.5f, false);
+                circle(c, p, 9f, 9.8f, 1.6f, true);
+                poly(c, p, false, false, new float[]{4f, 17.5f, 9.5f, 12.5f, 13f, 15.5f, 15.5f, 13f, 20f, 17f});
+                break;
+            case "APPS":
+                for (int r = 0; r < 3; r++) {
+                    for (int q = 0; q < 3; q++) {
+                        circle(c, p, 6f + q * 6f, 6f + r * 6f, 1.8f, true);
+                    }
+                }
+                break;
+            case "TRASH":
+                c.drawLine(4f, 6.5f, 20f, 6.5f, stroke(p));
+                poly(c, p, false, false, new float[]{9f, 6.5f, 9.6f, 4f, 14.4f, 4f, 15f, 6.5f});
+                poly(c, p, false, false, new float[]{6f, 6.5f, 7f, 20f, 17f, 20f, 18f, 6.5f});
+                c.drawLine(10f, 10f, 10f, 16.5f, stroke(p));
+                c.drawLine(14f, 10f, 14f, 16.5f, stroke(p));
+                break;
+            case "HOME":
+                poly(c, p, false, false, new float[]{3.5f, 11.5f, 12f, 4f, 20.5f, 11.5f});
+                poly(c, p, false, false, new float[]{6f, 9.5f, 6f, 20f, 18f, 20f, 18f, 9.5f});
+                rect(c, p, 10f, 14f, 14f, 20f, 1f, false);
+                break;
+            case "BELL":
+                PATH.reset();
+                PATH.moveTo(6f, 16.5f);
+                PATH.lineTo(6f, 11f);
+                PATH.cubicTo(6f, 7.4f, 8.6f, 4.8f, 12f, 4.8f);
+                PATH.cubicTo(15.4f, 4.8f, 18f, 7.4f, 18f, 11f);
+                PATH.lineTo(18f, 16.5f);
+                PATH.lineTo(19.5f, 18f);
+                PATH.lineTo(4.5f, 18f);
+                PATH.close();
+                c.drawPath(PATH, stroke(p));
+                arc(c, p, 12f, 19.2f, 2f, 0f, 180f);
+                break;
+            case "SHUFFLE":
+                poly(c, p, false, false, new float[]{3.5f, 7f, 7.5f, 7f, 15.5f, 17f, 20f, 17f});
+                poly(c, p, false, false, new float[]{3.5f, 17f, 7.5f, 17f, 15.5f, 7f, 20f, 7f});
+                poly(c, p, false, false, new float[]{17.5f, 4.5f, 20f, 7f, 17.5f, 9.5f});
+                poly(c, p, false, false, new float[]{17.5f, 14.5f, 20f, 17f, 17.5f, 19.5f});
+                break;
+            case "REPEAT":
+                poly(c, p, false, false, new float[]{4f, 11f, 4f, 7.5f, 19f, 7.5f});
+                poly(c, p, false, false, new float[]{16f, 4.5f, 19f, 7.5f, 16f, 10.5f});
+                poly(c, p, false, false, new float[]{20f, 13f, 20f, 16.5f, 5f, 16.5f});
+                poly(c, p, false, false, new float[]{8f, 13.5f, 5f, 16.5f, 8f, 19.5f});
+                break;
+            case "NEXT":
+                poly(c, p, true, true, new float[]{5f, 5.5f, 15f, 12f, 5f, 18.5f});
+                c.drawLine(18.5f, 5.5f, 18.5f, 18.5f, stroke(p));
+                break;
+            case "PREV":
+                poly(c, p, true, true, new float[]{19f, 5.5f, 9f, 12f, 19f, 18.5f});
+                c.drawLine(5.5f, 5.5f, 5.5f, 18.5f, stroke(p));
+                break;
+            case "PAUSE":
+                rect(c, p, 6f, 4.5f, 10f, 19.5f, 1.2f, true);
+                rect(c, p, 14f, 4.5f, 18f, 19.5f, 1.2f, true);
+                break;
             default:
                 circle(c, p, 12f, 12f, 1.6f, true);
                 break;
@@ -334,6 +434,22 @@ public final class PocketIcons {
             case "STAR":
             case "INFO":
             case "SWAP":
+            case "MUSIC":
+            case "FOLDER":
+            case "GLOBE":
+            case "SEARCH":
+            case "CHART":
+            case "GEAR":
+            case "PHOTO":
+            case "APPS":
+            case "TRASH":
+            case "HOME":
+            case "BELL":
+            case "SHUFFLE":
+            case "REPEAT":
+            case "NEXT":
+            case "PREV":
+            case "PAUSE":
                 return true;
             default:
                 return false;

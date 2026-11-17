@@ -1436,4 +1436,64 @@
     <string name="pocket_video_close">Close</string>
     <string name="pocket_video_trying_another">That upload only plays on YouTube\nTrying another one…</string>
     <string name="pocket_video_looking_more">Looking for another upload…</string>
+    <string name="pocket_music_title">Music</string>
+    <string name="pocket_music_albums">Albums</string>
+    <string name="pocket_music_artists">Artists</string>
+    <string name="pocket_music_songs">Songs</string>
+    <string name="pocket_music_folders">Folders</string>
+    <string name="pocket_music_need_access">Pocket Nexus needs access to your music.\nAllow it, then come back.</string>
+    <string name="pocket_music_loading">Finding your music…</string>
+    <string name="pocket_music_empty">No music here yet.\nCopy songs to the Music folder (or anywhere on the SD card) and they show up.</string>
+    <string name="pocket_music_detail_hint">A plays a song  ·  X shuffles them all</string>
+    <string name="pocket_music_hint_select">Select</string>
+    <string name="pocket_music_hint_skip">Skip</string>
+    <string name="pocket_music_hint_shuffle">Shuffle</string>
+    <string name="pocket_music_hint_play">Play</string>
+    <string name="pocket_music_hint_open">Open</string>
+    <string name="pocket_music_hint_now">Now playing</string>
+    <string name="pocket_music_hint_pause">Play / Pause</string>
+    <string name="pocket_music_hint_close">Close</string>
+    <string name="pocket_music_now_playing">NOW PLAYING</string>
+    <string name="pocket_music_up_next">UP NEXT</string>
+    <plurals name="pocket_music_n_albums">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
+    <plurals name="pocket_music_n_artists">
+        <item quantity="one">%d artist</item>
+        <item quantity="other">%d artists</item>
+    </plurals>
+    <plurals name="pocket_music_n_songs">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+    <plurals name="pocket_music_n_folders">
+        <item quantity="one">%d folder</item>
+        <item quantity="other">%d folders</item>
+    </plurals>
+    <string name="pocket_nexus_music">Music</string>
+    <string name="pocket_nexus_music_about">Your songs by album, artist and folder. It plays on in the background and over your games.</string>
+    <string name="pocket_nexus_files">Files</string>
+    <string name="pocket_nexus_files_about">Everything on the handheld and the SD card: copy, move, rename, install and open, with the controller.</string>
+    <string name="pocket_nexus_browser">Browser</string>
+    <string name="pocket_nexus_browser_about">The web with the controller: a pointer on the stick, scrolling on the other, your bookmarks.</string>
+    <string name="pocket_nexus_search">Search</string>
+    <string name="pocket_nexus_search_about">Find any game, app, setting or song across every section at once.</string>
+    <string name="pocket_nexus_stats">Your Play</string>
+    <string name="pocket_nexus_stats_about">How long you played, day by day, and what you played most.</string>
+    <string name="pocket_nexus_apps">All Apps</string>
+    <string name="pocket_nexus_apps_about">Every app on the handheld, to open, add to a section or uninstall.</string>
+    <string name="pocket_nexus_settings">Settings</string>
+    <string name="pocket_nexus_settings_about">How Pocket Nexus looks, sounds and plays: the buttons, the streams, the controls.</string>
+    <string name="pocket_dock_title">Dock</string>
+    <string name="pocket_dock_move_left">Move left</string>
+    <string name="pocket_dock_move_right">Move right</string>
+    <string name="pocket_dock_remove">Remove from the dock</string>
+    <string name="pocket_dock_add_nexus">Add a Pocket Nexus app</string>
+    <string name="pocket_dock_add_app">Add an app</string>
+    <string name="pocket_dock_reset">Back to the usual buttons</string>
+    <string name="pocket_dock_all_there">They\'re all on the dock already.</string>
+    <string name="pocket_apps_filter_nexus">Nexus Apps</string>
+    <string name="pocket_apps_nexus_sub">Music, Files, the browser and more, made for the controller</string>
+    <string name="pocket_apps_type_nexus">Pocket Nexus app</string>
 </resources>

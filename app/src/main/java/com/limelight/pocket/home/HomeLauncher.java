@@ -81,6 +81,12 @@ public final class HomeLauncher {
                     Toast.makeText(a, R.string.pocket_home_shortcut_failed, Toast.LENGTH_LONG).show();
                 }
                 return;
+            case HomeItem.NEXUS:
+                if (com.limelight.pocket.apps.NexusApps.open(a, item.a)) {
+                    HomeStore.record(a, item);
+                    PocketSounds.play(a, PocketSounds.OPEN);
+                }
+                return;
             case HomeItem.NATIVE:
                 if (startNative(a, item)) {
                     HomeStore.record(a, item);

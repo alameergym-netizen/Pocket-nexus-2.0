@@ -27,6 +27,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.limelight.pocket.apps.NexusApps;
+
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -71,15 +73,21 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     private static final int FILTER_GAMES = 1;
     private static final int FILTER_EMULATORS = 2;
     private static final int FILTER_SETTINGS = 3;
-    private static final int FILTER_COUNT = 4;
+    /** Pocket Nexus's own apps (Music, Files, the browser ...). */
+    private static final int FILTER_NEXUS = 4;
+    private static final int FILTER_COUNT = 5;
 
     static final int TYPE_APP = 0;
     static final int TYPE_GAME = 1;
     static final int TYPE_EMULATOR = 2;
     static final int TYPE_SETTING = 3;
+    static final int TYPE_NEXUS = 4;
     private static final String PANEL = "pocket:device_panel";
     /** The last card of the row: every app on the handheld (the app drawer). */
     private static final String DRAWER = "pocket:all_apps";
+    /** The card that shows Pocket Nexus's own apps (the Nexus filter). */
+    private static final String NEXUS_GROUP = "pocket:nexus";
+    private static final String NEXUS = "nexus:";
 
     public static void open(Activity from) {
         PocketSounds.play(from, PocketSounds.OPEN);
@@ -106,7 +114,19 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         }
 
         int id() {
+            if (type == TYPE_NEXUS) {
+                return NexusApps.idFor(settingsAction.substring(NEXUS.length()));
+            }
             return packageName != null ? AndroidLibrary.idFor(packageName) : 0;
+        }
+
+        /** Where its art is kept. */
+        String uuid() {
+            return type == TYPE_NEXUS ? NexusApps.UUID : AndroidLibrary.UUID;
+        }
+
+        boolean hasArt() {
+            return packageName != null || type == TYPE_NEXUS;
         }
     }
 
@@ -143,12 +163,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         }
         SectionBar.attach(this, SectionBar.ANDROID);
         hide(R.id.profilesButton);
-        TextView add = findViewById(R.id.pocketPcLibraryButton);
-        if (add != null) {
-            // Every app on the handheld (picking the section's apps is in the options)
-            add.setText("\u229E  " + getString(R.string.pocket_drawer_open_short));
-            add.setOnClickListener(v -> AppDrawerActivity.open(this));
-        }
+        // No pill at the bottom: every app is the last card of the row ("All apps")
+        hide(R.id.pocketPcLibraryButton);
 
         carousel = findViewById(R.id.pocketAppCarousel);
         carousel.setLayoutManager(new AnchoredLayoutManager(this));
@@ -246,6 +262,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 return a.label.compareToIgnoreCase(b.label);
             });
             apps.addAll(settingsEntries());
+            apps.addAll(nexusEntries());
+            NexusApps.ensureArt(this);
             main.post(() -> {
                 if (isFinishing()) {
                     return;
@@ -326,8 +344,19 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         return s;
     }
 
+    /** Pocket Nexus's own apps, as cards with their own art. */
+    private List<Entry> nexusEntries() {
+        List<Entry> out = new ArrayList<>();
+        for (NexusApps.App a : NexusApps.ALL) {
+            out.add(new Entry(NEXUS + a.id, getString(a.label), TYPE_NEXUS, null, NEXUS + a.id, 0));
+        }
+        return out;
+    }
+
     private boolean matches(Entry e) {
         switch (filter) {
+            case FILTER_NEXUS:
+                return e.type == TYPE_NEXUS;
             case FILTER_GAMES:
                 return e.type == TYPE_GAME;
             case FILTER_EMULATORS:
@@ -335,8 +364,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             case FILTER_SETTINGS:
                 return e.type == TYPE_SETTING;
             default:
-                // Everything picked for the library (the settings have their own filter)
-                return e.type != TYPE_SETTING;
+                // Everything picked for the library (the settings and Pocket Nexus's apps have their own)
+                return e.type != TYPE_SETTING && e.type != TYPE_NEXUS;
         }
     }
 
@@ -348,6 +377,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             }
         }
         if (filter == FILTER_ALL) {
+            shown.add(new Entry("nexusgroup", getString(R.string.pocket_apps_filter_nexus), TYPE_SETTING, null, NEXUS_GROUP,
+                    R.drawable.ic_pocket_all_apps));
             shown.add(new Entry("drawer", getString(R.string.pocket_drawer_title), TYPE_SETTING, null, DRAWER,
                     R.drawable.ic_pocket_all_apps));
         }
@@ -419,6 +450,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 return R.string.pocket_apps_filter_emulators;
             case FILTER_SETTINGS:
                 return R.string.pocket_apps_filter_settings;
+            case FILTER_NEXUS:
+                return R.string.pocket_apps_filter_nexus;
             default:
                 return R.string.pocket_apps_filter_all;
         }
@@ -446,7 +479,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         TextView subtitle = findViewById(R.id.pocketHeroSubtitle);
         if (subtitle != null) {
             subtitle.setVisibility(View.VISIBLE);
-            subtitle.setText(DRAWER.equals(e.settingsAction) ? R.string.pocket_drawer_sub : typeLabel(e.type));
+            subtitle.setText(DRAWER.equals(e.settingsAction) ? R.string.pocket_drawer_sub
+                    : NEXUS_GROUP.equals(e.settingsAction) ? R.string.pocket_apps_nexus_sub : typeLabel(e.type));
         }
         hide(R.id.pocketHeroPlaytime);
         TextView play = findViewById(R.id.pocketHeroPlay);
@@ -471,27 +505,27 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         if (logo != null) {
             logo.setVisibility(View.GONE);
         }
-        if (e.packageName == null) {
+        if (!e.hasArt()) {
             if (keyArt != null) {
                 keyArt.show(null);
             }
             return;
         }
         final String key = e.key;
-        PocketArt.load(this, AndroidLibrary.UUID, e.id(), PocketArt.HERO, bitmap -> {
+        PocketArt.load(this, e.uuid(), e.id(), PocketArt.HERO, bitmap -> {
             if (key.equals(heroKey) && keyArt != null) {
                 keyArt.show(bitmap);
             }
         });
-        PocketArt.load(this, AndroidLibrary.UUID, e.id(), PocketArt.LOGO, bitmap -> {
+        PocketArt.load(this, e.uuid(), e.id(), PocketArt.LOGO, bitmap -> {
             if (key.equals(heroKey) && bitmap != null && logo != null && title != null) {
                 logo.setImageBitmap(bitmap);
                 logo.setVisibility(View.VISIBLE);
                 title.setVisibility(View.GONE);
             }
         });
-        if (!PocketArt.has(this, AndroidLibrary.UUID, e.id(), PocketArt.COVER)
-                || !PocketArt.has(this, AndroidLibrary.UUID, e.id(), PocketArt.HERO)) {
+        if (e.packageName != null && (!PocketArt.has(this, AndroidLibrary.UUID, e.id(), PocketArt.COVER)
+                || !PocketArt.has(this, AndroidLibrary.UUID, e.id(), PocketArt.HERO))) {
             scrape(e, false);
         }
     }
@@ -504,6 +538,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 return R.string.pocket_apps_type_emulator;
             case TYPE_SETTING:
                 return R.string.pocket_apps_type_setting;
+            case TYPE_NEXUS:
+                return R.string.pocket_apps_type_nexus;
             default:
                 return R.string.pocket_apps_type_app;
         }
@@ -615,7 +651,7 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         if (e == null) {
             return;
         }
-        if (e.packageName != null && e.type != TYPE_SETTING) {
+        if (e.packageName != null && e.type != TYPE_SETTING && e.type != TYPE_NEXUS) {
             openPage(e);
         }
         else {
@@ -636,7 +672,24 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
 
     private void open(Entry e) {
         try {
+            if (e.type == TYPE_NEXUS) {
+                String id = e.settingsAction.substring(NEXUS.length());
+                PocketSounds.play(this, PocketSounds.OPEN);
+                NexusApps.App app = NexusApps.byId(id);
+                if (app != null) {
+                    com.limelight.pocket.home.HomeStore.record(this, NexusApps.item(this, app));
+                }
+                NexusApps.open(this, id);
+                return;
+            }
             if (e.type == TYPE_SETTING) {
+                if (NEXUS_GROUP.equals(e.settingsAction)) {
+                    // The Nexus filter: Pocket Nexus's own apps
+                    filter = FILTER_NEXUS;
+                    PocketSounds.play(this, PocketSounds.NAV);
+                    show();
+                    return;
+                }
                 if (DRAWER.equals(e.settingsAction)) {
                     AppDrawerActivity.open(this);
                     return;
@@ -684,6 +737,22 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     public void onItemOptions(int position, View itemView) {
         final Entry e = entryAt(position);
         if (e == null || e.type == TYPE_SETTING) {
+            return;
+        }
+        if (e.type == TYPE_NEXUS) {
+            // Pocket Nexus's own: open it, or put it on Home
+            NexusApps.App app = NexusApps.byId(e.settingsAction.substring(NEXUS.length()));
+            if (app == null) {
+                return;
+            }
+            List<StreamMenuView.Item> items = new ArrayList<>();
+            items.add(StreamMenuView.Item.action(getString(R.string.pocket_apps_open), () -> {
+                hideConsolePanel();
+                open(e);
+            }));
+            items.add(com.limelight.pocket.home.HomePins.item(this, NexusApps.item(this, app)));
+            PocketSounds.play(this, PocketSounds.OPEN);
+            showConsolePanel(e.label, getString(app.blurb), null, items);
             return;
         }
         List<StreamMenuView.Item> items = new ArrayList<>();
@@ -841,6 +910,14 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             }
             return made;
         }
+        if (e.type == TYPE_NEXUS) {
+            NexusApps.App app = NexusApps.byId(e.settingsAction.substring(NEXUS.length()));
+            Bitmap made = app != null ? NexusApps.cover(app, e.label, w, h) : null;
+            if (made != null) {
+                ICONS.put(e.key, made);
+            }
+            return made;
+        }
         Drawable icon;
         try {
             icon = e.type == TYPE_SETTING ? getDrawable(e.settingsIcon) : getPackageManager().getApplicationIcon(e.packageName);
@@ -936,7 +1013,7 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             }
             image.setTag(tag);
             // A cover picked or found for it first; its icon on a card of its colour otherwise
-            Bitmap own = e.packageName != null ? HeroArt.cachedCard(AndroidAppsActivity.this, AndroidLibrary.UUID, e.id(), e.label) : null;
+            Bitmap own = e.hasArt() ? HeroArt.cachedCard(AndroidAppsActivity.this, e.uuid(), e.id(), e.label) : null;
             if (own != null) {
                 image.setImageBitmap(own);
                 text.setVisibility(View.GONE);
@@ -949,7 +1026,7 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             final int w = Math.round(108 * d);
             final int h = Math.round(162 * d);
             work.execute(() -> {
-                final Bitmap cover = e.packageName != null ? HeroArt.loadCard(AndroidAppsActivity.this, AndroidLibrary.UUID, e.id(), e.label) : null;
+                final Bitmap cover = e.hasArt() ? HeroArt.loadCard(AndroidAppsActivity.this, e.uuid(), e.id(), e.label) : null;
                 final Bitmap made = cover != null ? cover : cardFor(e, w, h);
                 main.post(() -> {
                     if (made != null && tag.equals(image.getTag())) {

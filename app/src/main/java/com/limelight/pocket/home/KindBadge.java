@@ -58,6 +58,8 @@ public final class KindBadge extends Drawable {
                 return 0xFFF472B6;
             case HomeItem.NATIVE:
                 return 0xFF34D399;
+            case HomeItem.NEXUS:
+                return 0xFFFFFFFF;
             default:
                 return 0xFFE5E7EB;
         }

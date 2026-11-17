@@ -19,6 +19,8 @@ public final class HomeItem {
     public static final String SHORTCUT = "shortcut";
     /** A PC game run on the handheld by GameNative / GameHub Lite (a: which, b: the store, n: its id). */
     public static final String NATIVE = "native";
+    /** One of Pocket Nexus's own apps (a: which: music, files, browser ...). */
+    public static final String NEXUS = "nexus";
 
     public final String kind;
     public final String name;

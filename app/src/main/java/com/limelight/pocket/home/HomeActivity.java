@@ -167,6 +167,10 @@ public class HomeActivity extends ConsoleActivity {
     private float d;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService work = Executors.newFixedThreadPool(2);
+    /** The round buttons under the games (Music, Files ... and apps put there). */
+    private HomeDock dock;
+    /** The widgets, DOWN from the dock. */
+    private WidgetShelf widgets;
     private static final LruCache<String, Bitmap> TILE_ART = new LruCache<String, Bitmap>(16 * 1024 * 1024) {
         @Override
         protected int sizeOf(String key, Bitmap value) {
@@ -237,6 +241,26 @@ public class HomeActivity extends ConsoleActivity {
         meta = findViewById(R.id.homeMeta);
         glow = findViewById(R.id.homeGlow);
         row.setItemAnimator(null);
+        dock = new HomeDock(this, new HomeDock.Host() {
+            @Override
+            public void dockUp() {
+                focusAt(Math.max(0, heroPos), 0);
+            }
+
+            @Override
+            public void dockWidgets() {
+                if (widgets != null) {
+                    widgets.open();
+                }
+            }
+        });
+        FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                Math.round(100 * d), Gravity.BOTTOM | Gravity.START);
+        dlp.setMarginStart(Math.round(30 * d));
+        dlp.bottomMargin = Math.round(14 * d);
+        ((ViewGroup) findViewById(R.id.pocketMain)).addView(dock.view(), dlp);
+        dock.refresh();
+        widgets = new WidgetShelf(this, () -> dock.focusLast());
         applyLayout(false);
         row.setAdapter(tiles);
         setUpActions();
@@ -253,7 +277,8 @@ public class HomeActivity extends ConsoleActivity {
         row.getViewTreeObserver().addOnTouchModeChangeListener(inTouch -> {
             if (!inTouch && !isFinishing() && !isConsolePanelShowing()) {
                 View f = getCurrentFocus();
-                boolean inside = f != null && (row.hasFocus() || f == play || f == info || f == more);
+                boolean inside = f != null && (row.hasFocus() || f == play || f == info || f == more
+                        || (dock != null && dock.hasFocus()));
                 if (!inside && !entries.isEmpty()) {
                     focusAt(heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
                 }
@@ -261,6 +286,16 @@ public class HomeActivity extends ConsoleActivity {
         });
         load();
         handleGlobal(getIntent());
+        // Pocket Nexus's own apps' covers (drawn once)
+        work.execute(() -> {
+            com.limelight.pocket.apps.NexusApps.ensureArt(this);
+            main.post(() -> {
+                if (!isFinishing()) {
+                    TILE_ART.evictAll();
+                    tiles.notifyDataSetChanged();
+                }
+            });
+        });
     }
 
     // ---- From the buttons in every game (GlobalButtonService) ---------------------------------
@@ -312,6 +347,9 @@ public class HomeActivity extends ConsoleActivity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        if (dock != null) {
+            dock.refresh();
+        }
         scheduleAmbient();
         if (binder != null) {
             startPolling();
@@ -338,8 +376,27 @@ public class HomeActivity extends ConsoleActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        if (widgets != null) {
+            widgets.onStart();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (widgets != null) {
+            widgets.onStop();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (widgets != null) {
+            widgets.onDestroy();
+        }
         cancelPending();
         work.shutdownNow();
         if (bound) {
@@ -465,6 +522,8 @@ public class HomeActivity extends ConsoleActivity {
                 return "native";
             case HomeItem.CLOUD:
                 return "cloud";
+            case HomeItem.NEXUS:
+                return com.limelight.pocket.apps.NexusApps.UUID;
             default:
                 return null;
         }
@@ -480,6 +539,8 @@ public class HomeActivity extends ConsoleActivity {
                 return RomScanner.idFor(i.a, i.b);
             case HomeItem.ANDROID:
                 return AndroidLibrary.idFor(i.a);
+            case HomeItem.NEXUS:
+                return com.limelight.pocket.apps.NexusApps.idFor(i.a);
             default: {
                 int h = i.key().hashCode() & 0x3FFFFFFF;
                 return h == 0 ? 1 : h;
@@ -539,29 +600,27 @@ public class HomeActivity extends ConsoleActivity {
             whenView.setVisibility(View.GONE);
             return;
         }
-        HomeItem item = e.item;
-        Drawable icon = sourceIcon(item);
-        int bs = Math.round(18 * d);
-        icon.setBounds(0, 0, bs, bs);
-        source.setCompoundDrawablesRelative(icon, null, null, null);
-        source.setText(sourceLabel(e));
-        GradientDrawable chip = new GradientDrawable();
-        chip.setCornerRadius(100 * d);
-        chip.setColor(0x52000000);
-        source.setBackground(chip);
-        source.setPadding(Math.round(5 * d), Math.round(5 * d), Math.round(12 * d), Math.round(5 * d));
-        source.setVisibility(View.VISIBLE);
+        // Where it comes from isn't shown (its art and the section say it): just when it was played
+        source.setCompoundDrawablesRelative(null, null, null, null);
+        source.setBackground(null);
+        source.setPadding(0, 0, 0, 0);
+        source.setText("");
+        source.setVisibility(View.GONE);
         if (e.lastUsed > 0) {
             Drawable clock = getDrawable(R.drawable.ic_pocket_clock);
             if (clock != null) {
                 clock = clock.mutate();
-                clock.setTint(0xBFFFFFFF);
-                int cs = Math.round(12 * d);
+                clock.setTint(0xC7FFFFFF);
+                int cs = Math.round(14 * d);
                 clock.setBounds(0, 0, cs, cs);
             }
             whenView.setCompoundDrawablesRelative(clock, null, null, null);
             whenView.setText(DateUtils.getRelativeTimeSpanString(e.lastUsed, System.currentTimeMillis(),
                     DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE));
+            styleMeta(whenView);
+            ViewGroup.MarginLayoutParams wlp = (ViewGroup.MarginLayoutParams) whenView.getLayoutParams();
+            wlp.setMarginStart(0);
+            whenView.setLayoutParams(wlp);
             whenView.setVisibility(View.VISIBLE);
         }
         else {
@@ -773,7 +832,7 @@ public class HomeActivity extends ConsoleActivity {
                 PocketMotion.swapText(title, name, dir);
             }
             setDesc(null);
-            setMeta(e, GameInfoService.cached(RomScanner.searchName(name)));
+            setMeta(e, HomeItem.NEXUS.equals(item.kind) ? null : GameInfoService.cached(RomScanner.searchName(name)));
             heroEntrance(dir);
             refreshTrophies(e);
             Bitmap tile = TILE_ART.get(item.key() + "|" + (layout != null ? layout.shape : ""));
@@ -783,7 +842,7 @@ public class HomeActivity extends ConsoleActivity {
         }
         play.setText(playLabel(item));
         setPlayIcon(false);
-        info.setVisibility(artUuid(item) != null ? View.VISIBLE : View.GONE);
+        info.setVisibility(artUuid(item) != null && !HomeItem.NEXUS.equals(item.kind) ? View.VISIBLE : View.GONE);
         more.setVisibility(View.VISIBLE);
     }
 
@@ -846,6 +905,11 @@ public class HomeActivity extends ConsoleActivity {
 
     /** A line about the game, when one is known (looked up once you rest on it). */
     private void loadDescription(final HomeItem item, final String name) {
+        if (HomeItem.NEXUS.equals(item.kind)) {
+            com.limelight.pocket.apps.NexusApps.App app = com.limelight.pocket.apps.NexusApps.byId(item.a);
+            setDesc(app != null ? getString(app.blurb) : null);
+            return;
+        }
         if (artUuid(item) == null || HomeItem.SHORTCUT.equals(item.kind)) {
             return;
         }
@@ -922,7 +986,20 @@ public class HomeActivity extends ConsoleActivity {
             }
         });
         // Art for what has none yet
-        if (!PocketArt.has(this, uuid, id, PocketArt.HERO)) {
+        if (HomeItem.NEXUS.equals(e.item.kind)) {
+            // Pocket Nexus's own apps draw theirs
+            if (!PocketArt.has(this, uuid, id, PocketArt.HERO)) {
+                work.execute(() -> {
+                    com.limelight.pocket.apps.NexusApps.ensureArt(this);
+                    main.post(() -> {
+                        if (!isFinishing()) {
+                            refreshArt(key);
+                        }
+                    });
+                });
+            }
+        }
+        else if (!PocketArt.has(this, uuid, id, PocketArt.HERO)) {
             ArtScraper.Item item = new ArtScraper.Item(uuid, id, RomScanner.searchName(displayName(e.item)));
             if (HomeItem.NATIVE.equals(e.item.kind)) {
                 item.steamAppId = e.item.n;
@@ -984,25 +1061,27 @@ public class HomeActivity extends ConsoleActivity {
             meta.setVisibility(View.GONE);
             return;
         }
+        // A thin dot between the parts (and after "when", when it's there)
+        metaLead = whenView != null && whenView.getVisibility() == View.VISIBLE;
         // The critics' score (Metacritic, OpenCritic...) and the players' (Steam, Google Play)
         GameInfo.Rating critics = info != null ? info.criticScore() : null;
         if (critics != null) {
-            meta.addView(ratingChip(critics.score, critics.value, critics.source));
+            addMeta(ratingChip(critics.score, critics.value, critics.source));
         }
         else if (info != null && info.metacritic > 0) {
-            meta.addView(ratingChip(info.metacritic, String.valueOf(info.metacritic), getString(R.string.pocket_meta_metacritic)));
+            addMeta(ratingChip(info.metacritic, String.valueOf(info.metacritic), getString(R.string.pocket_meta_metacritic)));
         }
         GameInfo.Rating players = info != null ? info.playerScore() : null;
         if (players != null) {
-            meta.addView(ratingChip(players.score, players.value, players.source));
+            addMeta(ratingChip(players.score, players.value, players.source));
         }
         String trophies = com.limelight.pocket.retro.Achievements.chip(this, e.item);
         if (trophies != null) {
-            meta.addView(metaChip(R.drawable.ic_pocket_trophy, trophies));
+            addMeta(metaChip(R.drawable.ic_pocket_trophy, trophies));
         }
         String played = PlayTime.format(this, PlayTime.seconds(this, e.item));
         if (played != null) {
-            meta.addView(metaChip(R.drawable.ic_pocket_clock, played));
+            addMeta(metaChip(R.drawable.ic_pocket_hourglass, played));
         }
         if (info != null) {
             StringBuilder sb = new StringBuilder();
@@ -1012,12 +1091,12 @@ public class HomeActivity extends ConsoleActivity {
             String year = info.releaseDate != null ? info.releaseDate.replaceAll(".*?(\\d{4}).*", "$1") : null;
             if (year != null && year.matches("\\d{4}")) {
                 if (sb.length() > 0) {
-                    sb.append("  \u00b7  ");
+                    sb.append(", ");
                 }
                 sb.append(year);
             }
             if (sb.length() > 0) {
-                meta.addView(metaChip(0, sb.toString()));
+                addMeta(metaChip(0, sb.toString()));
             }
         }
         boolean was = meta.getVisibility() == View.VISIBLE;
@@ -1028,36 +1107,54 @@ public class HomeActivity extends ConsoleActivity {
         }
     }
 
+    private boolean metaLead;
+
+    /** One part of the line under the name, after a thin dot when something comes before it. */
+    private void addMeta(View v) {
+        if (meta.getChildCount() > 0 || metaLead) {
+            View dot = new View(this);
+            GradientDrawable g = new GradientDrawable();
+            g.setShape(GradientDrawable.OVAL);
+            g.setColor(0x73FFFFFF);
+            dot.setBackground(g);
+            int s = Math.round(3.5f * d);
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(s, s);
+            dlp.setMarginStart(Math.round(10 * d));
+            dlp.setMarginEnd(Math.round(10 * d));
+            meta.addView(dot, dlp);
+        }
+        meta.addView(v);
+    }
+
+    /** The line's type: small, bright, a little apart, with a soft shadow over any art. */
+    private void styleMeta(TextView t) {
+        t.setTypeface(PocketFonts.semibold());
+        t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        t.setTextColor(0xE0FFFFFF);
+        t.setLetterSpacing(0.01f);
+        t.setIncludeFontPadding(false);
+        t.setShadowLayer(10 * d, 0, d, 0x99000000);
+        t.setCompoundDrawablePadding(Math.round(6 * d));
+    }
+
     private TextView metaChip(int icon, String text) {
         TextView chip = new TextView(this);
         chip.setText(text);
-        chip.setTypeface(PocketFonts.medium());
-        chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f);
-        chip.setTextColor(0xE6FFFFFF);
-        chip.setIncludeFontPadding(false);
+        styleMeta(chip);
         chip.setGravity(Gravity.CENTER_VERTICAL);
         chip.setMaxLines(1);
-        chip.setPadding(Math.round(9 * d), Math.round(5 * d), Math.round(10 * d), Math.round(5 * d));
-        GradientDrawable bg = new GradientDrawable();
-        // A small badge, not a ring (console style: no outline)
-        bg.setCornerRadius(6 * d);
-        bg.setColor(0x40FFFFFF);
-        chip.setBackground(bg);
         if (icon != 0) {
             Drawable dr = getDrawable(icon);
             if (dr != null) {
                 dr = dr.mutate();
-                dr.setTint(0xE6FFFFFF);
-                int sz = Math.round(12 * d);
+                dr.setTint(0xC7FFFFFF);
+                int sz = Math.round(14 * d);
                 dr.setBounds(0, 0, sz, sz);
                 chip.setCompoundDrawablesRelative(dr, null, null, null);
-                chip.setCompoundDrawablePadding(Math.round(5 * d));
             }
         }
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMarginEnd(Math.round(6 * d));
-        chip.setLayoutParams(lp);
+        chip.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         return chip;
     }
 
@@ -1066,40 +1163,31 @@ public class HomeActivity extends ConsoleActivity {
         LinearLayout chip = new LinearLayout(this);
         chip.setOrientation(LinearLayout.HORIZONTAL);
         chip.setGravity(Gravity.CENTER_VERTICAL);
-        chip.setPadding(Math.round(3 * d), Math.round(3 * d), Math.round(10 * d), Math.round(3 * d));
-        GradientDrawable bg = new GradientDrawable();
-        // A small badge, not a ring (console style: no outline)
-        bg.setCornerRadius(6 * d);
-        bg.setColor(0x40FFFFFF);
-        chip.setBackground(bg);
         TextView box = new TextView(this);
         box.setText(value);
         box.setTypeface(PocketFonts.bold());
-        box.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10.5f);
+        box.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11.5f);
         box.setIncludeFontPadding(false);
         box.setGravity(Gravity.CENTER);
         int color = com.limelight.pocket.info.Ratings.color(score);
         box.setTextColor(score >= 50 && score < 75 ? 0xFF1A1A1A : 0xFFFFFFFF);
         GradientDrawable sq = new GradientDrawable();
-        sq.setCornerRadius(4 * d);
+        sq.setCornerRadius(5 * d);
         sq.setColor(color);
         box.setBackground(sq);
-        box.setPadding(Math.round(6 * d), Math.round(3 * d), Math.round(6 * d), Math.round(3 * d));
+        box.setMinWidth(Math.round(26 * d));
+        box.setPadding(Math.round(6 * d), Math.round(4 * d), Math.round(6 * d), Math.round(4 * d));
+        box.setElevation(2 * d);
         chip.addView(box);
         TextView label = new TextView(this);
         label.setText(source);
-        label.setTypeface(PocketFonts.medium());
-        label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f);
-        label.setTextColor(0xE6FFFFFF);
-        label.setIncludeFontPadding(false);
+        styleMeta(label);
         LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        llp.setMarginStart(Math.round(6 * d));
+        llp.setMarginStart(Math.round(7 * d));
         chip.addView(label, llp);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMarginEnd(Math.round(6 * d));
-        chip.setLayoutParams(lp);
+        chip.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         return chip;
     }
 
@@ -1203,6 +1291,9 @@ public class HomeActivity extends ConsoleActivity {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 wakeFromAmbient();
             }
+            return true;
+        }
+        if (widgets != null && widgets.isOpen() && !isConsolePanelShowing() && widgets.handleKey(event)) {
             return true;
         }
         return super.dispatchKeyEvent(event);
@@ -1328,8 +1419,12 @@ public class HomeActivity extends ConsoleActivity {
             rlp.height = tileH + Math.round(20 * d);
             rlp.gravity = Gravity.BOTTOM;
             rlp.topMargin = 0;
-            // Clear of the button hints under it
-            int bottom = 40;
+            // Clear of the button hints under it, and of the dock (the round buttons) when it's there
+            boolean withDock = dock != null && !portal;
+            int bottom = withDock ? 84 : 40;
+            if (dock != null) {
+                dock.view().setVisibility(withDock ? View.VISIBLE : View.GONE);
+            }
             rlp.bottomMargin = Math.round(bottom * d);
             // The hero gets what's left above the row and its label: its logo and description
             // fit themselves to that (so nothing runs into the row on a shorter screen)
@@ -1377,6 +1472,9 @@ public class HomeActivity extends ConsoleActivity {
             }
         }
         else {
+            if (dock != null) {
+                dock.view().setVisibility(View.GONE);
+            }
             int cell = tileW + Math.round((list ? 0 : 22) * d);
             int width = Math.round(screenW * (list ? 0.44f : 0.62f));
             if (list) {
@@ -1594,6 +1692,9 @@ public class HomeActivity extends ConsoleActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (widgets != null && widgets.onActivityResult(requestCode, resultCode, data)) {
+            return;
+        }
         if (requestCode == PcLibraryActivity.REQUEST) {
             String uuid = pcGamesUuid;
             pcGamesUuid = null;
@@ -1978,6 +2079,7 @@ public class HomeActivity extends ConsoleActivity {
             case HomeItem.ANDROID:
             case HomeItem.SHORTCUT:
             case HomeItem.NATIVE:
+            case HomeItem.NEXUS:
                 SectionBar.go(this, SectionBar.HOME, SectionBar.ANDROID);
                 break;
             default:
@@ -2217,8 +2319,12 @@ public class HomeActivity extends ConsoleActivity {
             super.onBackPressed();
             return;
         }
+        if (widgets != null && widgets.isOpen()) {
+            widgets.close();
+            return;
+        }
         View focus = getCurrentFocus();
-        if (focus == play || focus == info || focus == more) {
+        if (focus == play || focus == info || focus == more || (dock != null && dock.hasFocus())) {
             focusAt(Math.max(0, heroPos), 0);
             return;
         }
@@ -2339,7 +2445,11 @@ public class HomeActivity extends ConsoleActivity {
                     return true;
                 }
                 if (shelf && keyCode == KeyEvent.KEYCODE_DPAD_DOWN && event.getAction() == KeyEvent.ACTION_DOWN) {
-                    return true; // nothing under the row
+                    // Down to the dock (Music, Files ...)
+                    if (dock != null && dock.view().getVisibility() == View.VISIBLE) {
+                        dock.focusLast();
+                    }
+                    return true;
                 }
                 return false;
             });

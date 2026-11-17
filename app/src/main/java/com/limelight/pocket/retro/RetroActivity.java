@@ -160,11 +160,8 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         }
         SectionBar.attach(this, SectionBar.RETRO);
         hide(R.id.profilesButton);
-        TextView folder = findViewById(R.id.pocketPcLibraryButton);
-        if (folder != null) {
-            folder.setText(R.string.pocket_retro_folder_short);
-            folder.setOnClickListener(v -> pickFolder());
-        }
+        // No pill at the bottom: the ROM folder is in the options (Y)
+        hide(R.id.pocketPcLibraryButton);
         carousel = findViewById(R.id.pocketAppCarousel);
         carousel.setLayoutManager(new AnchoredLayoutManager(this));
         carousel.setItemAnimator(null);
