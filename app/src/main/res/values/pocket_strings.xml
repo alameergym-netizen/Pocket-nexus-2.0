@@ -1501,7 +1501,7 @@
     <string name="pocket_kb_h_space">Space</string>
     <string name="pocket_kb_h_cursor">Cursor</string>
     <string name="pocket_kb_h_shift">Shift</string>
-    <string name="pocket_kb_h_symbols">?123</string>
+    <string name="pocket_kb_h_symbols">\?123</string>
     <string name="pocket_kb_h_language">Language</string>
     <string name="pocket_kb_h_enter">Enter</string>
     <string name="pocket_kb_h_close">Close</string>
