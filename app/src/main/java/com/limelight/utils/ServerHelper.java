@@ -168,17 +168,32 @@ public class ServerHelper {
             // Pocket Nexus: the press answers at once (the game's card grows into the
             // "Starting..." screen), and meanwhile it checks Windows isn't still at its sign-in
             // screen (that can leave this device's virtual display switched off)
-            final Runnable go = () -> console.runWhenSignedIn(intent, () -> {
+            // The sign-in check runs while the card grows (not after it: no wait on a black screen);
+            // the stream starts once both are done
+            final boolean[] ready = {false, false};
+            final Runnable startNow = () -> {
+                if (!ready[0] || !ready[1]) {
+                    return;
+                }
+                ready[0] = false; // once
                 parent.startActivity(intent);
                 if (com.limelight.pocket.PocketPrefs.animationsEnabled(parent)) {
                     parent.overridePendingTransition(R.anim.pocket_launch_in, R.anim.pocket_hold);
                 }
+            };
+            console.runWhenSignedIn(intent, () -> {
+                ready[1] = true;
+                startNow.run();
             }, null);
             if (com.limelight.pocket.PocketPrefs.animationsEnabled(parent)) {
-                console.playLaunchZoom(go);
+                console.playLaunchZoom(() -> {
+                    ready[0] = true;
+                    startNow.run();
+                });
             }
             else {
-                go.run();
+                ready[0] = true;
+                startNow.run();
             }
             return;
         }

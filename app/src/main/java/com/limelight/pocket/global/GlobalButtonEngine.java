@@ -137,12 +137,22 @@ public final class GlobalButtonEngine {
         if (GlobalMenuActivity.isOpen()) {
             return keyWhileOpen(event);
         }
-        if (!GlobalButtons.enabled(service) || ourAppInFront()) {
+        if (!GlobalButtons.enabled(service)) {
             return false;
         }
         int button = buttonOf(event.getKeyCode());
         if (button < 0 || !handles(button)) {
             return false;
+        }
+        if (ourAppInFront()) {
+            // Pocket Nexus's own screens keep Back; Guide works the same as over a game (its
+            // radial menu and Quick Resume, to switch while docked), unless M1 / M2 is set to it
+            if (button != GlobalButtons.GUIDE || event.getKeyCode() != KeyEvent.KEYCODE_BUTTON_MODE
+                    || com.limelight.pocket.PocketPrefs.matchesHotkey(com.limelight.pocket.PocketPrefs.getMenuHotkey(service), event)
+                    || com.limelight.pocket.PocketPrefs.matchesHotkey(com.limelight.pocket.PocketPrefs.getM2Hotkey(service), event)
+                    || (com.limelight.Game.instance != null && com.limelight.Game.instance.hasWindowFocus())) {
+                return false;
+            }
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             if (event.getRepeatCount() > 0) {
