@@ -1527,4 +1527,9 @@
     <string name="pocket_cloud_play_with">Play with</string>
     <string name="pocket_cloud_plays_with">Plays with %1$s</string>
     <string name="pocket_cloud_clients_note">The official app is best when it\'s installed. Chrome is for Google sign-in and the mic. The built-in player is quickest and has the controller menu.</string>
+    <string name="pocket_art_animated_on">Moving art (animated covers, video backgrounds)</string>
+    <string name="pocket_art_animated_off">Still art</string>
+    <string name="pocket_art_saved_moving">Moving art saved: it plays where the game is chosen</string>
+    <string name="pocket_art_show_moving">Moving</string>
+    <string name="pocket_art_show_still">Still</string>
 </resources>

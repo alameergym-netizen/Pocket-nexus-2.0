@@ -353,6 +353,10 @@ public class ArtPickerActivity extends ConsoleActivity {
             hints.add(hintA(this, R.string.pocket_art_use));
             hints.add(hintY(this, R.string.pocket_art_original));
             hints.add(hintX(this, R.string.pocket_art_search));
+            if (canMove(kind)) {
+                hints.add(new Hint("L2 R2", 0xFFFFFFFF, getString(animated ? R.string.pocket_art_show_still
+                        : R.string.pocket_art_show_moving)));
+            }
         }
         // Your own picture (works without SteamGridDB too)
         hints.add(hintStart(this, R.string.pocket_art_from_device));
@@ -484,7 +488,7 @@ public class ArtPickerActivity extends ConsoleActivity {
         setStatus(getString(R.string.pocket_art_loading));
         work.execute(() -> {
             try {
-                final List<SteamGridDb.Image> found = SteamGridDb.images(key, game, k, 0);
+                final List<SteamGridDb.Image> found = SteamGridDb.images(key, game, k, 0, animated && canMove(k));
                 main.post(() -> {
                     if (my != token || isFinishing()) {
                         return;
@@ -518,6 +522,7 @@ public class ArtPickerActivity extends ConsoleActivity {
             return;
         }
         kind = next;
+        updateHints();
         PocketUi.tick(this);
         updateTabs();
         PocketMotion.bump(tabs[kind]);
@@ -535,10 +540,77 @@ public class ArtPickerActivity extends ConsoleActivity {
         return PocketPrefs.prefs(this).getInt(KEY_APPLIED + uuid + "_" + appId + "_" + kind, 0);
     }
 
+    /** Showing the moving art (covers and backgrounds): L2 / R2 switch. */
+    private boolean animated;
+
+    private static boolean canMove(int k) {
+        return k == PocketArt.COVER || k == PocketArt.HERO;
+    }
+
+    @Override
+    protected boolean onTrigger(int direction) {
+        if (!canMove(kind) || !PocketArt.hasKey(this)) {
+            return true;
+        }
+        animated = !animated;
+        PocketSounds.play(this, animated ? PocketSounds.TOGGLE_ON : PocketSounds.TOGGLE_OFF);
+        Toast.makeText(this, animated ? R.string.pocket_art_animated_on : R.string.pocket_art_animated_off,
+                Toast.LENGTH_SHORT).show();
+        updateHints();
+        if (gameId != 0) {
+            loadImages();
+        }
+        return true;
+    }
+
+    /** Moving art: kept as it is (and its first frame as the still). */
+    private void useMoving(final SteamGridDb.Image image, final String ext) {
+        busy = true;
+        final int k = kind;
+        PocketSounds.play(this, PocketSounds.SELECT);
+        Toast.makeText(this, R.string.pocket_art_saving, Toast.LENGTH_SHORT).show();
+        work.execute(() -> {
+            boolean ok;
+            try {
+                byte[] data = SteamGridDb.download(image.url, 40 * 1024 * 1024);
+                com.limelight.pocket.ui.MotionArt.save(this, uuid, appId, k, data, ext);
+                ok = true;
+            } catch (IOException | RuntimeException | OutOfMemoryError e) {
+                ok = false;
+            }
+            final boolean saved = ok;
+            main.post(() -> {
+                busy = false;
+                if (isFinishing()) {
+                    return;
+                }
+                if (!saved) {
+                    Toast.makeText(this, R.string.pocket_art_save_failed, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                PocketPrefs.prefs(this).edit().putInt(KEY_APPLIED + uuid + "_" + appId + "_" + k, image.id).apply();
+                PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                Toast.makeText(this, R.string.pocket_art_saved_moving, Toast.LENGTH_SHORT).show();
+                adapter.notifyDataSetChanged();
+                if (k == PocketArt.HERO) {
+                    showBackdrop();
+                }
+            });
+        });
+    }
+
     private void use(final SteamGridDb.Image image) {
         if (busy) {
             return;
         }
+        String movingExt = animated && canMove(kind)
+                ? com.limelight.pocket.ui.MotionArt.extFor(image.mime, image.url) : null;
+        if (movingExt != null) {
+            useMoving(image, movingExt);
+            return;
+        }
+        // A still picked: any moving art of this kind goes
+        com.limelight.pocket.ui.MotionArt.clear(this, uuid, appId, kind);
         busy = true;
         final int k = kind;
         PocketSounds.play(this, PocketSounds.SELECT);
@@ -572,6 +644,7 @@ public class ArtPickerActivity extends ConsoleActivity {
     }
 
     private void resetKind() {
+        com.limelight.pocket.ui.MotionArt.clear(this, uuid, appId, kind);
         PocketArt.reset(this, uuid, appId, kind);
         PocketPrefs.prefs(this).edit().remove(KEY_APPLIED + uuid + "_" + appId + "_" + kind).apply();
         PocketSounds.play(this, PocketSounds.TOGGLE_OFF);
@@ -641,6 +714,12 @@ public class ArtPickerActivity extends ConsoleActivity {
         Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         pick.addCategory(Intent.CATEGORY_OPENABLE);
         pick.setType("image/*");
+        if (canMove(kind)) {
+            // Covers and backgrounds can move: GIFs, animated WebPs and (backgrounds) videos too
+            pick.setType("*/*");
+            pick.putExtra(Intent.EXTRA_MIME_TYPES, kind == PocketArt.HERO
+                    ? new String[]{"image/*", "video/mp4", "video/webm"} : new String[]{"image/*"});
+        }
         try {
             startActivityForResult(pick, REQUEST_PICK_IMAGE);
         } catch (RuntimeException e) {
@@ -661,6 +740,20 @@ public class ArtPickerActivity extends ConsoleActivity {
         if (requestCode == REQUEST_PICK_IMAGE && resultCode == Activity.RESULT_OK && data != null
                 && data.getData() != null) {
             importImage(data.getData());
+        }
+    }
+
+    /** True when a GIF / WebP has more than one frame. */
+    private static boolean moves(byte[] data) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            return false;
+        }
+        try {
+            android.graphics.drawable.Drawable d = android.graphics.ImageDecoder.decodeDrawable(
+                    android.graphics.ImageDecoder.createSource(java.nio.ByteBuffer.wrap(data)));
+            return d instanceof android.graphics.drawable.AnimatedImageDrawable;
+        } catch (IOException | RuntimeException | OutOfMemoryError e) {
+            return false;
         }
     }
 
@@ -685,7 +778,18 @@ public class ArtPickerActivity extends ConsoleActivity {
                             throw new IOException("Too big");
                         }
                     }
-                    PocketArt.save(this, uuid, appId, k, bytes.toByteArray());
+                    String type = getContentResolver().getType(uri);
+                    String ext = canMove(k) ? com.limelight.pocket.ui.MotionArt.extFor(type, uri.toString()) : null;
+                    if (ext != null && (ext.equals("gif") || ext.equals("webp")) && !moves(bytes.toByteArray())) {
+                        ext = null; // a still WebP / GIF: just a picture
+                    }
+                    if (ext != null && (k == PocketArt.HERO || ext.equals("gif") || ext.equals("webp"))) {
+                        com.limelight.pocket.ui.MotionArt.save(this, uuid, appId, k, bytes.toByteArray(), ext);
+                    }
+                    else {
+                        com.limelight.pocket.ui.MotionArt.clear(this, uuid, appId, k);
+                        PocketArt.save(this, uuid, appId, k, bytes.toByteArray());
+                    }
                     ok = true;
                 }
             } catch (IOException | RuntimeException | OutOfMemoryError e) {

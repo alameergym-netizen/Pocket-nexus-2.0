@@ -872,7 +872,36 @@ public class GamePageActivity extends ConsoleActivity {
         result.putExtra(RESULT_CHANGED, changed);
         setResult(RESULT_OK, result);
         isResultSet = true;
+        if (ACTION_PLAY.equals(action) && PocketPrefs.animationsEnabled(this) && !closing) {
+            playIntoLaunch();
+            return;
+        }
         close(ACTION_PLAY.equals(action));
+    }
+
+    /**
+     * Play: the page turns into the "Starting" screen right here (its own art), the screen
+     * under it shows the same at once, and the stream's carries on: one motion, no library and
+     * no black between.
+     */
+    private void playIntoLaunch() {
+        closing = true;
+        main.removeCallbacks(startBackgroundTrailer);
+        Bitmap handOver = artShown;
+        boolean wide = handOver != null;
+        if (handOver == null && blur.getDrawable() instanceof android.graphics.drawable.BitmapDrawable) {
+            handOver = ((android.graphics.drawable.BitmapDrawable) blur.getDrawable()).getBitmap();
+        }
+        if (handOver != null) {
+            com.limelight.pocket.ui.LaunchOverlay.rememberNext(handOver, wide);
+        }
+        ConsoleActivity.armLaunchCover(name);
+        ViewGroup root = findViewById(android.R.id.content);
+        com.limelight.pocket.ui.LaunchOverlay launch = new com.limelight.pocket.ui.LaunchOverlay(this, name, null).asCover();
+        launch.setAlpha(0f);
+        root.addView(launch, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        content.animate().alpha(0f).translationY(dp(10)).setDuration(160).setInterpolator(PocketUi.EASE).start();
+        launch.animate().alpha(1f).setStartDelay(40).setDuration(260).withEndAction(this::finishNow).start();
     }
 
     // ---- Media row ----------------------------------------------------------------------------

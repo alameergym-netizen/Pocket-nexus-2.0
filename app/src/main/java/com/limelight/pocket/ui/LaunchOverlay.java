@@ -49,6 +49,40 @@ public class LaunchOverlay extends FrameLayout {
         return title != null && title.equals(artTitle) && art != null && !art.isRecycled() ? art : null;
     }
 
+    /** The art for the very next launch (from a game's page: its own key art or cover). */
+    private static Bitmap nextArt;
+    private static boolean nextWide;
+    private static long nextAt;
+
+    public static void rememberNext(Bitmap bitmap, boolean wide) {
+        nextArt = bitmap;
+        nextWide = wide;
+        nextAt = android.os.SystemClock.uptimeMillis();
+    }
+
+    private static boolean nextFresh() {
+        return nextArt != null && !nextArt.isRecycled() && android.os.SystemClock.uptimeMillis() - nextAt < 20000;
+    }
+
+    /** The name of the game whose art was remembered last (for a launch that knows no name). */
+    public static String lastTitle() {
+        return artTitle;
+    }
+
+    /**
+     * When the screen that starts the game already showed this screen (a cover over the library,
+     * or a game's page fading into it), the stream's own copy carries on without arriving again.
+     */
+    private static long coverAt;
+    private boolean cover;
+
+    /** This one stands in for the stream's (it arrives; the stream's then just carries on). */
+    public LaunchOverlay asCover() {
+        cover = true;
+        coverAt = android.os.SystemClock.uptimeMillis();
+        return this;
+    }
+
     // ... and its logo and wide key art, when it has them (SteamGridDB)
     private static String logoTitle;
     private static Bitmap logo;
@@ -83,6 +117,16 @@ public class LaunchOverlay extends FrameLayout {
         image.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         Bitmap wide = title != null && title.equals(keyArtTitle) ? keyArt : null;
         Bitmap bitmap = wide != null ? wide : artFor(title);
+        if (wide == null && nextFresh() && (bitmap == null || nextWide)) {
+            // Handed over by the game's page just now
+            if (nextWide) {
+                wide = nextArt;
+                bitmap = nextArt;
+            }
+            else {
+                bitmap = nextArt;
+            }
+        }
         if (wide == null && bitmap != null
                 && !PocketPrefs.BACKDROP_ART.equals(PocketPrefs.backdrop(context))) {
             // Ambient style: no blown-up cover, just the game's colour glowing behind the title
@@ -224,7 +268,14 @@ public class LaunchOverlay extends FrameLayout {
         barAnimator.setRepeatCount(ValueAnimator.INFINITE);
         barAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         barAnimator.start();
-        if (animate) {
+        boolean carriesOn = !cover && android.os.SystemClock.uptimeMillis() - coverAt < 8000;
+        if (animate && carriesOn) {
+            // The same screen was already up (the library's cover): no second arrival
+            image.setScaleX(1.07f);
+            image.setScaleY(1.07f);
+            image.animate().scaleX(1f).scaleY(1f).setDuration(7000).setInterpolator(PocketUi.EASE).start();
+        }
+        else if (animate) {
             image.setScaleX(1.1f);
             image.setScaleY(1.1f);
             image.animate().scaleX(1f).scaleY(1f).setDuration(9000).setInterpolator(PocketUi.EASE).start();

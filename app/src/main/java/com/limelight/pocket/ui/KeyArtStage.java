@@ -90,6 +90,108 @@ public final class KeyArtStage {
         return shown != null;
     }
 
+    // ---- Moving art (a video or an animated picture over the still) ----------------------------
+
+    private android.view.TextureView motionVideo;
+    private android.widget.ImageView motionImage;
+    private TrailerPlayer motionPlayer;
+    private java.io.File motionFile;
+
+    /**
+     * The game's moving background over its still one (null: none). A video plays muted and
+     * looping, cropped to fill; an animated picture plays as it is. It fades in over the still
+     * once its first frame is ready, so nothing ever flashes.
+     */
+    public void showMotion(java.io.File f) {
+        if (f != null && f.equals(motionFile)) {
+            return;
+        }
+        stopMotion();
+        if (f == null || shown == null || !PocketPrefs.animationsEnabled(activity)
+                || !(frame instanceof android.view.ViewGroup)) {
+            return;
+        }
+        motionFile = f;
+        final android.view.ViewGroup holder = (android.view.ViewGroup) frame;
+        if (MotionArt.isVideo(f)) {
+            final android.view.TextureView tv = new android.view.TextureView(activity);
+            tv.setAlpha(0f);
+            holder.addView(tv, new android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            motionVideo = tv;
+            motionPlayer = new TrailerPlayer(activity, tv);
+            motionPlayer.play(android.net.Uri.fromFile(f).toString(), true, true, new TrailerPlayer.Listener() {
+                @Override
+                public void onFirstFrame() {
+                    if (motionVideo == tv) {
+                        tv.animate().alpha(1f).setDuration(700).start();
+                    }
+                }
+
+                @Override
+                public void onError() {
+                    if (motionVideo == tv) {
+                        stopMotion();
+                    }
+                }
+
+                @Override
+                public void onVideoSize(int width, int height, float pixelRatio) {
+                    cropToFill(tv, width * pixelRatio, height);
+                }
+            });
+        }
+        else {
+            android.graphics.drawable.Drawable d = MotionArt.animated(f);
+            if (d == null) {
+                motionFile = null;
+                return;
+            }
+            android.widget.ImageView iv = new android.widget.ImageView(activity);
+            iv.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+            iv.setImageDrawable(d);
+            iv.setAlpha(0f);
+            holder.addView(iv, new android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            motionImage = iv;
+            iv.animate().alpha(1f).setDuration(700).start();
+        }
+    }
+
+    /** A video fills the screen (cropped, centred), whatever its shape. */
+    private static void cropToFill(android.view.TextureView tv, float vw, float vh) {
+        float w = tv.getWidth();
+        float h = tv.getHeight();
+        if (w <= 0 || h <= 0 || vw <= 0 || vh <= 0) {
+            return;
+        }
+        float scale = Math.max(w / vw, h / vh);
+        android.graphics.Matrix m = new android.graphics.Matrix();
+        m.setScale(vw * scale / w, vh * scale / h, w / 2f, h / 2f);
+        tv.setTransform(m);
+    }
+
+    private void stopMotion() {
+        motionFile = null;
+        if (motionPlayer != null) {
+            motionPlayer.release();
+            motionPlayer = null;
+        }
+        for (final View v : new View[]{motionVideo, motionImage}) {
+            if (v == null) {
+                continue;
+            }
+            v.animate().cancel();
+            v.animate().alpha(0f).setDuration(220).withEndAction(() -> {
+                if (v.getParent() instanceof android.view.ViewGroup) {
+                    ((android.view.ViewGroup) v.getParent()).removeView(v);
+                }
+            }).start();
+        }
+        motionVideo = null;
+        motionImage = null;
+    }
+
     /** Shows this key art (null: none, the blurred art and lights show again). */
     public void show(Bitmap bitmap) {
         // Key art is made to be seen: every style shows it, except pure black
@@ -102,6 +204,8 @@ public final class KeyArtStage {
         if (bitmap == shown && (bitmap != null || frame.getAlpha() == 0f)) {
             return;
         }
+        // Another game's art: its moving art (if any) comes after, by itself
+        stopMotion();
         shown = bitmap;
         boolean animate = PocketPrefs.animationsEnabled(activity);
         if (bitmap == null) {

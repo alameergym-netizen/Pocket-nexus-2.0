@@ -62,6 +62,8 @@ public final class SteamGridDb {
         public final int width;
         public final int height;
         public final String author;
+        /** Its type ("image/png", "video/webm" ...). */
+        public String mime = "";
 
         Image(int id, String url, String thumb, String style, int width, int height, String author) {
             this.id = id;
@@ -153,7 +155,22 @@ public final class SteamGridDb {
 
     /** Art of one kind for a game (50 per page, the community's favourites first). */
     public static List<Image> images(String key, int gameId, int kind, int page) throws IOException {
+        return images(key, gameId, kind, page, false);
+    }
+
+    /**
+     * animated: the moving ones instead (covers as GIF / animated WebP, backgrounds also as WebM
+     * video), for covers and backgrounds.
+     */
+    public static List<Image> images(String key, int gameId, int kind, int page, boolean animated) throws IOException {
         String path;
+        if (animated && (kind == HERO || kind == COVER)) {
+            path = kind == HERO
+                    ? "/heroes/game/" + gameId + "?types=animated&mimes=video/webm,image/webp,image/gif&nsfw=false&humor=false"
+                    : "/grids/game/" + gameId + "?dimensions=600x900,342x482,660x930&types=animated&mimes=image/webp,image/gif"
+                    + "&nsfw=false&humor=false";
+            return parse(get(key, path + "&page=" + Math.max(0, page)).optJSONArray("data"));
+        }
         switch (kind) {
             case HERO:
                 path = "/heroes/game/" + gameId + "?types=static&nsfw=false&humor=false";
@@ -178,7 +195,10 @@ public final class SteamGridDb {
                 break;
         }
         path += "&page=" + Math.max(0, page);
-        JSONArray data = get(key, path).optJSONArray("data");
+        return parse(get(key, path).optJSONArray("data"));
+    }
+
+    private static List<Image> parse(JSONArray data) {
         List<Image> out = new ArrayList<>();
         if (data == null) {
             return out;
@@ -193,8 +213,10 @@ public final class SteamGridDb {
                 continue;
             }
             JSONObject author = o.optJSONObject("author");
-            out.add(new Image(o.optInt("id"), url, o.optString("thumb", url), o.optString("style", ""),
-                    o.optInt("width"), o.optInt("height"), author != null ? author.optString("name", "") : ""));
+            Image img = new Image(o.optInt("id"), url, o.optString("thumb", url), o.optString("style", ""),
+                    o.optInt("width"), o.optInt("height"), author != null ? author.optString("name", "") : "");
+            img.mime = o.optString("mime", "");
+            out.add(img);
         }
         return out;
     }

@@ -535,6 +535,15 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 keyArt.show(bitmap);
             }
         });
+        // Its moving background, once you rest on it
+        final java.io.File motion = com.limelight.pocket.ui.MotionArt.file(this, e.uuid(), e.id(), PocketArt.HERO);
+        if (motion != null) {
+            main.postDelayed(() -> {
+                if (key.equals(heroKey) && keyArt != null && !isFinishing()) {
+                    keyArt.showMotion(motion);
+                }
+            }, 900);
+        }
         PocketArt.load(this, e.uuid(), e.id(), PocketArt.LOGO, bitmap -> {
             if (key.equals(heroKey) && bitmap != null && logo != null && title != null) {
                 logo.setImageBitmap(bitmap);

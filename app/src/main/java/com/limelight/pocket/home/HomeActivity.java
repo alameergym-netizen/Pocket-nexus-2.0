@@ -972,6 +972,17 @@ public class HomeActivity extends ConsoleActivity {
                 adaptShade(bitmap);
             }
         });
+        // Its moving background (a video or an animated picture), once you rest on it
+        main.removeCallbacks(heroMotion);
+        final java.io.File motion = com.limelight.pocket.ui.MotionArt.file(this, uuid, id, PocketArt.HERO);
+        if (motion != null) {
+            heroMotion = () -> {
+                if (key.equals(heroKey) && keyArt != null && resumed) {
+                    keyArt.showMotion(motion);
+                }
+            };
+            main.postDelayed(heroMotion, 900);
+        }
         PocketArt.load(this, uuid, id, PocketArt.LOGO, bitmap -> {
             if (key.equals(heroKey) && bitmap != null) {
                 logo.setImageBitmap(bitmap);
@@ -1027,6 +1038,8 @@ public class HomeActivity extends ConsoleActivity {
             });
         }
     }
+
+    private Runnable heroMotion = () -> { };
 
     private void refreshArt(String key) {
         TILE_ART.remove(key);
@@ -2705,7 +2718,42 @@ public class HomeActivity extends ConsoleActivity {
         }
     }
 
+    /** The chosen tile's cover moves when it has moving art (a GIF or animated WebP). */
+    private void tileMotion(TileHolder h, boolean focused) {
+        int pos = h.getBindingAdapterPosition();
+        HomeStore.Entry e = entryAt(pos);
+        if (e == null || layout == null || !com.limelight.pocket.ui.LibraryLayout.STYLE_COVER.equals(layout.shape)) {
+            return;
+        }
+        String uuid = artUuid(e.item);
+        if (uuid == null) {
+            return;
+        }
+        if (focused) {
+            java.io.File f = com.limelight.pocket.ui.MotionArt.file(this, uuid, artId(e.item), PocketArt.COVER);
+            Drawable moving = f != null ? com.limelight.pocket.ui.MotionArt.animated(f) : null;
+            if (moving != null) {
+                h.image.setImageDrawable(moving);
+                h.image.setTag(R.id.pocketHeroLogo, Boolean.TRUE);
+            }
+        }
+        else if (h.image.getTag(R.id.pocketHeroLogo) != null) {
+            // Still again: its usual cover
+            h.image.setTag(R.id.pocketHeroLogo, null);
+            Bitmap still = TILE_ART.get(e.item.key() + "|" + layout.shape);
+            if (still != null) {
+                h.image.setImageBitmap(still);
+            }
+            else if (pos >= 0) {
+                tiles.notifyItemChanged(pos);
+            }
+        }
+    }
+
     private void focusLook(TileHolder h, boolean focused, boolean animate) {
+        if (animate) {
+            tileMotion(h, focused);
+        }
         if (h.sheen != null) {
             if (focused && animate && PocketPrefs.animationsEnabled(this)) {
                 final TileHolder held = h;

@@ -1063,6 +1063,16 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             }
             if (bitmap != null || !SystemArt.enabled(this)) {
                 keyArt.show(bitmap);
+                // Its moving background (a video or an animated picture), once you rest on it
+                final java.io.File motion = bitmap != null
+                        ? com.limelight.pocket.ui.MotionArt.file(this, RetroLibrary.UUID, gameId, PocketArt.HERO) : null;
+                if (motion != null) {
+                    carousel.postDelayed(() -> {
+                        if (key.equals(heroKey) && keyArt != null && !isFinishing()) {
+                            keyArt.showMotion(motion);
+                        }
+                    }, 900);
+                }
                 return;
             }
             // No background for the game: its console's

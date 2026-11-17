@@ -530,7 +530,13 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             maybeStartOnboarding();
         }
         if (launchLayer != null) {
-            returnFromLaunch();
+            if (launchCoverFresh) {
+                launchCoverFresh = false;
+            }
+            else {
+                launchCoverActive = false;
+                returnFromLaunch();
+            }
         }
         else if (!entrancePlayed && bootOverlay == null && pendingResume == null) {
             entrancePlayed = true;
@@ -1802,6 +1808,64 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     private boolean entrancePlayed;
     private boolean pausedSinceLaunch;
     private android.widget.FrameLayout launchLayer;
+    /** The launch screen is up as a cover (from a game's page): the next start goes straight on. */
+    private boolean launchCoverActive;
+    /** It came up just before this onResume (which mustn't take it away). */
+    private boolean launchCoverFresh;
+    private static String armedCover;
+    private static long armedAt;
+
+    /** A game's page is about to hand "Play" back: the screen under it covers itself at once. */
+    public static void armLaunchCover(String title) {
+        armedCover = title;
+        armedAt = android.os.SystemClock.uptimeMillis();
+    }
+
+    /**
+     * The "Starting" screen straight away over this one (no card zoom): a game's page faded
+     * into it, or the card had no art worth growing. The stream's own copy then carries on.
+     */
+    protected void showLaunchCover(String title, boolean fadeIn) {
+        if (launchLayer != null) {
+            return;
+        }
+        final ViewGroup content = findViewById(android.R.id.content);
+        if (content == null) {
+            return;
+        }
+        launchLayer = new android.widget.FrameLayout(this);
+        launchLayer.setClickable(true);
+        com.limelight.pocket.ui.LaunchOverlay cover = new com.limelight.pocket.ui.LaunchOverlay(this, title, null).asCover();
+        launchLayer.addView(cover, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        content.addView(launchLayer, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (fadeIn && PocketPrefs.animationsEnabled(this)) {
+            launchLayer.setAlpha(0f);
+            launchLayer.animate().alpha(1f).setDuration(240).start();
+        }
+        launchCoverActive = true;
+        pausedSinceLaunch = false;
+        // If nothing starts after all (the PC is off, an error), the screen comes back
+        statusHandler.postDelayed(() -> {
+            if (!pausedSinceLaunch && launchLayer != null) {
+                launchCoverActive = false;
+                returnFromLaunch();
+            }
+        }, 6000);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (armedCover != null && android.os.SystemClock.uptimeMillis() - armedAt < 5000 && data != null
+                && GamePageActivity.ACTION_PLAY.equals(data.getStringExtra(GamePageActivity.RESULT_ACTION))) {
+            // Straight from the page's "Starting" to the stream's: the library never shows between
+            String title = armedCover;
+            armedCover = null;
+            showLaunchCover(title, false);
+            launchCoverFresh = true;
+        }
+        armedCover = null;
+    }
 
     /**
      * The screen arriving: the status bar drops in, the hero rises line by line, the cards
@@ -1936,14 +2000,32 @@ public abstract class ConsoleActivity extends AppCompatActivity {
      */
     public void playLaunchZoom(final Runnable start) {
         if (launchLayer != null) {
+            if (launchCoverActive) {
+                // The "Starting" screen is already up (from the game's page): straight on
+                launchCoverActive = false;
+                start.run();
+            }
             return; // already launching: a second press must not start the game twice
         }
         View focus = getCurrentFocus();
         View artView = focus != null ? focus.findViewById(R.id.grid_image) : null;
-        if (!(artView instanceof android.widget.ImageView)
-                || ((android.widget.ImageView) artView).getDrawable() == null
-                || artView.getWidth() == 0 || !PocketPrefs.animationsEnabled(this)) {
+        if (!PocketPrefs.animationsEnabled(this)) {
             start.run();
+            return;
+        }
+        android.graphics.drawable.Drawable shown = artView instanceof android.widget.ImageView
+                ? ((android.widget.ImageView) artView).getDrawable() : null;
+        boolean placeholder = shown == null || artView.getWidth() == 0
+                || (shown instanceof android.graphics.drawable.BitmapDrawable
+                && com.limelight.pocket.ui.HeroArt.isPlaceholder(((android.graphics.drawable.BitmapDrawable) shown).getBitmap()));
+        if (placeholder) {
+            // Nothing worth growing (a drawn card, an icon): the "Starting" screen fades up instead
+            showLaunchCover(com.limelight.pocket.ui.LaunchOverlay.lastTitle(), true);
+            launchCoverActive = false;
+            statusHandler.postDelayed(() -> {
+                pausedSinceLaunch = false;
+                start.run();
+            }, 250);
             return;
         }
         final android.widget.ImageView art = (android.widget.ImageView) artView;
