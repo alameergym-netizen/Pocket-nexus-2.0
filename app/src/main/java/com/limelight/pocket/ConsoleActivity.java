@@ -216,7 +216,13 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     /** Opens Quick Resume (screens that know games: the home screen and the library). */
     public void openQuickResume() {
-        if (quickPanel != null || !(this instanceof com.limelight.pocket.ui.QuickResumePanel.Source)) {
+        if (!(this instanceof com.limelight.pocket.ui.QuickResumePanel.Source)) {
+            // Everywhere else: the same Quick Resume as over a game (the apps and games used last)
+            com.limelight.pocket.global.GlobalMenuActivity.show(this,
+                    com.limelight.pocket.global.GlobalMenuActivity.MODE_QUICK, getPackageName());
+            return;
+        }
+        if (quickPanel != null) {
             return;
         }
         View rootView = findViewById(R.id.pocketRoot);

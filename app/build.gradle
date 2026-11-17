@@ -11,6 +11,9 @@ android {
         minSdk 21
         targetSdk 34
 
+        // Pocket Nexus is English only (the controller keyboard still types Arabic)
+        resourceConfigurations += ["en"]
+
         versionName "1.0.0-pocket"
         versionCode = 100
 

@@ -176,4 +176,47 @@ public final class GlobalButtons {
         }
         return false;
     }
+
+    /** The icon (a PocketIcons name) of an action, for the ring. */
+    public static String icon(Action a) {
+        switch (a) {
+            case HOME:
+                return "GUIDE";
+            case QUICK_RESUME:
+                return "QUICK_MENU";
+            case RADIAL:
+                return "RADIAL";
+            case LAST_GAME:
+                return "RESTART";
+            case RECENTS:
+                return "ALT_TAB";
+            case ANDROID_HOME:
+                return "ANDROID_HOME";
+            case BACK:
+                return "ESC";
+            case SCREENSHOT:
+                return "SCREENSHOT";
+            case NOTIFICATIONS:
+                return "LIST";
+            case QUICK_SETTINGS:
+            case SETTINGS:
+                return "SLIDERS";
+            case PLAY_PAUSE:
+                return "PLAY_PAUSE";
+            case SEARCH:
+                return "SPARKLE";
+            case FILES:
+                return "LIST";
+            case BROWSER:
+                return "WIFI";
+            case NEXT_TRACK:
+                return "PLAY";
+            case VOLUME_UP:
+                return "VOLUME_UP";
+            case VOLUME_DOWN:
+                return "VOLUME_DOWN";
+            default:
+                return "NONE";
+        }
+    }
 }

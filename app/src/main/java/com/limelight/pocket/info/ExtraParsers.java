@@ -488,6 +488,21 @@ public final class ExtraParsers {
 
     private static final java.util.regex.Pattern YT_VIDEO = java.util.regex.Pattern.compile("\"videoId\":\"([A-Za-z0-9_-]{11})\"");
 
+    /** The videos of a YouTube results page, in order, each once (up to max). */
+    public static java.util.List<String> youtubeAll(String html, int max) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (html == null) {
+            return out;
+        }
+        java.util.regex.Matcher m = YT_VIDEO.matcher(html);
+        while (m.find() && out.size() < max) {
+            if (!out.contains(m.group(1))) {
+                out.add(m.group(1));
+            }
+        }
+        return out;
+    }
+
     /** The first video of a YouTube results page, or null. */
     public static String youtubeFirst(String html) {
         if (html == null) {

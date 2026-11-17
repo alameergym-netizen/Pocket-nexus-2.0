@@ -38,7 +38,7 @@ public final class RetroLauncher {
 
     public static final class Result {
         public final int status;
-        /** For NOT_INSTALLED: the emulator's package (to look it up), else null. */
+        /** For NOT_INSTALLED: the emulator's package (to look it up); for OK: the app it runs in. */
         public final String packageName;
         public final String detail;
 
@@ -387,8 +387,19 @@ public final class RetroLauncher {
             intent.setClipData(ClipData.newRawUri("", env.provider));
         }
         try {
+            // Which app the game runs in (Quick Resume shows it as this game)
+            String launched = intent.getComponent() != null ? intent.getComponent().getPackageName() : intent.getPackage();
+            if (launched == null) {
+                try {
+                    android.content.pm.ResolveInfo ri = activity.getPackageManager().resolveActivity(intent, 0);
+                    if (ri != null && ri.activityInfo != null) {
+                        launched = ri.activityInfo.packageName;
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
             activity.startActivity(intent);
-            return new Result(OK, null, null);
+            return new Result(OK, launched, null);
         } catch (ActivityNotFoundException e) {
             forget();
             return new Result(NOT_INSTALLED, packageToGet(cfg, cmd), cmd.emulator);

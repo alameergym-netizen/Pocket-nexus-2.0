@@ -1408,6 +1408,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 PocketSounds.play(this, PocketSounds.SELECT);
                 RetroLibrary.markPlayed(this, rom);
                 com.limelight.pocket.home.HomeStore.record(this, homeItem(rom));
+                com.limelight.pocket.global.AppHistory.started(this, r.packageName, homeItem(rom));
                 // Its achievements pop up over the game as they're earned
                 TrophyWatch.start(this, Achievements.Target.retro(rom.system, rom.relPath, rom.name));
                 break;

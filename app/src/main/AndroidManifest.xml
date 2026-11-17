@@ -13,6 +13,8 @@
     <!-- Pocket Nexus Files: installing an APK picked there (Android asks first) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -460,6 +462,19 @@
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:windowSoftInputMode="adjustResize|stateVisible" />
+
+        <!-- Pocket Nexus: the radial menu and Quick Resume over any game (a task of its own, so
+             closing it shows the game again, not Pocket Nexus) -->
+        <activity
+            android:name=".pocket.global.GlobalMenuActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="false"
+            android:resizeableActivity="false"
+            android:taskAffinity="${applicationId}.overlay"
+            android:theme="@style/PocketOverlayTheme" />
 
         <!-- Pocket Nexus: the controller keyboard, for every app -->
         <service

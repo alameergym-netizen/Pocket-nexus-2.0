@@ -66,6 +66,7 @@ public final class HomeLauncher {
                     return;
                 }
                 HomeStore.record(a, item);
+                com.limelight.pocket.global.AppHistory.started(a, item.a, item);
                 PocketSounds.play(a, PocketSounds.SELECT);
                 a.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 return;
@@ -73,6 +74,7 @@ public final class HomeLauncher {
             case HomeItem.SHORTCUT:
                 if (startShortcut(a, item)) {
                     HomeStore.record(a, item);
+                    com.limelight.pocket.global.AppHistory.started(a, item.a, item);
                     PocketSounds.play(a, PocketSounds.SELECT);
                 }
                 else {
@@ -141,6 +143,7 @@ public final class HomeLauncher {
                 if (r.status == RetroLauncher.OK) {
                     PocketSounds.play(a, PocketSounds.SELECT);
                     RetroLibrary.markPlayed(a, rom);
+                    com.limelight.pocket.global.AppHistory.started(a, r.packageName, item);
                     com.limelight.pocket.retro.TrophyWatch.start(a,
                             com.limelight.pocket.retro.Achievements.Target.retro(item.a, item.b, item.name));
                 }

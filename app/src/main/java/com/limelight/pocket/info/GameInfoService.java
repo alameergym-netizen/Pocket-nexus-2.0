@@ -81,24 +81,10 @@ public final class GameInfoService {
                 || n.equals("mstsc") || n.contains("remote desktop"));
     }
 
-    /** Steam's language name and Wikipedia's code for the interface language. */
+    /** Steam's language name and Wikipedia's code for the interface language (English). */
     static String[] languages() {
-        String l = Locale.getDefault().getLanguage();
-        switch (l) {
-            case "ar": return new String[]{"arabic", "ar"};
-            case "fr": return new String[]{"french", "fr"};
-            case "de": return new String[]{"german", "de"};
-            case "es": return new String[]{"spanish", "es"};
-            case "it": return new String[]{"italian", "it"};
-            case "pt": return new String[]{"brazilian", "pt"};
-            case "ru": return new String[]{"russian", "ru"};
-            case "tr": return new String[]{"turkish", "tr"};
-            case "pl": return new String[]{"polish", "pl"};
-            case "ja": return new String[]{"japanese", "ja"};
-            case "ko": return new String[]{"koreana", "ko"};
-            case "zh": return new String[]{"schinese", "zh"};
-            default: return new String[]{"english", "en"};
-        }
+        // Pocket Nexus is in English: game text in English too
+        return new String[]{"english", "en"};
     }
 
     private static String key(String name) {
@@ -444,6 +430,18 @@ public final class GameInfoService {
                     addYouTube(info, gameplay, gameplayName, trailer == null);
                 }
             }
+        }
+    }
+
+    /**
+     * The videos YouTube finds for this, in its order (up to max): the next ones are tried when
+     * one won't play outside YouTube. Blocking; empty when there's no network.
+     */
+    public static java.util.List<String> youtubeSearch(String query, int max) {
+        try {
+            return ExtraParsers.youtubeAll(httpHtml("https://www.youtube.com/results?search_query=" + enc(query)), max);
+        } catch (IOException | RuntimeException e) {
+            return new java.util.ArrayList<>();
         }
     }
 

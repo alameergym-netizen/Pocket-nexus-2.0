@@ -152,4 +152,15 @@
         <item name="android:maxLines">1</item>
         <item name="android:background">@drawable/pocket_glass_pill</item>
     </style>
+
+    <!-- Pocket Nexus: the menus over every game (the game stays in sight behind them) -->
+    <style name="PocketOverlayTheme" parent="@android:style/Theme.Translucent.NoTitleBar.Fullscreen">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:fontFamily">@font/pocket_inter</item>
+    </style>
 </resources>

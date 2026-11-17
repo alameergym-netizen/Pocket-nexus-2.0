@@ -642,7 +642,7 @@ public final class Achievements {
     private static Set fetchSteam(Context c, Target t) throws Exception {
         String key = SteamAccount.apiKey(c);
         String id = SteamAccount.steamId(c);
-        String lang = Locale.getDefault().getLanguage().equals("ar") ? "arabic" : "english";
+        String lang = "english";
         JSONObject schema = new JSONObject(get("https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key="
                 + enc(key) + "&appid=" + t.steamAppId + "&l=" + lang));
         JSONObject game = schema.optJSONObject("game");

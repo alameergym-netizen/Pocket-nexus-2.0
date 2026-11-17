@@ -15,6 +15,18 @@ public class ArtemisApplication extends Application {
         super.onCreate();
         // Artemis Pocket: keep the stack trace of any crash so the next launch can show it
         com.limelight.pocket.CrashReporter.install(this);
+        // Pocket Nexus is English only, whatever the system's language (left to right, English
+        // dates and numbers); the controller keyboard still types Arabic
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            try {
+                android.app.LocaleManager lm = getSystemService(android.app.LocaleManager.class);
+                if (lm != null && !"en".equals(lm.getApplicationLocales().isEmpty() ? null
+                        : lm.getApplicationLocales().get(0).getLanguage())) {
+                    lm.setApplicationLocales(android.os.LocaleList.forLanguageTags("en-US"));
+                }
+            } catch (RuntimeException ignored) {
+            }
+        }
         // Pocket Nexus: the interface typeface (Inter)
         com.limelight.pocket.ui.PocketFonts.init(this);
         // Screenshots on the build's emulator: games and art to show (never runs on a handheld)

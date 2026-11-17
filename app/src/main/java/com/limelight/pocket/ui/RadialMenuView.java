@@ -36,6 +36,9 @@ public class RadialMenuView extends FrameLayout {
     private final ImageView backdrop;
     private final Ring ring;
     private PocketAction[] slots = new PocketAction[0];
+    /** Each slice's icon (PocketIcons' name) and whether it's empty. */
+    private String[] icons = new String[0];
+    private boolean[] empty = new boolean[0];
     private String[] labels = new String[0];
     private String centerTop = "";
     private String centerBottom = "";
@@ -70,11 +73,35 @@ public class RadialMenuView extends FrameLayout {
     }
 
     public void show(PocketAction[] slots, String centerTop, String centerBottom) {
-        this.slots = slots;
-        this.labels = new String[slots.length];
+        String[] names = new String[slots.length];
+        String[] texts = new String[slots.length];
+        boolean[] none = new boolean[slots.length];
         for (int i = 0; i < slots.length; i++) {
-            labels[i] = slots[i] == PocketAction.NONE ? "" : slots[i].shortLabel(getContext());
+            none[i] = slots[i] == PocketAction.NONE;
+            names[i] = slots[i].name();
+            texts[i] = none[i] ? "" : slots[i].shortLabel(getContext());
         }
+        open(slots, names, texts, none, centerTop, centerBottom);
+    }
+
+    /**
+     * The same ring with slices of anyone's (the menu over every game): each an icon's name and
+     * a label; an empty label leaves the slice empty. getSelected() says which was chosen.
+     */
+    public void showItems(String[] iconNames, String[] texts, String centerTop, String centerBottom) {
+        boolean[] none = new boolean[texts.length];
+        for (int i = 0; i < texts.length; i++) {
+            none[i] = texts[i] == null || texts[i].isEmpty();
+        }
+        open(null, iconNames, texts, none, centerTop, centerBottom);
+    }
+
+    private void open(PocketAction[] slots, String[] iconNames, String[] texts, boolean[] none,
+                      String centerTop, String centerBottom) {
+        this.slots = slots;
+        this.icons = iconNames;
+        this.labels = texts;
+        this.empty = none;
         this.centerTop = centerTop;
         this.centerBottom = centerBottom;
         this.selected = -1;
@@ -85,7 +112,7 @@ public class RadialMenuView extends FrameLayout {
         setScaleX(1f);
         setScaleY(1f);
         setVisibility(VISIBLE);
-        ring.start(slots.length);
+        ring.start(icons.length);
         PocketSounds.play(getContext(), PocketSounds.RADIAL_OPEN);
     }
 
@@ -123,7 +150,7 @@ public class RadialMenuView extends FrameLayout {
 
     /** Selected slot, or -1 when the stick is centred / nothing chosen. */
     public int getSelected() {
-        if (selected < 0 || selected >= slots.length || slots[selected] == PocketAction.NONE) {
+        if (selected < 0 || selected >= icons.length || empty[selected]) {
             return -1;
         }
         return selected;
@@ -131,12 +158,12 @@ public class RadialMenuView extends FrameLayout {
 
     public PocketAction getSelectedAction() {
         int s = getSelected();
-        return s < 0 ? null : slots[s];
+        return s < 0 || slots == null ? null : slots[s];
     }
 
     /** Stick position in -1..1 (y down positive). */
     public void onStick(float x, float y) {
-        if (!showing || slots.length == 0) {
+        if (!showing || icons.length == 0) {
             return;
         }
         float mag = (float) Math.hypot(x, y);
@@ -148,29 +175,31 @@ public class RadialMenuView extends FrameLayout {
             angle += 360;
         }
         ring.pointTo((float) angle - 90f);
-        float step = 360f / slots.length;
+        float step = 360f / icons.length;
         int slot = (int) Math.floor(((angle + step / 2) % 360) / step);
         select(slot);
     }
 
     /** D-pad: direction in 45 degree steps (0 = up, 2 = right, 4 = down, 6 = left). */
     public void onDirection(int eighth) {
-        if (!showing || slots.length == 0) {
+        if (!showing || icons.length == 0) {
             return;
         }
-        int slot = Math.round(eighth * slots.length / 8f) % slots.length;
+        int n = icons.length;
+        int slot = Math.round(eighth * n / 8f) % n;
         select(slot);
-        ring.pointTo(-90f + slot * 360f / slots.length);
+        ring.pointTo(-90f + slot * 360f / n);
     }
 
     public void rotate(int delta) {
-        if (!showing || slots.length == 0) {
+        if (!showing || icons.length == 0) {
             return;
         }
+        int n = icons.length;
         int base = selected < 0 ? 0 : selected;
-        int slot = ((base + delta) % slots.length + slots.length) % slots.length;
+        int slot = ((base + delta) % n + n) % n;
         select(slot);
-        ring.pointTo(-90f + slot * 360f / slots.length);
+        ring.pointTo(-90f + slot * 360f / n);
     }
 
     private void select(int slot) {
@@ -341,7 +370,7 @@ public class RadialMenuView extends FrameLayout {
             int h = getHeight();
             canvas.drawRect(0, 0, w, h, scrim);
             canvas.drawRect(0, 0, w, h, vignette);
-            int n = slots.length;
+            int n = icons.length;
             if (n == 0) {
                 return;
             }
@@ -405,7 +434,7 @@ public class RadialMenuView extends FrameLayout {
                 oval.set(cx - ro + 1.5f * d, cy - ro + 1.5f * d, cx + ro - 1.5f * d, cy + ro - 1.5f * d);
                 canvas.drawArc(oval, start + 2.5f, sweep - 5f, false, rim);
 
-                if (slots[i] == PocketAction.NONE) {
+                if (empty[i]) {
                     continue;
                 }
                 double mid = Math.toRadians(-90f + i * step);
@@ -415,7 +444,7 @@ public class RadialMenuView extends FrameLayout {
                 float t = Math.min(1f, pop);
                 int fg = blend(0xEBFFFFFF, 0xFF0A0A0A, t);
                 fg = PocketTheme.withAlpha(fg, (int) ((fg >>> 24) * sliceAlpha / 255f));
-                PocketIcons.draw(canvas, slots[i].name(), ix, iy - 9 * d, (24 + 3 * t) * d, fg, icon);
+                PocketIcons.draw(canvas, icons[i], ix, iy - 9 * d, (24 + 3 * t) * d, fg, icon);
                 label.setColor(PocketTheme.withAlpha(blend(0xC7FFFFFF, 0xD9000000, t), (int) (0xFF * sliceAlpha / 255f)));
                 drawFitted(canvas, labels[i], ix, iy + 15 * d - (label.ascent() + label.descent()) / 2,
                         (ro - ri) * 0.9f, label);
@@ -442,7 +471,7 @@ public class RadialMenuView extends FrameLayout {
             int contentAlpha = (int) (255 * swap * o);
             float lift = (1f - swap) * 6 * d;
             if (sel >= 0) {
-                PocketIcons.draw(canvas, slots[sel].name(), cx, cy - 20 * d + lift, 34 * d,
+                PocketIcons.draw(canvas, icons[sel], cx, cy - 20 * d + lift, 34 * d,
                         PocketTheme.withAlpha(0xFFFFFFFF, contentAlpha), icon);
                 big.setAlpha(contentAlpha);
                 drawFitted(canvas, labels[sel], cx, cy + 14 * d + lift - (big.ascent() + big.descent()) / 2, cr * 1.7f, big);

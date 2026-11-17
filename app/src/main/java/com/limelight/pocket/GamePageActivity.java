@@ -1585,7 +1585,11 @@ public class GamePageActivity extends ConsoleActivity {
         PocketSounds.play(this, PocketSounds.SELECT);
         main.removeCallbacks(startBackgroundTrailer);
         stopBackgroundTrailer(true);
-        com.limelight.pocket.info.VideoPlayerActivity.open(this, movie.youtube, movie.name);
+        // Other uploads of it are tried when this one only plays on YouTube
+        boolean gameplay = getString(R.string.pocket_page_gameplay).equals(movie.name);
+        com.limelight.pocket.info.VideoPlayerActivity.open(this, movie.youtube,
+                name != null ? name + " · " + movie.name : movie.name,
+                name != null ? name + (gameplay ? " gameplay" : " official trailer") : null);
     }
 
     private void openTrailer() {

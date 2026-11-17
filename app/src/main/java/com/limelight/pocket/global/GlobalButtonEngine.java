@@ -15,6 +15,7 @@ import android.widget.Toast;
 import com.limelight.R;
 import com.limelight.pocket.home.HomeActivity;
 import com.limelight.pocket.home.HomeItem;
+import com.limelight.pocket.home.HomeStore;
 
 /**
  * Back and Guide in every game, not just in a stream: a press, a double press or a hold opens
@@ -23,14 +24,20 @@ import com.limelight.pocket.home.HomeItem;
  * this runs inside Pocket Nexus's (the one that already passes the keyboard to the PC); it
  * reads nothing on the screen, only which app is in front. Pocket Nexus's own screens are left
  * alone (they handle the buttons themselves), and a plain Back still goes back.
+ *
+ * The ring and Quick Resume are a screen of their own over the game ({@link GlobalMenuActivity}):
+ * while one is open every press goes to it (the game gets none), except the button that opened
+ * it, whose release picks the slice the stick points at, as in a stream.
  */
-public final class GlobalButtonEngine implements GlobalOverlay.Host {
+public final class GlobalButtonEngine {
 
     private static final long HOLD_MS = 480;
 
+    /** The running one (the service's), for what only the service can do. */
+    private static GlobalButtonEngine instance;
+
     private final AccessibilityService service;
     private final Handler main = new Handler(Looper.getMainLooper());
-    private GlobalOverlay overlay;
     private String front;
 
     /** The button being pressed now (-1: none), and how far its press has got. */
@@ -66,22 +73,34 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
 
     public GlobalButtonEngine(AccessibilityService service) {
         this.service = service;
-        overlay = new GlobalOverlay(service, this);
+        instance = this;
     }
 
-    /** Which app is in front (from the service's window events). */
+    /** Which app is in front (from the service's window events), and the apps used last. */
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event != null && event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                && event.getPackageName() != null) {
-            String pkg = event.getPackageName().toString();
-            // The keyboard and the system's own bits (the volume panel...) aren't "the app in front"
-            if (!pkg.equals("com.android.systemui") && !pkg.contains("inputmethod") && !pkg.contains("keyboard")) {
-                front = pkg;
+        if (event == null || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                || event.getPackageName() == null) {
+            return;
+        }
+        String pkg = event.getPackageName().toString();
+        String cls = event.getClassName() != null ? event.getClassName().toString() : "";
+        // The keyboard, the system's own bits (the volume panel...) and our menu over the game
+        // aren't "the app in front"
+        if (pkg.equals("com.android.systemui") || pkg.contains("inputmethod") || pkg.contains("keyboard")
+                || cls.contains("SoftInputWindow") || cls.endsWith("GlobalMenuActivity")
+                || cls.startsWith("android.widget.") || cls.startsWith("android.app.Dialog")) {
+            return;
+        }
+        if (!pkg.equals(front)) {
+            front = pkg;
+            final String p = pkg;
+            try {
+                AppHistory.seen(service, p);
+            } catch (RuntimeException ignored) {
             }
         }
     }
 
-    @Override
     public String foreground() {
         return front;
     }
@@ -115,8 +134,8 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
 
     /** A key from the service's filter: true when it was used here (nobody else gets it). */
     public boolean onKeyEvent(KeyEvent event) {
-        if (overlay != null && overlay.showing()) {
-            return overlay.handleKey(event);
+        if (GlobalMenuActivity.isOpen()) {
+            return keyWhileOpen(event);
         }
         if (!GlobalButtons.enabled(service) || ourAppInFront()) {
             return false;
@@ -172,6 +191,37 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
         return true;
     }
 
+    /**
+     * While the ring or Quick Resume is open: the button that opened it picks on release (held
+     * open) or closes it (pressed again); everything else goes to the menu, none to the game.
+     */
+    private boolean keyWhileOpen(KeyEvent event) {
+        int button = buttonOf(event.getKeyCode());
+        if (button < 0 || event.getKeyCode() == KeyEvent.KEYCODE_BACK && down < 0) {
+            return false; // the menu's own (Back closes it there)
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0 && down < 0) {
+                down = button;
+                held = false;
+            }
+            return true;
+        }
+        if (event.getAction() == KeyEvent.ACTION_UP) {
+            boolean wasHeld = held && down == button;
+            down = -1;
+            held = false;
+            main.removeCallbacks(holdFired);
+            if (wasHeld) {
+                GlobalMenuActivity.triggerReleased();
+            }
+            else {
+                GlobalMenuActivity.dismiss();
+            }
+        }
+        return true;
+    }
+
     /** Does what the button was set to (PASS: what it does anyway). */
     private void perform(int button, int keyCode, GlobalButtons.Action a) {
         if (a == GlobalButtons.Action.PASS) {
@@ -183,72 +233,53 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
             }
             return;
         }
-        run(a);
+        run(service, service, a, front);
     }
 
-    @Override
-    public void run(GlobalButtons.Action a) {
+    /** An action from the ring (or anywhere): the service does what only it can, if it's on. */
+    static void runAction(Context c, GlobalButtons.Action a, String front) {
+        GlobalButtonEngine e = instance;
+        run(c, e != null ? e.service : null, a, front != null ? front : e != null ? e.front : null);
+    }
+
+    private static void run(Context c, AccessibilityService s, GlobalButtons.Action a, String front) {
         switch (a) {
             case NONE:
             case PASS:
                 return;
             case HOME:
-                openPocket(null);
+                openPocket(c, null);
                 return;
             case QUICK_RESUME:
-                if (overlay != null) {
-                    overlay.showQuickResume();
-                }
+                GlobalMenuActivity.show(c, GlobalMenuActivity.MODE_QUICK, front);
                 return;
             case RADIAL:
-                if (overlay != null) {
-                    overlay.showRadial();
-                }
+                GlobalMenuActivity.show(c, GlobalMenuActivity.MODE_RADIAL, front);
                 return;
             case LAST_GAME:
-                lastGame();
+                lastGame(c, front);
                 return;
             case SETTINGS:
-                openPocket(HomeActivity.ACTION_SETTINGS);
+                openPocket(c, HomeActivity.ACTION_SETTINGS);
                 return;
             case SEARCH:
-                start(com.limelight.pocket.search.SearchActivity.class);
+                start(c, com.limelight.pocket.search.SearchActivity.class);
                 return;
             case FILES:
-                start(com.limelight.pocket.files.FilesActivity.class);
+                start(c, com.limelight.pocket.files.FilesActivity.class);
                 return;
             case BROWSER:
-                start(com.limelight.pocket.browser.BrowserActivity.class);
-                return;
-            case RECENTS:
-                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS);
-                return;
-            case ANDROID_HOME:
-                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
-                return;
-            case BACK:
-                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
-                return;
-            case SCREENSHOT:
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
-                }
-                return;
-            case NOTIFICATIONS:
-                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
-                return;
-            case QUICK_SETTINGS:
-                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS);
+                start(c, com.limelight.pocket.browser.BrowserActivity.class);
                 return;
             case PLAY_PAUSE:
-                mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+                mediaKey(c, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 return;
             case NEXT_TRACK:
-                mediaKey(KeyEvent.KEYCODE_MEDIA_NEXT);
+                mediaKey(c, KeyEvent.KEYCODE_MEDIA_NEXT);
                 return;
             case VOLUME_UP:
             case VOLUME_DOWN: {
-                AudioManager am = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
+                AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
                 if (am != null) {
                     am.adjustStreamVolume(AudioManager.STREAM_MUSIC, a == GlobalButtons.Action.VOLUME_UP
                             ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI);
@@ -258,10 +289,39 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
             default:
                 break;
         }
+        // The rest only the service can do
+        if (s == null) {
+            Toast.makeText(c, R.string.pocket_gb_needs_service, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        switch (a) {
+            case RECENTS:
+                s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS);
+                break;
+            case ANDROID_HOME:
+                s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
+                break;
+            case BACK:
+                s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                break;
+            case SCREENSHOT:
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
+                }
+                break;
+            case NOTIFICATIONS:
+                s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
+                break;
+            case QUICK_SETTINGS:
+                s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS);
+                break;
+            default:
+                break;
+        }
     }
 
-    private void mediaKey(int code) {
-        AudioManager am = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
+    private static void mediaKey(Context c, int code) {
+        AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
         if (am == null) {
             return;
         }
@@ -271,85 +331,111 @@ public final class GlobalButtonEngine implements GlobalOverlay.Host {
     }
 
     /** One of Pocket Nexus's tools over the game. */
-    private void start(Class<?> screen) {
+    private static void start(Context c, Class<?> screen) {
         try {
-            service.startActivity(new Intent(service, screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            c.startActivity(new Intent(c, screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (RuntimeException e) {
-            Toast.makeText(service, R.string.pocket_gb_cant_open, Toast.LENGTH_SHORT).show();
+            Toast.makeText(c, R.string.pocket_gb_cant_open, Toast.LENGTH_SHORT).show();
         }
     }
 
     /** Pocket Nexus's Home in front (the game stays where it is, behind), doing action there. */
-    private void openPocket(String action) {
-        Intent i = new Intent(service, HomeActivity.class)
+    private static void openPocket(Context c, String action) {
+        Intent i = new Intent(c, HomeActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         if (action != null) {
             i.putExtra(HomeActivity.EXTRA_ACTION, action);
         }
         try {
-            service.startActivity(i);
+            c.startActivity(i);
         } catch (RuntimeException e) {
-            Toast.makeText(service, R.string.pocket_gb_cant_open, Toast.LENGTH_SHORT).show();
+            Toast.makeText(c, R.string.pocket_gb_cant_open, Toast.LENGTH_SHORT).show();
         }
     }
 
-    /** The game played before the one in front (back and forth between two games). */
-    private void lastGame() {
-        final String now = front;
+    /** The app used before the one in front (back and forth between two games). */
+    private static void lastGame(final Context c, final String now) {
+        final Handler main = new Handler(Looper.getMainLooper());
         new Thread(() -> {
+            String pkg = null;
             HomeItem pick = null;
-            long best = 0;
             try {
-                for (com.limelight.pocket.home.HomeStore.Entry e : com.limelight.pocket.home.HomeStore.load(service)) {
-                    boolean inFront = now != null && HomeItem.ANDROID.equals(e.item.kind) && now.equals(e.item.a);
-                    if (!inFront && e.lastUsed > best) {
-                        best = e.lastUsed;
-                        pick = e.item;
+                for (String p : AppHistory.recent(c)) {
+                    if (!p.equals(now)) {
+                        pkg = p;
+                        break;
+                    }
+                }
+                if (pkg == null) {
+                    long best = 0;
+                    for (HomeStore.Entry e : HomeStore.load(c)) {
+                        boolean inFront = now != null && HomeItem.ANDROID.equals(e.item.kind) && now.equals(e.item.a);
+                        if (!inFront && e.lastUsed > best) {
+                            best = e.lastUsed;
+                            pick = e.item;
+                        }
                     }
                 }
             } catch (RuntimeException ignored) {
             }
+            final String toApp = pkg;
             final HomeItem item = pick;
             main.post(() -> {
+                if (toApp != null && resumeApp(c, toApp)) {
+                    return;
+                }
                 if (item != null) {
-                    launch(item);
+                    launchItem(c, item);
                 }
                 else {
-                    openPocket(null);
+                    openPocket(c, null);
                 }
             });
         }, "pocket-last-game").start();
     }
 
-    /** A game picked in Quick Resume: an Android game comes back as it was; others start. */
-    @Override
-    public void launch(HomeItem item) {
+    /** Brings an app back as it was (its task to the front). */
+    static boolean resumeApp(Context c, String pkg) {
+        Intent launch = c.getPackageManager().getLaunchIntentForPackage(pkg);
+        if (launch == null) {
+            return false;
+        }
+        try {
+            c.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED));
+            AppHistory.seen(c, pkg);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** A game picked in Quick Resume that isn't open: an Android game starts; others via Home. */
+    static void launchItem(Context c, HomeItem item) {
         if (HomeItem.ANDROID.equals(item.kind)) {
-            Intent launch = service.getPackageManager().getLaunchIntentForPackage(item.a);
-            if (launch != null) {
-                try {
-                    com.limelight.pocket.home.HomeStore.record(service, item);
-                    service.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                    return;
-                } catch (RuntimeException ignored) {
-                }
+            try {
+                HomeStore.record(c, item);
+            } catch (RuntimeException ignored) {
+            }
+            if (resumeApp(c, item.a)) {
+                return;
             }
         }
-        Intent i = new Intent(service, HomeActivity.class)
+        Intent i = new Intent(c, HomeActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                 .putExtra(HomeActivity.EXTRA_ACTION, HomeActivity.ACTION_LAUNCH)
                 .putExtra(HomeActivity.EXTRA_ITEM, item.toLine());
         try {
-            service.startActivity(i);
+            c.startActivity(i);
         } catch (RuntimeException e) {
-            Toast.makeText(service, R.string.pocket_gb_cant_open, Toast.LENGTH_SHORT).show();
+            Toast.makeText(c, R.string.pocket_gb_cant_open, Toast.LENGTH_SHORT).show();
         }
     }
 
     public void destroy() {
         main.removeCallbacksAndMessages(null);
-        if (overlay != null) {
-            overlay.hide();
+        if (instance == this) {
+            instance = null;
         }
     }
 }
