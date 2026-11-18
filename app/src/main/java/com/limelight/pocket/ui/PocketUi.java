@@ -124,11 +124,52 @@ public final class PocketUi {
         if (android.os.SystemClock.uptimeMillis() < quietUntil) {
             return;
         }
+        // (The sound brings its own tick: PocketSounds plays the haptic for every sound)
         com.limelight.pocket.PocketSounds.play(context, com.limelight.pocket.PocketSounds.NAV);
-        if (!PocketPrefs.hapticsEnabled(context)) {
+    }
+
+    public static final int HAPTIC_TICK = 0;
+    public static final int HAPTIC_CLICK = 1;
+    public static final int HAPTIC_HEAVY = 2;
+    public static final int HAPTIC_DOUBLE = 3;
+    private static long lastHaptic;
+
+    /**
+     * A short, crisp buzz in the hand, the kind that goes with what just happened: a tick for a
+     * move, a click for a choice, a heavier one for opening something, two for "can't".
+     */
+    public static void haptic(Context context, final int kind) {
+        if (context == null || !PocketPrefs.hapticsEnabled(context)) {
             return;
         }
+        long now = android.os.SystemClock.uptimeMillis();
+        if (kind == HAPTIC_TICK && now - lastHaptic < 35) {
+            return; // holding the D-pad: not a rattle
+        }
+        lastHaptic = now;
         final Context app = context.getApplicationContext();
+        HAPTICS.execute(() -> {
+            try {
+                Vibrator vibrator = (Vibrator) app.getSystemService(Context.VIBRATOR_SERVICE);
+                if (vibrator == null || !vibrator.hasVibrator()) {
+                    return;
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    int effect = kind == HAPTIC_CLICK ? VibrationEffect.EFFECT_CLICK
+                            : kind == HAPTIC_HEAVY ? VibrationEffect.EFFECT_HEAVY_CLICK
+                            : kind == HAPTIC_DOUBLE ? VibrationEffect.EFFECT_DOUBLE_CLICK : VibrationEffect.EFFECT_TICK;
+                    vibrator.vibrate(VibrationEffect.createPredefined(effect));
+                }
+                else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(kind == HAPTIC_TICK ? 8 : 18, kind == HAPTIC_TICK ? 60 : 140));
+                }
+            } catch (RuntimeException ignored) {
+            }
+        });
+    }
+
+    @SuppressWarnings("unused")
+    private static void oldTick(final Context app) {
         HAPTICS.execute(() -> {
             try {
                 Vibrator vibrator = (Vibrator) app.getSystemService(Context.VIBRATOR_SERVICE);

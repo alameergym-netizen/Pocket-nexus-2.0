@@ -29,7 +29,7 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
 
     public static final String KEY_LANG = "pocket_kb_lang";
     public static final String KEY_SIZE = "pocket_kb_size";
-    public static final int[] SIZES = {32, 38, 44};
+    public static final int[] SIZES = {30, 34, 40};
 
     /**
      * Its settings. The keyboard runs in a process of its own (so typing into Pocket Nexus's own
@@ -84,7 +84,51 @@ public class PocketKeyboardService extends InputMethodService implements Keyboar
     @Override
     public View onCreateInputView() {
         view = new KeyboardView(this, this);
+        edgeToEdge();
         return view;
+    }
+
+    /**
+     * The keyboard floats over the app: its window is see-through round the panel, and no
+     * black bar under it (Android's own back / switcher bar for keyboards is hidden).
+     */
+    private void edgeToEdge() {
+        try {
+            android.view.Window w = getWindow().getWindow();
+            if (w == null) {
+                return;
+            }
+            w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            w.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                w.setNavigationBarContrastEnforced(false);
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                w.setDecorFitsSystemWindows(false);
+                android.view.WindowInsetsController ic = w.getInsetsController();
+                if (ic != null) {
+                    ic.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                    ic.hide(android.view.WindowInsets.Type.navigationBars());
+                }
+            }
+            else {
+                w.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            }
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    @Override
+    public void onWindowShown() {
+        super.onWindowShown();
+        edgeToEdge();
+    }
+
+    /** Never Android's full screen text box above the keyboard (the panel shows the text). */
+    @Override
+    public void onUpdateExtractingVisibility(EditorInfo ei) {
+        setExtractViewShown(false);
     }
 
     /** Never the full screen editor: the field shows in the keyboard's own top line. */

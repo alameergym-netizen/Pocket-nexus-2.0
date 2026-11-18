@@ -382,6 +382,44 @@ public final class SystemArt {
         }
     }
 
+    /**
+     * How many games: a small frosted-glass chip in the top corner (a light edge, a soft
+     * shadow, a gamepad and the number), the same on every card.
+     */
+    static void drawCount(Canvas cv, String count, int w, int h) {
+        float size = h * 0.05f;
+        Paint cp = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cp.setTextSize(size);
+        cp.setTypeface(com.limelight.pocket.ui.PocketFonts.bold());
+        cp.setLetterSpacing(0.02f);
+        float tw = cp.measureText(count);
+        float icon = size * 1.05f;
+        float padX = size * 0.62f;
+        float ph = size * 1.85f;
+        float top = h * 0.045f;
+        float right = w - h * 0.045f;
+        RectF pill = new RectF(right - (padX * 2 + icon + size * 0.32f + tw), top, right, top + ph);
+        Paint sh = new Paint(Paint.ANTI_ALIAS_FLAG);
+        sh.setColor(0x40000000);
+        cv.drawRoundRect(new RectF(pill.left, pill.top + size * 0.12f, pill.right, pill.bottom + size * 0.18f),
+                ph / 2, ph / 2, sh);
+        Paint glass = new Paint(Paint.ANTI_ALIAS_FLAG);
+        glass.setShader(new android.graphics.LinearGradient(0, pill.top, 0, pill.bottom, 0xB31E1E26, 0xD90E0E12,
+                android.graphics.Shader.TileMode.CLAMP));
+        cv.drawRoundRect(pill, ph / 2, ph / 2, glass);
+        Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
+        edge.setStyle(Paint.Style.STROKE);
+        edge.setStrokeWidth(Math.max(1f, size * 0.07f));
+        edge.setColor(0x47FFFFFF);
+        cv.drawRoundRect(pill, ph / 2, ph / 2, edge);
+        Paint ip = new Paint(Paint.ANTI_ALIAS_FLAG);
+        com.limelight.pocket.ui.PocketIcons.draw(cv, "GAMEPAD", pill.left + padX + icon / 2f, pill.centerY(), icon,
+                0xCCFFFFFF, ip);
+        cp.setColor(0xFFFFFFFF);
+        Paint.FontMetrics fm = cp.getFontMetrics();
+        cv.drawText(count, pill.left + padX + icon + size * 0.32f, pill.centerY() - (fm.ascent + fm.descent) / 2f, cp);
+    }
+
     /** A picked cover as the console's card: the picture, cropped to the card, with the count. */
     public static Bitmap pictureCard(Bitmap src, String count, int w, int h) {
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
@@ -392,17 +430,7 @@ public final class SystemArt {
         mx.postTranslate((w - src.getWidth() * scale) / 2f, (h - src.getHeight() * scale) / 2f);
         cv.drawBitmap(src, mx, new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG));
         if (count != null) {
-            Paint cp = new Paint(Paint.ANTI_ALIAS_FLAG);
-            cp.setTextSize(h * 0.058f);
-            cp.setTypeface(com.limelight.pocket.ui.PocketFonts.semibold());
-            float tw = cp.measureText(count);
-            float pad = h * 0.03f;
-            RectF pill = new RectF(w - tw - pad * 4, pad * 2, w - pad * 2, pad * 2 + cp.getTextSize() + pad * 1.6f);
-            Paint pb = new Paint(Paint.ANTI_ALIAS_FLAG);
-            pb.setColor(0x8C000000);
-            cv.drawRoundRect(pill, pad * 1.4f, pad * 1.4f, pb);
-            cp.setColor(0xFFFFFFFF);
-            cv.drawText(count, pill.left + pad, pill.bottom - pad * 1.1f, cp);
+            drawCount(cv, count, w, h);
         }
         return out;
     }
@@ -526,17 +554,7 @@ public final class SystemArt {
         }
         cv.drawText(label, w / 2f, h * 0.9f, t);
         if (count != null) {
-            Paint cp = new Paint(Paint.ANTI_ALIAS_FLAG);
-            cp.setTextSize(h * 0.055f);
-            cp.setTypeface(com.limelight.pocket.ui.PocketFonts.semibold());
-            float tw = cp.measureText(count);
-            float pad = h * 0.03f;
-            RectF pill = new RectF(w - tw - pad * 4, pad * 2, w - pad * 2, pad * 2 + cp.getTextSize() + pad * 1.6f);
-            Paint pb = new Paint(Paint.ANTI_ALIAS_FLAG);
-            pb.setColor(0x8C000000);
-            cv.drawRoundRect(pill, pad * 1.4f, pad * 1.4f, pb);
-            cp.setColor(0xFFFFFFFF);
-            cv.drawText(count, pill.left + pad, pill.bottom - pad * 1.1f, cp);
+            drawCount(cv, count, w, h);
         }
         return out;
     }
@@ -603,17 +621,7 @@ public final class SystemArt {
             cv.drawText(label, w / 2f, h * 0.87f, t);
         }
         if (count != null) {
-            Paint cp = new Paint(Paint.ANTI_ALIAS_FLAG);
-            cp.setTextSize(h * 0.058f);
-            cp.setTypeface(com.limelight.pocket.ui.PocketFonts.semibold());
-            float tw = cp.measureText(count);
-            float pad = h * 0.03f;
-            RectF pill = new RectF(w - tw - pad * 4, pad * 2, w - pad * 2, pad * 2 + cp.getTextSize() + pad * 1.6f);
-            Paint pb = new Paint(Paint.ANTI_ALIAS_FLAG);
-            pb.setColor(0x73000000);
-            cv.drawRoundRect(pill, pill.height() / 2, pill.height() / 2, pb);
-            cp.setColor(0xFFFFFFFF);
-            cv.drawText(count, pill.left + pad, pill.bottom - pad * 1.1f, cp);
+            drawCount(cv, count, w, h);
         }
         return out;
     }

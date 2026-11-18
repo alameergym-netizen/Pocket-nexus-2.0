@@ -23,7 +23,7 @@ import java.util.Set;
 public final class AppHistory {
     private AppHistory() {}
 
-    private static final String KEY = "pocket_app_history";
+    private static final String KEY = "pocket_app_history2";
     private static final String ITEM = "pocket_app_item_";
     private static final int MAX = 16;
 

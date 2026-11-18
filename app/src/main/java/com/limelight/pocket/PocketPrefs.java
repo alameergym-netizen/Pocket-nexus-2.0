@@ -240,7 +240,7 @@ public final class PocketPrefs {
     }
 
     public static boolean hapticsEnabled(Context context) {
-        return prefs(context).getBoolean(KEY_HAPTICS, false);
+        return prefs(context).getBoolean(KEY_HAPTICS, true);
     }
 
     public static boolean actionFeedback(Context context) {

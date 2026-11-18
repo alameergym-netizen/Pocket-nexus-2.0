@@ -94,6 +94,31 @@ public class GlobalMenuActivity extends Activity {
     }
 
     private final Handler main = new Handler(Looper.getMainLooper());
+    /** For what happens after this screen is gone (an action picked in the ring). */
+    private static final Handler AFTER = new Handler(Looper.getMainLooper());
+    /** Nothing left on screen (the ring closed, Quick Resume gone) but still here: it goes. */
+    private final Runnable watchdog = new Runnable() {
+        @Override
+        public void run() {
+            if (finishing) {
+                return;
+            }
+            boolean ringGone = radial != null && !radial.isShowing();
+            boolean quickGone = quick != null && quick.isClosed();
+            boolean nothing = radial == null && quick == null;
+            if (ringGone || quickGone || nothing) {
+                if (++idleTicks >= 2) {
+                    finishNow();
+                    return;
+                }
+            }
+            else {
+                idleTicks = 0;
+            }
+            main.postDelayed(this, 300);
+        }
+    };
+    private int idleTicks;
     private FrameLayout root;
     private RadialMenuView radial;
     private QuickSwitchView quick;
@@ -124,6 +149,12 @@ public class GlobalMenuActivity extends Activity {
         open = this;
         startBlur();
         handle(getIntent());
+        main.postDelayed(watchdog, 600);
+        // It arrives (no pop): a quick fade
+        if (PocketPrefs.animationsEnabled(this)) {
+            root.setAlpha(0f);
+            root.animate().alpha(1f).setDuration(140).start();
+        }
     }
 
     @Override
@@ -166,12 +197,21 @@ public class GlobalMenuActivity extends Activity {
         if (wm == null || !wm.isCrossWindowBlurEnabled() || !PocketPrefs.animationsEnabled(this)) {
             return;
         }
+        // Set once (changing it every frame makes the window lay out again and again: a stutter)
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
-        final float target = 48 * getResources().getDisplayMetrics().density;
-        android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(0f, target);
-        a.setDuration(260);
-        a.addUpdateListener(v -> setBlur((float) v.getAnimatedValue()));
-        a.start();
+        setBlur(26 * getResources().getDisplayMetrics().density);
+    }
+
+    /** The blur off before the window goes, so none of it can linger over the game. */
+    private void clearBlur() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || blur <= 0) {
+            return;
+        }
+        try {
+            setBlur(0);
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private void setBlur(float px) {
@@ -241,7 +281,10 @@ public class GlobalMenuActivity extends Activity {
         }
         finishSoon(200);
         // After the menu is gone (a screenshot shouldn't have it in it)
-        main.postDelayed(() -> GlobalButtonEngine.runAction(getApplicationContext(), a, front), 320);
+        // (On a handler of its own: this screen is gone by then, its own callbacks with it)
+        final Context app = getApplicationContext();
+        final String inFront = front;
+        AFTER.postDelayed(() -> GlobalButtonEngine.runAction(app, a, inFront), 300);
     }
 
     // ---- Quick Resume -----------------------------------------------------------------------
@@ -510,6 +553,8 @@ public class GlobalMenuActivity extends Activity {
         if (open == this) {
             open = null;
         }
+        main.removeCallbacks(watchdog);
+        clearBlur();
         finish();
         overridePendingTransition(0, 0);
     }

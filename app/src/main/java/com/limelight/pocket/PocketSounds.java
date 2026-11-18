@@ -169,6 +169,28 @@ public final class PocketSounds {
     }
 
     public static void play(Context context, int sound) {
+        // Every sound has its feel in the hand too
+        switch (sound) {
+            case NAV:
+            case RADIAL_TICK:
+                com.limelight.pocket.ui.PocketUi.haptic(context, com.limelight.pocket.ui.PocketUi.HAPTIC_TICK);
+                break;
+            case SELECT:
+            case RADIAL_SELECT:
+            case TOGGLE_ON:
+            case TOGGLE_OFF:
+                com.limelight.pocket.ui.PocketUi.haptic(context, com.limelight.pocket.ui.PocketUi.HAPTIC_CLICK);
+                break;
+            case OPEN:
+            case RADIAL_OPEN:
+                com.limelight.pocket.ui.PocketUi.haptic(context, com.limelight.pocket.ui.PocketUi.HAPTIC_HEAVY);
+                break;
+            case ERROR:
+                com.limelight.pocket.ui.PocketUi.haptic(context, com.limelight.pocket.ui.PocketUi.HAPTIC_DOUBLE);
+                break;
+            default:
+                break;
+        }
         try {
             if (context == null || !PocketPrefs.uiSounds(context)) {
                 return;

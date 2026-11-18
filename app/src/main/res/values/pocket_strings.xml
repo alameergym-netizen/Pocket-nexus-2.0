@@ -1562,4 +1562,6 @@
     <string name="pocket_dock_how_sub">On Home, go down to the round buttons and press Y on one: move it, remove it, or add a Pocket Nexus app or any app</string>
     <string name="pocket_dock_reset_done">The dock is back to its usual buttons</string>
     <string name="pocket_header_nexus_apps">Nexus Apps</string>
+    <string name="pocket_dock_widgets_about">Music, your play, the weather and more, at a glance</string>
+    <string name="pocket_dock_app_about">An app on your dock (Y to move or remove it)</string>
 </resources>

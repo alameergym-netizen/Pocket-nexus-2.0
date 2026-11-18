@@ -255,9 +255,9 @@ public class HomeActivity extends ConsoleActivity {
             }
         });
         FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                Math.round(100 * d), Gravity.BOTTOM | Gravity.START);
+                Math.round(64 * d), Gravity.BOTTOM | Gravity.START);
         dlp.setMarginStart(Math.round(30 * d));
-        dlp.bottomMargin = Math.round(14 * d);
+        dlp.bottomMargin = Math.round(12 * d);
         ((ViewGroup) findViewById(R.id.pocketMain)).addView(dock.view(), dlp);
         dock.refresh();
         widgets = new WidgetShelf(this, () -> dock.focusLast());

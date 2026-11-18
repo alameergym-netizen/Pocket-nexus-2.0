@@ -168,7 +168,6 @@ public final class QuickSwitchView extends View {
         nameSwap.snap(0f);
         nameSwap.target = 1f;
         PocketSounds.play(getContext(), PocketSounds.NAV);
-        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
         invalidate();
     }
 
@@ -181,6 +180,19 @@ public final class QuickSwitchView extends View {
             open.snap(0f);
         }
         invalidate();
+        // Done for sure, even if a frame never comes (the screen lost focus, a spring that won't settle)
+        postDelayed(() -> {
+            if (closed != null) {
+                Runnable r = closed;
+                closed = null;
+                r.run();
+            }
+        }, 420);
+    }
+
+    /** It closed (or is closing): nothing of it is on screen any more. */
+    public boolean isClosed() {
+        return closing && closed == null;
     }
 
     private float cardW() {

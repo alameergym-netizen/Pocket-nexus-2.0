@@ -75,7 +75,7 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     private static final int FILTER_SETTINGS = 3;
     /** Pocket Nexus's own apps (Music, Files, the browser ...). */
     private static final int FILTER_NEXUS = 4;
-    private static final int FILTER_COUNT = 5;
+    private static final int FILTER_COUNT = 4;
 
     static final int TYPE_APP = 0;
     static final int TYPE_GAME = 1;
@@ -278,8 +278,7 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 return a.label.compareToIgnoreCase(b.label);
             });
             apps.addAll(settingsEntries());
-            apps.addAll(nexusEntries());
-            NexusApps.ensureArt(this);
+            // (Pocket Nexus's own apps live on Home's dock, not here)
             main.post(() -> {
                 if (isFinishing()) {
                     return;
@@ -393,8 +392,6 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             }
         }
         if (filter == FILTER_ALL) {
-            shown.add(new Entry("nexusgroup", getString(R.string.pocket_apps_filter_nexus), TYPE_SETTING, null, NEXUS_GROUP,
-                    R.drawable.ic_pocket_all_apps));
             shown.add(new Entry("drawer", getString(R.string.pocket_drawer_title), TYPE_SETTING, null, DRAWER,
                     R.drawable.ic_pocket_all_apps));
         }

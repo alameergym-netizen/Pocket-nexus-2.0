@@ -93,13 +93,27 @@ public final class GlobalButtonEngine {
         }
         if (!pkg.equals(front)) {
             front = pkg;
-            final String p = pkg;
-            try {
-                AppHistory.seen(service, p);
-            } catch (RuntimeException ignored) {
-            }
+            // Remembered for Quick Resume only once it stayed in front a moment (not an app
+            // that flashes up and goes: a sign-in, a share sheet, a launcher passing through)
+            main.removeCallbacks(remember);
+            pendingSeen = pkg;
+            main.postDelayed(remember, 2500);
         }
     }
+
+    private String pendingSeen;
+    private final Runnable remember = new Runnable() {
+        @Override
+        public void run() {
+            String p = pendingSeen;
+            if (p != null && p.equals(front)) {
+                try {
+                    AppHistory.seen(service, p);
+                } catch (RuntimeException ignored) {
+                }
+            }
+        }
+    };
 
     public String foreground() {
         return front;

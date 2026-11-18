@@ -207,9 +207,8 @@ public class RadialMenuView extends FrameLayout {
             int previous = selected;
             selected = slot;
             ring.onSelectionChanged(previous, slot);
+            // A light detent per slice, like a physical dial (the sound brings its tick)
             PocketSounds.play(getContext(), PocketSounds.RADIAL_TICK);
-            // A light detent per slice, like a physical dial (follows the system haptics setting)
-            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
         }
     }
 

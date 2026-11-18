@@ -80,25 +80,43 @@ final class HomeDock {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setClipChildren(false);
         row.setClipToPadding(false);
-        FrameLayout.LayoutParams rlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                dp(56), Gravity.BOTTOM | Gravity.START);
-        root.addView(row, rlp);
-        // The chosen button's name, in a small pill over it
+        LinearLayout band = new LinearLayout(activity);
+        band.setOrientation(LinearLayout.HORIZONTAL);
+        band.setGravity(Gravity.CENTER_VERTICAL);
+        band.setClipChildren(false);
+        band.setClipToPadding(false);
+        band.addView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(60)));
+        // The chosen button's name and what it is, beside the row (never over the covers)
+        LinearLayout w = new LinearLayout(activity);
+        w.setOrientation(LinearLayout.VERTICAL);
         label = new TextView(activity);
         label.setTypeface(PocketFonts.semibold());
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
-        label.setTextColor(0xFF0B0B0D);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        label.setTextColor(0xFFFFFFFF);
         label.setSingleLine(true);
-        label.setPadding(dp(10), dp(4), dp(10), dp(4));
-        GradientDrawable pill = new GradientDrawable();
-        pill.setCornerRadius(dp(11));
-        pill.setColor(0xF2FFFFFF);
-        label.setBackground(pill);
-        label.setAlpha(0f);
-        label.setElevation(dp(6));
-        root.addView(label, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START));
+        label.setShadowLayer(8 * d, 0, d, 0x99000000);
+        w.addView(label);
+        about = new TextView(activity);
+        about.setTypeface(PocketFonts.medium());
+        about.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+        about.setTextColor(0xA6FFFFFF);
+        about.setSingleLine(true);
+        about.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        about.setMaxWidth(dp(300));
+        about.setShadowLayer(8 * d, 0, d, 0x99000000);
+        w.addView(about);
+        w.setAlpha(0f);
+        words = w;
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        wlp.setMarginStart(dp(10));
+        band.addView(w, wlp);
+        root.addView(band, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                dp(60), Gravity.BOTTOM | Gravity.START));
     }
+
+    private final TextView about;
+    private final LinearLayout words;
 
     View view() {
         return root;
@@ -192,68 +210,106 @@ final class HomeDock {
         }
     }
 
+    /** Its colours (Pocket Nexus's apps have their own; the widgets a cool grey). */
+    private static int[] colorsOf(String entry) {
+        if (entry.startsWith(NEXUS)) {
+            NexusApps.App a = NexusApps.byId(entry.substring(NEXUS.length()));
+            if (a != null) {
+                return new int[]{a.from, a.to};
+            }
+        }
+        return new int[]{0xFF7C8AA8, 0xFF2F3850};
+    }
+
+    private String aboutOf(String entry) {
+        if (WIDGETS.equals(entry)) {
+            return activity.getString(R.string.pocket_dock_widgets_about);
+        }
+        if (entry.startsWith(NEXUS)) {
+            NexusApps.App a = NexusApps.byId(entry.substring(NEXUS.length()));
+            return a != null ? activity.getString(a.blurb) : "";
+        }
+        return activity.getString(R.string.pocket_dock_app_about);
+    }
+
+    /**
+     * A round app icon: its own colours, a soft light from the top, a white glyph (an Android
+     * app: its own icon). Chosen: it grows a little and a white ring with a glow goes round it,
+     * the same as everything else that's chosen.
+     */
     private View button(final String entry, final int index) {
         final FrameLayout b = new FrameLayout(activity);
         b.setFocusable(true);
         b.setClipChildren(false);
-        int size = dp(44);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
-        lp.setMarginEnd(dp(12));
+        b.setClipToPadding(false);
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            b.setDefaultFocusHighlightEnabled(false);
+        }
+        final int box = dp(54);
+        final int size = dp(44);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(box, box);
+        lp.setMarginEnd(dp(6));
         b.setLayoutParams(lp);
-        final GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(0x33FFFFFF);
-        bg.setStroke(Math.max(1, dp(1)), 0x1FFFFFFF);
-        b.setBackground(bg);
-        b.setElevation(dp(3));
+        // The ring round it when chosen
+        final View ring = new View(activity);
+        GradientDrawable rd = new GradientDrawable();
+        rd.setShape(GradientDrawable.OVAL);
+        rd.setColor(0x14FFFFFF);
+        rd.setStroke(Math.round(2.5f * d), 0xFFFFFFFF);
+        ring.setBackground(rd);
+        ring.setAlpha(0f);
+        ring.setScaleX(0.86f);
+        ring.setScaleY(0.86f);
+        b.addView(ring, new FrameLayout.LayoutParams(box, box, Gravity.CENTER));
         final ImageView icon = new ImageView(activity);
-        icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        icon.setScaleType(ImageView.ScaleType.CENTER);
+        icon.setOutlineProvider(new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, Outline outline) {
+                outline.setOval(0, 0, view.getWidth(), view.getHeight());
+            }
+        });
+        icon.setClipToOutline(true);
+        icon.setElevation(dp(4));
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            // Its shadow is a glow when it rises
+            icon.setOutlineAmbientShadowColor(0xFFFFFFFF);
+            icon.setOutlineSpotShadowColor(0xFFFFFFFF);
+        }
         final boolean appIcon = entry.startsWith(APP);
-        final String glyph = glyphOf(entry);
         if (appIcon) {
+            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
             icon.setImageDrawable(appIcon(entry.substring(APP.length()), size));
-            icon.setOutlineProvider(new ViewOutlineProvider() {
-                @Override
-                public void getOutline(View view, Outline outline) {
-                    outline.setOval(0, 0, view.getWidth(), view.getHeight());
-                }
-            });
-            icon.setClipToOutline(true);
-            b.addView(icon, new FrameLayout.LayoutParams(size, size));
         }
         else {
-            icon.setImageDrawable(PocketIcons.drawable(glyph, dp(20), 0xF2FFFFFF));
-            b.addView(icon, new FrameLayout.LayoutParams(size, size));
+            int[] c = colorsOf(entry);
+            GradientDrawable fill = new GradientDrawable(GradientDrawable.Orientation.TL_BR, c);
+            fill.setShape(GradientDrawable.OVAL);
+            icon.setBackground(new android.graphics.drawable.LayerDrawable(
+                    new android.graphics.drawable.Drawable[]{fill, gloss()}));
+            icon.setImageDrawable(PocketIcons.drawable(glyphOf(entry), dp(21), 0xFFFFFFFF));
         }
+        b.addView(icon, new FrameLayout.LayoutParams(size, size, Gravity.CENTER));
         b.setOnFocusChangeListener((v, has) -> {
-            b.animate().cancel();
+            icon.animate().cancel();
+            ring.animate().cancel();
             if (has) {
                 lastFocus = index;
                 PocketSounds.play(activity, PocketSounds.NAV);
-                b.animate().scaleX(1.18f).scaleY(1.18f).translationY(-dp(3)).setDuration(260)
+                icon.animate().scaleX(1.08f).scaleY(1.08f).translationZ(dp(10)).setDuration(240)
                         .setInterpolator(Spring.POP).start();
-                bg.setColor(0xFFFFFFFF);
-                bg.setStroke(0, 0);
-                if (!appIcon) {
-                    icon.setImageDrawable(PocketIcons.drawable(glyph, dp(20), 0xFF0B0B0D));
-                }
-                b.setElevation(dp(10));
-                showLabel(b, labelOf(entry));
+                ring.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(Spring.POP).start();
+                showLabel(labelOf(entry), aboutOf(entry));
             }
             else {
-                b.animate().scaleX(1f).scaleY(1f).translationY(0).setDuration(200).start();
-                bg.setColor(0x33FFFFFF);
-                bg.setStroke(Math.max(1, dp(1)), 0x1FFFFFFF);
-                if (!appIcon) {
-                    icon.setImageDrawable(PocketIcons.drawable(glyph, dp(20), 0xF2FFFFFF));
-                }
-                b.setElevation(dp(3));
+                icon.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(180).start();
+                ring.animate().alpha(0f).scaleX(0.86f).scaleY(0.86f).setDuration(160).start();
                 if (!row.hasFocus()) {
-                    label.animate().alpha(0f).setDuration(140).start();
+                    words.animate().alpha(0f).setDuration(140).start();
                 }
             }
         });
-        b.setOnClickListener(v -> open(entry, b));
+        b.setOnClickListener(v -> open(entry, icon));
         b.setOnKeyListener((v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) {
                 return keyCode == KeyEvent.KEYCODE_BUTTON_Y || keyCode == KeyEvent.KEYCODE_MENU;
@@ -282,9 +338,17 @@ final class HomeDock {
         return b;
     }
 
+    /** A soft light over the top half, like a lit glass button. */
+    private static android.graphics.drawable.Drawable gloss() {
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x47FFFFFF, 0x00FFFFFF, 0x00000000});
+        g.setShape(GradientDrawable.OVAL);
+        return g;
+    }
+
     private static String glyphOf(String entry) {
         if (WIDGETS.equals(entry)) {
-            return "GAME_BAR";
+            return "APPS";
         }
         if (entry.startsWith(NEXUS)) {
             NexusApps.App a = NexusApps.byId(entry.substring(NEXUS.length()));
@@ -314,23 +378,19 @@ final class HomeDock {
         }
     }
 
-    private void showLabel(View over, String text) {
-        label.setText(text);
-        label.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        float cx = over.getLeft() + over.getWidth() / 2f + row.getLeft();
-        label.setTranslationX(Math.max(0, cx - label.getMeasuredWidth() / 2f));
-        label.animate().cancel();
-        // Just over the button (the dock's frame is 100dp tall, its buttons in the bottom 56dp)
-        float top = dp(39) - label.getMeasuredHeight();
-        label.setTranslationY(top + dp(5));
-        label.animate().alpha(1f).translationY(top).setDuration(220).setInterpolator(Spring.POP).start();
+    private void showLabel(String name, String what) {
+        label.setText(name);
+        about.setText(what);
+        words.animate().cancel();
+        words.setTranslationX(-dp(6));
+        words.animate().alpha(1f).translationX(0).setDuration(200).setInterpolator(Spring.POP).start();
     }
 
     private void open(String entry, View b) {
         b.animate().cancel();
         b.setScaleX(1.05f);
         b.setScaleY(1.05f);
-        b.animate().scaleX(1.18f).scaleY(1.18f).setDuration(220).setInterpolator(Spring.POP).start();
+        b.animate().scaleX(1.08f).scaleY(1.08f).setDuration(220).setInterpolator(Spring.POP).start();
         if (WIDGETS.equals(entry)) {
             host.dockWidgets();
             return;

@@ -338,26 +338,32 @@ public final class KeyboardView extends View {
     // ---- Size and layout ----------------------------------------------------------------
 
     private float topBar() {
-        return 58 * d;
+        return 52 * d;
     }
 
     private float hintBar() {
-        return 30 * d;
+        return 28 * d;
     }
 
     private float gap() {
         return 6 * d;
     }
 
+    /** The keys' width: compact, like a console's keyboard (PS5), not the screen's. */
     private float panelWidth(float width) {
-        return Math.min(width - 32 * d, 820 * d);
+        return Math.min(width - 64 * d, 640 * d);
+    }
+
+    /** Room under the panel (it floats) and round it. */
+    private float floatGap() {
+        return 10 * d;
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int w = MeasureSpec.getSize(widthMeasureSpec);
         keyH = PocketKeyboardService.keySizeDp(getContext()) * d;
-        float h = topBar() + rows.size() * keyH + (rows.size() - 1) * gap() + hintBar() + 14 * d;
+        float h = topBar() + rows.size() * keyH + (rows.size() - 1) * gap() + hintBar() + 14 * d + floatGap();
         setMeasuredDimension(w, Math.round(h));
     }
 
@@ -403,11 +409,17 @@ public final class KeyboardView extends View {
             litSet = true;
         }
         float w = getWidth();
-        float h = getHeight();
-        float r = 26 * d;
-        // The frosted panel: its top corners rounded, a line of light along its top edge
+        float h = getHeight() - floatGap();
+        float r = 24 * d;
+        // A floating panel (round corners all round, the screen showing either side of it)
+        float pw = panelWidth(w) + 28 * d;
+        float pl = (w - pw) / 2f;
         path.reset();
-        path.addRoundRect(new RectF(0, 0, w, h + r), r, r, Path.Direction.CW);
+        path.addRoundRect(new RectF(pl, 0, pl + pw, h), r, r, Path.Direction.CW);
+        // Its soft shadow
+        paint.setShader(null);
+        paint.setColor(0x40000000);
+        c.drawRoundRect(new RectF(pl - 3 * d, 3 * d, pl + pw + 3 * d, h + 5 * d), r + 3 * d, r + 3 * d, paint);
         paint.setStyle(Paint.Style.FILL);
         paint.setShader(new LinearGradient(0, 0, 0, h, 0xF71C1C24, 0xFC09090D, Shader.TileMode.CLAMP));
         c.drawPath(path, paint);
@@ -700,20 +712,20 @@ public final class KeyboardView extends View {
                 {"START", getContext().getString(R.string.pocket_kb_h_enter)},
                 {"B", getContext().getString(R.string.pocket_kb_h_close)},
         };
-        small.setTextSize(10.5f * d);
+        small.setTextSize(9.5f * d);
         small.setTextAlign(Paint.Align.LEFT);
         text.setTypeface(PocketFonts.bold());
-        text.setTextSize(8.5f * d);
-        float gh = 15 * d;
+        text.setTextSize(7.5f * d);
+        float gh = 13 * d;
         float total = 0;
         float[] widths = new float[hints.length];
         for (int i = 0; i < hints.length; i++) {
             float gw = hints[i][0].length() == 1 ? gh : text.measureText(hints[i][0]) + 10 * d;
             widths[i] = gw + 5 * d + small.measureText(hints[i][1]);
-            total += widths[i] + (i > 0 ? 14 * d : 0);
+            total += widths[i] + (i > 0 ? 10 * d : 0);
         }
         float x = (w - total) / 2f;
-        float cy = h - 17 * d;
+        float cy = h - 15 * d;
         for (int i = 0; i < hints.length; i++) {
             String g = hints[i][0];
             float gw = g.length() == 1 ? gh : text.measureText(g) + 10 * d;
@@ -723,7 +735,7 @@ public final class KeyboardView extends View {
             c.drawText(g, x + gw / 2f, cy - (text.descent() + text.ascent()) / 2f, text);
             small.setColor(0x99FFFFFF);
             c.drawText(hints[i][1], x + gw + 5 * d, cy - (small.descent() + small.ascent()) / 2f, small);
-            x += widths[i] + 14 * d;
+            x += widths[i] + 10 * d;
         }
         text.setTypeface(PocketFonts.medium());
     }

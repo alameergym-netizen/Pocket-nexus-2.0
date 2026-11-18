@@ -206,6 +206,31 @@ public final class RetroLauncher {
         return emulator != null && emulator.toUpperCase(java.util.Locale.ROOT).startsWith("CEMU");
     }
 
+    /**
+     * A game that's one file (an ISO, a CHD, a cartridge): it's shared with the emulator for the
+     * launch, so it opens without the emulator needing its own access to the folder (PPSSPP's
+     * "File doesn't exist"). A disc made of several files (a .cue and its .bin tracks, an .m3u)
+     * keeps the folder's address, as the emulator has to find the other files next to it.
+     */
+    static boolean singleFile(File rom) {
+        String n = rom.getName().toLowerCase(java.util.Locale.ROOT);
+        int dot = n.lastIndexOf('.');
+        String ext = dot >= 0 ? n.substring(dot + 1) : "";
+        switch (ext) {
+            case "cue":
+            case "gdi":
+            case "m3u":
+            case "ccd":
+            case "toc":
+            case "mds":
+            case "cdi":
+            case "pbp_folder":
+                return false;
+            default:
+                return !rom.isDirectory();
+        }
+    }
+
     /** The game as an Android document URI (what ES-DE calls %ROMSAF%). */
     public static Uri safUri(File file) {
         String path = file.getAbsolutePath();
@@ -296,7 +321,7 @@ public final class RetroLauncher {
         AndroidEnv env = new AndroidEnv(activity, rom, root, component != null ? component.getPackageName() : null);
         EsdeCommand.Spec spec;
         String template = cmd.template;
-        if (sharesFile(cmd.emulator) && template.contains("%ROMSAF%")) {
+        if (template.contains("%ROMSAF%") && (sharesFile(cmd.emulator) || singleFile(rom))) {
             // Cemu can't open a storage document it wasn't granted (it says "Unable to launch
             // game"): the game is shared with it for this launch instead, through this app
             template = template.replace("%ROMSAF%", "%ROMPROVIDER%");
