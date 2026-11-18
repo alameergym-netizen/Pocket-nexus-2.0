@@ -1598,4 +1598,14 @@
     <string name="pocket_message_failed">Couldn\'t send it. Open the app to reply.</string>
     <string name="pocket_message_none">No message to answer</string>
     <string name="pocket_message_hint_choose">Choose</string>
+    <string name="pocket_tab_streaming">Streaming</string>
+    <string name="pocket_tab_controls_all">Controls</string>
+    <string name="pocket_section_feel">Keyboard and feel</string>
+    <string name="pocket_header_messages">Messages</string>
+    <string name="pocket_set_message_popups">Message pop-ups</string>
+    <string name="pocket_set_message_popups_sub">Discord, WhatsApp, Telegram and other messages show over any game. Press Guide while one is showing to reply with the controller.</string>
+    <string name="pocket_set_notification_access">Notification access</string>
+    <string name="pocket_set_notification_access_sub">Needed for message pop-ups and to control music playing in other apps.</string>
+    <string name="pocket_set_open_discord">Open Discord</string>
+    <string name="pocket_set_open_discord_sub">For voice channels and calls (pop-ups and quick replies work over any game).</string>
 </resources>

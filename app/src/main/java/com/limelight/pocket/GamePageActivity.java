@@ -1364,20 +1364,9 @@ public class GamePageActivity extends ConsoleActivity {
         bg.setCornerRadius(dp(7));
         bg.setColor(0x33FFFFFF);
         chip.setBackground(bg);
-        TextView box = new TextView(this);
-        box.setText(r.value);
-        box.setTypeface(com.limelight.pocket.ui.PocketFonts.bold());
-        box.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-        box.setIncludeFontPadding(false);
-        box.setGravity(Gravity.CENTER);
-        int color = com.limelight.pocket.info.Ratings.color(r.score);
-        box.setTextColor(r.score >= 50 && r.score < 75 ? 0xFF1A1A1A : 0xFFFFFFFF);
-        GradientDrawable sq = new GradientDrawable();
-        sq.setCornerRadius(dp(5));
-        sq.setColor(color);
-        box.setBackground(sq);
-        box.setPadding(dp(6), dp(4), dp(6), dp(4));
-        chip.addView(box);
+        // The same ring as Home's: the score's arc in its colour, the number inside
+        chip.addView(com.limelight.pocket.home.MetaStrip.ring(this, r.score, r.value,
+                PocketPrefs.animationsEnabled(this)), new LinearLayout.LayoutParams(dp(28), dp(28)));
         TextView label = new TextView(this);
         label.setText(r.source);
         label.setTypeface(com.limelight.pocket.ui.PocketFonts.medium());
@@ -1401,30 +1390,9 @@ public class GamePageActivity extends ConsoleActivity {
         tile.setOrientation(LinearLayout.HORIZONTAL);
         tile.setGravity(Gravity.CENTER_VERTICAL);
         tile.setPadding(0, 0, dp(10), 0);
-        TextView box = new TextView(this);
-        String value = r.value;
-        int slash = value.indexOf('/');
-        if (slash > 0) {
-            // "9.4/10": the score big, "/10" small
-            android.text.SpannableString sp = new android.text.SpannableString(value);
-            sp.setSpan(new android.text.style.RelativeSizeSpan(0.62f), slash, value.length(), 0);
-            box.setText(sp);
-        }
-        else {
-            box.setText(value);
-        }
-        box.setTypeface(com.limelight.pocket.ui.PocketFonts.bold());
-        box.setTextSize(TypedValue.COMPLEX_UNIT_SP, value.length() > 4 ? 13f : 15f);
-        box.setIncludeFontPadding(false);
-        box.setGravity(Gravity.CENTER);
-        int color = com.limelight.pocket.info.Ratings.color(r.score);
-        box.setTextColor(color);
-        GradientDrawable sq = new GradientDrawable();
-        sq.setCornerRadius(dp(11));
-        sq.setColor((color & 0x00FFFFFF) | 0x24000000);
-        sq.setStroke(Math.max(1, dp(1f)), (color & 0x00FFFFFF) | 0x73000000);
-        box.setBackground(sq);
-        tile.addView(box, new LinearLayout.LayoutParams(dp(56), dp(44)));
+        // A ring that fills to the score in its colour (the same as on Home)
+        tile.addView(com.limelight.pocket.home.MetaStrip.ring(this, r.score, r.value,
+                PocketPrefs.animationsEnabled(this)), new LinearLayout.LayoutParams(dp(46), dp(46)));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
         TextView src = new TextView(this);

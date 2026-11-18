@@ -56,14 +56,17 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     // Look and the libraries first (Pocket Nexus is every game's home now), streaming after
     private static final int TAB_LOOK = 0;
-    /** Home itself: being the home screen, the dock, apps coming and going. */
+    /** Home itself: being the home screen, the dock, apps coming and going, messages. */
     private static final int TAB_HOME = 1;
     private static final int TAB_LIBRARY = 2;
+    /** Streaming: the picture and sound, and the connection that carries them, together. */
     private static final int TAB_STREAM = 3;
+    /** Controls: the buttons and their shortcuts (here and over every game), then the feel. */
     private static final int TAB_BUTTONS = 4;
-    private static final int TAB_CONTROLS = 5;
-    private static final int TAB_CONNECTION = 6;
-    private static final int TAB_SYSTEM = 7;
+    private static final int TAB_SYSTEM = 5;
+    // (Folded into the two above; kept as names for what they hold)
+    private static final int TAB_CONTROLS = TAB_BUTTONS;
+    private static final int TAB_CONNECTION = TAB_STREAM;
 
     private static final int[] BITRATES_MBPS = {5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150};
     private static final int[] DEADZONES = {0, 2, 3, 4, 5, 6, 8, 10, 15, 20};
@@ -100,9 +103,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
         LinearLayout tabBar = findViewById(R.id.pocketTabs);
         int[] tabNames = {R.string.pocket_tab_look, R.string.pocket_tab_home, R.string.pocket_tab_library,
-                R.string.pocket_tab_stream, R.string.pocket_tab_buttons, R.string.pocket_tab_controls,
-                R.string.pocket_tab_connection, R.string.pocket_tab_system};
-        String[] tabIcons = {"SPARKLE", "HOME", "LIST", "PLAY", "GAMEPAD", "KEYBOARD", "WIFI", "SLIDERS"};
+                R.string.pocket_tab_streaming, R.string.pocket_tab_controls_all, R.string.pocket_tab_system};
+        String[] tabIcons = {"SPARKLE", "HOME", "LIST", "PLAY", "GAMEPAD", "SLIDERS"};
         for (int i = 0; i < tabNames.length; i++) {
             final int index = i;
             TextView tab = new TextView(this);
@@ -245,16 +247,16 @@ public class QuickSettingsActivity extends ConsoleActivity {
         rowRefreshers.clear();
         switch (index) {
             case TAB_STREAM:
+                // The picture first, then what carries it
                 buildStreamTab();
+                addSpacerHeader(R.string.pocket_tab_connection);
+                buildConnectionTab();
                 break;
             case TAB_BUTTONS:
+                // The buttons and their shortcuts, then the keyboard and how the controls feel
                 buildButtonsTab();
-                break;
-            case TAB_CONTROLS:
+                addSpacerHeader(R.string.pocket_section_feel);
                 buildControlsTab();
-                break;
-            case TAB_CONNECTION:
-                buildConnectionTab();
                 break;
             case TAB_LOOK:
                 buildLookTab();
@@ -325,6 +327,24 @@ public class QuickSettingsActivity extends ConsoleActivity {
             prefs().edit().remove("pocket_home_dock").apply();
             PocketSounds.play(this, PocketSounds.TOGGLE_ON);
             Toast.makeText(this, R.string.pocket_dock_reset_done, Toast.LENGTH_SHORT).show();
+        });
+
+        addHeader(R.string.pocket_header_messages);
+        addToggle(getString(R.string.pocket_set_message_popups), getString(R.string.pocket_set_message_popups_sub),
+                () -> prefs().getBoolean("pocket_message_popups", true),
+                value -> prefs().edit().putBoolean("pocket_message_popups", value).apply());
+        addAction(getString(R.string.pocket_set_notification_access), getString(R.string.pocket_set_notification_access_sub),
+                () -> getString(com.limelight.pocket.device.PocketNotifications.allowed(this) ? R.string.pocket_on : R.string.pocket_off),
+                () -> com.limelight.pocket.device.PocketNotifications.askForAccess(this));
+        addAction(getString(R.string.pocket_set_open_discord), getString(R.string.pocket_set_open_discord_sub), null, () -> {
+            android.content.Intent i = getPackageManager().getLaunchIntentForPackage("com.discord");
+            try {
+                startActivity(i != null ? i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        : new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("market://details?id=com.discord")));
+            } catch (RuntimeException e) {
+                PocketSounds.play(this, PocketSounds.ERROR);
+            }
         });
 
         addHeader(R.string.pocket_header_nexus_apps);
@@ -1475,6 +1495,29 @@ public class QuickSettingsActivity extends ConsoleActivity {
     }
 
     // ---- Row builders -------------------------------------------------------------------
+
+    /** A part of a tab with its own title (Streaming: then Connection), a hairline above it. */
+    private void addSpacerHeader(int text) {
+        View line = new View(this);
+        line.setBackgroundColor(0x1FFFFFFF);
+        LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                Math.max(1, dp(1) / 2));
+        ll.topMargin = dp(22);
+        line.setLayoutParams(ll);
+        rowsContainer.addView(line);
+        TextView title = new TextView(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(16);
+        lp.bottomMargin = dp(2);
+        title.setLayoutParams(lp);
+        title.setPaddingRelative(dp(6), 0, 0, 0);
+        title.setText(text);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19);
+        title.setTypeface(com.limelight.pocket.ui.PocketFonts.display());
+        title.setTextColor(0xFFFFFFFF);
+        rowsContainer.addView(title);
+    }
 
     private void addHeader(int text) {
         TextView header = new TextView(this);

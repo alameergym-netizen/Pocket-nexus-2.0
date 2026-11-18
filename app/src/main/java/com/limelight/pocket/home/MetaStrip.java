@@ -56,6 +56,18 @@ public final class MetaStrip {
         return box;
     }
 
+    /** Just the ring (for the game's page): the score's arc in its colour, the number inside. */
+    public static View ring(Context c, int score, String value, boolean animate) {
+        String shown = value != null && value.length() <= 3 ? value
+                : value != null && value.contains("/") && value.indexOf('/') <= 3 ? value.substring(0, value.indexOf('/'))
+                : score >= 0 ? String.valueOf(score) : value;
+        Ring r = new Ring(c, score, shown);
+        if (animate) {
+            r.grow();
+        }
+        return r;
+    }
+
     /** A plain fact: a small caption (with its icon) over its value. */
     public static View fact(Context c, int icon, String caption, String value) {
         float d = d(c);
@@ -194,6 +206,13 @@ public final class MetaStrip {
                 invalidate();
             });
             a.start();
+        }
+
+        @Override
+        protected void onSizeChanged(int w, int h, int ow, int oh) {
+            super.onSizeChanged(w, h, ow, oh);
+            // The number in proportion to the ring (a small one on Home, a bigger one on a game's page)
+            text.setTextSize(Math.min(w, h) * (shown.length() >= 3 ? 0.30f : 0.36f));
         }
 
         @Override
