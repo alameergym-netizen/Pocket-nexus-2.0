@@ -486,6 +486,17 @@
             android:resizeableActivity="false"
             android:taskAffinity="${applicationId}.overlay"
             android:theme="@style/PocketOverlayTheme" />
+        <!-- A quick reply to a message (Discord, WhatsApp...), over the game -->
+        <activity
+            android:name=".pocket.global.QuickReplyActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="false"
+            android:taskAffinity="${applicationId}.reply"
+            android:theme="@style/PocketOverlayTheme"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustNothing" />
 
         <!-- Pocket Nexus: the radial menus, edited as themselves -->
         <activity

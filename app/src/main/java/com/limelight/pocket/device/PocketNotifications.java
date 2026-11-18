@@ -38,6 +38,21 @@ public class PocketNotifications extends NotificationListenerService {
         public final long when;
         public final boolean clearable;
         final PendingIntent open;
+        /** Its reply (a message: Discord, WhatsApp, Telegram...), or null. */
+        Notification.Action reply;
+        android.app.RemoteInput replyInput;
+        /** The sender's picture, when it has one. */
+        public android.graphics.drawable.Icon picture;
+        /** The conversation's name ("#general", a group), when it's one. */
+        public String conversation;
+        /** The last few messages, oldest first, each "Name: text". */
+        public final List<String> history = new ArrayList<>();
+        /** The newest message is one the user sent (an update after a reply, not news). */
+        boolean fromMe;
+
+        public boolean canReply() {
+            return reply != null && replyInput != null;
+        }
 
         Note(String key, String packageName, String app, String title, String text, long when, boolean clearable,
              PendingIntent open) {
@@ -59,6 +74,51 @@ public class PocketNotifications extends NotificationListenerService {
 
     private static PocketNotifications connected;
     private static Listener listener;
+    private static Listener messages;
+    private static Note lastMessage;
+    private static String lastBanner;
+    private static long repliedAt;
+    private static String repliedKey;
+
+    /** Told (on the main thread) when a message comes in that can be answered. */
+    public static void setMessageListener(Listener l) {
+        messages = l;
+    }
+
+    /** The newest message that can be answered (or null). */
+    public static Note lastMessage() {
+        return lastMessage;
+    }
+
+    /** Message pop-ups over every game (with a quick reply), on unless turned off. */
+    public static boolean popupsEnabled(Context c) {
+        return com.limelight.pocket.PocketPrefs.prefs(c).getBoolean("pocket_message_popups", true);
+    }
+
+    /**
+     * Answers a message with its own reply action, as if typed in its notification. True when
+     * the app took it.
+     */
+    public static boolean reply(Context context, Note note, CharSequence text) {
+        if (note == null || !note.canReply() || text == null || text.length() == 0) {
+            return false;
+        }
+        Intent fill = new Intent();
+        Bundle results = new Bundle();
+        results.putCharSequence(note.replyInput.getResultKey(), text);
+        android.app.RemoteInput.addResultsToIntent(note.reply.getRemoteInputs(), fill, results);
+        if (Build.VERSION.SDK_INT >= 28) {
+            android.app.RemoteInput.setResultsSource(fill, android.app.RemoteInput.SOURCE_FREE_FORM_INPUT);
+        }
+        try {
+            note.reply.actionIntent.send(context, 0, fill);
+            repliedAt = System.currentTimeMillis();
+            repliedKey = note.key;
+            return true;
+        } catch (PendingIntent.CanceledException | RuntimeException e) {
+            return false;
+        }
+    }
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     public static void setListener(Listener l) {
@@ -119,6 +179,25 @@ public class PocketNotifications extends NotificationListenerService {
         if (n == null || !n.clearable) {
             return;
         }
+        if (n.canReply()) {
+            lastMessage = n;
+            // A pop-up for news only: not an update after the user's own reply, not the same again
+            String sig = n.key + "|" + n.text;
+            boolean echo = n.fromMe || (n.key.equals(repliedKey) && System.currentTimeMillis() - repliedAt < 4000);
+            if (echo) {
+                return; // the user's own reply coming back: not news
+            }
+            if (!sig.equals(lastBanner) && popupsEnabled(this) && messages != null) {
+                lastBanner = sig;
+                MAIN.post(() -> {
+                    Listener m = messages;
+                    if (m != null) {
+                        m.onNotification(n);
+                    }
+                });
+                return; // its pop-up over everything says it (not Home's too)
+            }
+        }
         MAIN.post(() -> {
             Listener l = listener;
             if (l != null) {
@@ -151,8 +230,54 @@ public class PocketNotifications extends NotificationListenerService {
             app = pm.getApplicationLabel(ai).toString();
         } catch (PackageManager.NameNotFoundException | RuntimeException ignored) {
         }
-        return new Note(sbn.getKey(), sbn.getPackageName(), app, title != null ? title.toString() : "",
+        Note note = new Note(sbn.getKey(), sbn.getPackageName(), app, title != null ? title.toString() : "",
                 text != null ? text.toString() : "", sbn.getPostTime(), sbn.isClearable(), n.contentIntent);
+        // A message: its reply, the sender's picture and the last few messages
+        if (n.actions != null) {
+            for (Notification.Action a : n.actions) {
+                android.app.RemoteInput[] inputs = a.getRemoteInputs();
+                if (inputs == null) {
+                    continue;
+                }
+                for (android.app.RemoteInput in : inputs) {
+                    if (in.getAllowFreeFormInput()) {
+                        note.reply = a;
+                        note.replyInput = in;
+                        break;
+                    }
+                }
+                if (note.reply != null) {
+                    break;
+                }
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 23) {
+            note.picture = n.getLargeIcon();
+        }
+        try {
+            androidx.core.app.NotificationCompat.MessagingStyle ms =
+                    androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n);
+            if (ms != null) {
+                CharSequence conv = ms.getConversationTitle();
+                note.conversation = conv != null ? conv.toString() : null;
+                List<androidx.core.app.NotificationCompat.MessagingStyle.Message> msgs = ms.getMessages();
+                int from = Math.max(0, msgs.size() - 4);
+                for (int i = from; i < msgs.size(); i++) {
+                    androidx.core.app.NotificationCompat.MessagingStyle.Message m = msgs.get(i);
+                    CharSequence who = m.getPerson() != null ? m.getPerson().getName() : null;
+                    note.history.add((who != null ? who + ": " : "") + (m.getText() != null ? m.getText() : ""));
+                }
+                if (!msgs.isEmpty()) {
+                    androidx.core.app.NotificationCompat.MessagingStyle.Message last = msgs.get(msgs.size() - 1);
+                    note.fromMe = last.getPerson() == null
+                            || (ms.getUser() != null && ms.getUser().getName() != null && last.getPerson().getName() != null
+                            && ms.getUser().getName().toString().equals(last.getPerson().getName().toString())
+                            && (ms.getUser().getKey() == null || ms.getUser().getKey().equals(last.getPerson().getKey())));
+                }
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return note;
     }
 
     /** The notifications now, newest first (empty without access). */

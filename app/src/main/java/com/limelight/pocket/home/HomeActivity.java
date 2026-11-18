@@ -611,6 +611,7 @@ public class HomeActivity extends ConsoleActivity {
             source.setText(welcome ? getString(R.string.pocket_home_welcome) : "");
             source.setVisibility(welcome ? View.VISIBLE : View.GONE);
             whenView.setVisibility(View.GONE);
+            sourceRow.setVisibility(welcome ? View.VISIBLE : View.GONE);
             return;
         }
         // Where it comes from isn't shown (its art and the section say it): just when it was played
@@ -619,26 +620,9 @@ public class HomeActivity extends ConsoleActivity {
         source.setPadding(0, 0, 0, 0);
         source.setText("");
         source.setVisibility(View.GONE);
-        if (e.lastUsed > 0) {
-            Drawable clock = getDrawable(R.drawable.ic_pocket_clock);
-            if (clock != null) {
-                clock = clock.mutate();
-                clock.setTint(0xC7FFFFFF);
-                int cs = Math.round(14 * d);
-                clock.setBounds(0, 0, cs, cs);
-            }
-            whenView.setCompoundDrawablesRelative(clock, null, null, null);
-            whenView.setText(DateUtils.getRelativeTimeSpanString(e.lastUsed, System.currentTimeMillis(),
-                    DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE));
-            styleMeta(whenView);
-            ViewGroup.MarginLayoutParams wlp = (ViewGroup.MarginLayoutParams) whenView.getLayoutParams();
-            wlp.setMarginStart(0);
-            whenView.setLayoutParams(wlp);
-            whenView.setVisibility(View.VISIBLE);
-        }
-        else {
-            whenView.setVisibility(View.GONE);
-        }
+        // When it was played is one of the facts under the name now
+        whenView.setVisibility(View.GONE);
+        sourceRow.setVisibility(View.GONE);
     }
 
     /** The chip's words: the app for a shortcut (its icon says it's one), else where() says it. */
@@ -1087,44 +1071,46 @@ public class HomeActivity extends ConsoleActivity {
             meta.setVisibility(View.GONE);
             return;
         }
-        // A thin dot between the parts (and after "when", when it's there)
-        metaLead = whenView != null && whenView.getVisibility() == View.VISIBLE;
-        // The critics' score (Metacritic, OpenCritic...) and the players' (Steam, Google Play)
+        // The scores as rings, then the plain facts, hairlines between (what doesn't fit is dropped)
+        metaLead = false;
+        boolean grow = PocketPrefs.animationsEnabled(this);
         GameInfo.Rating critics = info != null ? info.criticScore() : null;
         if (critics != null) {
-            addMeta(ratingChip(critics.score, critics.value, critics.source));
+            addMeta(MetaStrip.score(this, critics.score, critics.value, critics.source, critics.note, grow));
         }
         else if (info != null && info.metacritic > 0) {
-            addMeta(ratingChip(info.metacritic, String.valueOf(info.metacritic), getString(R.string.pocket_meta_metacritic)));
+            addMeta(MetaStrip.score(this, info.metacritic, String.valueOf(info.metacritic),
+                    getString(R.string.pocket_meta_metacritic), null, grow));
         }
         GameInfo.Rating players = info != null ? info.playerScore() : null;
         if (players != null) {
-            addMeta(ratingChip(players.score, players.value, players.source));
+            addMeta(MetaStrip.score(this, players.score, players.value, players.source, players.note, grow));
         }
-        String trophies = com.limelight.pocket.retro.Achievements.chip(this, e.item);
-        if (trophies != null) {
-            addMeta(metaChip(R.drawable.ic_pocket_trophy, trophies));
+        if (e.lastUsed > 0) {
+            addMeta(MetaStrip.fact(this, R.drawable.ic_pocket_clock, getString(R.string.pocket_meta_last_played),
+                    DateUtils.getRelativeTimeSpanString(e.lastUsed, System.currentTimeMillis(),
+                            DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE).toString()));
         }
         String played = PlayTime.format(this, PlayTime.seconds(this, e.item));
         if (played != null) {
-            addMeta(metaChip(R.drawable.ic_pocket_hourglass, played));
+            addMeta(MetaStrip.fact(this, R.drawable.ic_pocket_hourglass, getString(R.string.pocket_meta_play_time), played));
+        }
+        String trophies = com.limelight.pocket.retro.Achievements.chip(this, e.item);
+        if (trophies != null) {
+            addMeta(MetaStrip.fact(this, R.drawable.ic_pocket_trophy, getString(R.string.pocket_meta_trophies), trophies));
         }
         if (info != null) {
-            StringBuilder sb = new StringBuilder();
-            if (!info.genres.isEmpty()) {
-                sb.append(info.genres.get(0));
-            }
             String year = info.releaseDate != null ? info.releaseDate.replaceAll(".*?(\\d{4}).*", "$1") : null;
-            if (year != null && year.matches("\\d{4}")) {
-                if (sb.length() > 0) {
-                    sb.append(", ");
-                }
-                sb.append(year);
-            }
-            if (sb.length() > 0) {
-                addMeta(metaChip(0, sb.toString()));
+            boolean hasYear = year != null && year.matches("\\d{4}");
+            String genre = !info.genres.isEmpty() ? info.genres.get(0) : null;
+            if (genre != null || hasYear) {
+                addMeta(MetaStrip.fact(this, 0,
+                        hasYear ? year : getString(R.string.pocket_meta_genre),
+                        genre != null ? genre : getString(R.string.pocket_meta_released)));
             }
         }
+        View col = findViewById(R.id.pocketHero);
+        MetaStrip.fit(meta, col != null && col.getWidth() > 0 ? col.getWidth() : Math.round(440 * d));
         boolean was = meta.getVisibility() == View.VISIBLE;
         meta.setVisibility(meta.getChildCount() > 0 ? View.VISIBLE : View.GONE);
         if (!was && meta.getVisibility() == View.VISIBLE && PocketPrefs.animationsEnabled(this)) {
@@ -1138,83 +1124,9 @@ public class HomeActivity extends ConsoleActivity {
     /** One part of the line under the name, after a thin dot when something comes before it. */
     private void addMeta(View v) {
         if (meta.getChildCount() > 0 || metaLead) {
-            View dot = new View(this);
-            GradientDrawable g = new GradientDrawable();
-            g.setShape(GradientDrawable.OVAL);
-            g.setColor(0x73FFFFFF);
-            dot.setBackground(g);
-            int s = Math.round(3.5f * d);
-            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(s, s);
-            dlp.setMarginStart(Math.round(10 * d));
-            dlp.setMarginEnd(Math.round(10 * d));
-            meta.addView(dot, dlp);
+            meta.addView(MetaStrip.hairline(this));
         }
         meta.addView(v);
-    }
-
-    /** The line's type: small, bright, a little apart, with a soft shadow over any art. */
-    private void styleMeta(TextView t) {
-        t.setTypeface(PocketFonts.semibold());
-        t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12.5f);
-        t.setTextColor(0xE0FFFFFF);
-        t.setLetterSpacing(0.01f);
-        t.setIncludeFontPadding(false);
-        t.setShadowLayer(10 * d, 0, d, 0x99000000);
-        t.setCompoundDrawablePadding(Math.round(6 * d));
-    }
-
-    private TextView metaChip(int icon, String text) {
-        TextView chip = new TextView(this);
-        chip.setText(text);
-        styleMeta(chip);
-        chip.setGravity(Gravity.CENTER_VERTICAL);
-        chip.setMaxLines(1);
-        if (icon != 0) {
-            Drawable dr = getDrawable(icon);
-            if (dr != null) {
-                dr = dr.mutate();
-                dr.setTint(0xC7FFFFFF);
-                int sz = Math.round(14 * d);
-                dr.setBounds(0, 0, sz, sz);
-                chip.setCompoundDrawablesRelative(dr, null, null, null);
-            }
-        }
-        chip.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-        return chip;
-    }
-
-    /** The score in its colour (green / yellow / red, like Metacritic), then whose score it is. */
-    private View ratingChip(int score, String value, String source) {
-        LinearLayout chip = new LinearLayout(this);
-        chip.setOrientation(LinearLayout.HORIZONTAL);
-        chip.setGravity(Gravity.CENTER_VERTICAL);
-        TextView box = new TextView(this);
-        box.setText(value);
-        box.setTypeface(PocketFonts.bold());
-        box.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11.5f);
-        box.setIncludeFontPadding(false);
-        box.setGravity(Gravity.CENTER);
-        int color = com.limelight.pocket.info.Ratings.color(score);
-        box.setTextColor(score >= 50 && score < 75 ? 0xFF1A1A1A : 0xFFFFFFFF);
-        GradientDrawable sq = new GradientDrawable();
-        sq.setCornerRadius(5 * d);
-        sq.setColor(color);
-        box.setBackground(sq);
-        box.setMinWidth(Math.round(26 * d));
-        box.setPadding(Math.round(6 * d), Math.round(4 * d), Math.round(6 * d), Math.round(4 * d));
-        box.setElevation(2 * d);
-        chip.addView(box);
-        TextView label = new TextView(this);
-        label.setText(source);
-        styleMeta(label);
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        llp.setMarginStart(Math.round(7 * d));
-        chip.addView(label, llp);
-        chip.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-        return chip;
     }
 
     /** The parts of the hero arrive one after the other, from the side you moved to. */

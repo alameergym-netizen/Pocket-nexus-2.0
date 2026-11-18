@@ -52,7 +52,11 @@ public final class GlobalButtons {
         SEARCH("search", R.string.pocket_search_title),
         FILES("files", R.string.pocket_files_title),
         BROWSER("browser", R.string.pocket_browser_title),
-        MUSIC("music", R.string.pocket_music_title);
+        MUSIC("music", R.string.pocket_music_title),
+        /** Alt+Tab: the open apps in a small row, on the one before this; it switches by itself. */
+        QUICK_SWITCH("switch", R.string.pocket_switch_title),
+        /** Answers the newest message (Discord, WhatsApp...) with the controller's keyboard. */
+        REPLY("reply", R.string.pocket_gb_reply);
 
         public final String id;
         public final int label;
@@ -94,8 +98,8 @@ public final class GlobalButtons {
     private static final String[] GESTURE_KEYS = {"tap", "double", "hold"};
 
     private static final Action[][] DEFAULTS = {
-            // Back: goes back; twice: Quick Resume; held: the radial menu
-            {Action.PASS, Action.QUICK_RESUME, Action.RADIAL},
+            // Back: goes back; twice: Quick Switch (the app before); held: the radial menu
+            {Action.PASS, Action.QUICK_SWITCH, Action.RADIAL},
             // Guide: Pocket Nexus's Home; twice: Quick Resume; held: the radial menu
             {Action.HOME, Action.QUICK_RESUME, Action.RADIAL},
     };
@@ -212,6 +216,10 @@ public final class GlobalButtons {
                 return "GLOBE";
             case MUSIC:
                 return "MUSIC";
+            case QUICK_SWITCH:
+                return "SWAP";
+            case REPLY:
+                return "KEYBOARD";
             case NEXT_TRACK:
                 return "PLAY";
             case VOLUME_UP:

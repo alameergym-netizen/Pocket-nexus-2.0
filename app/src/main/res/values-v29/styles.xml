@@ -6,10 +6,13 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <!-- Avoid some systems like MIUI which break the visibility of games title -->
         <item name="android:forceDarkAllowed">false</item>
+        <!-- No grey/white system square on what's focused: Pocket Nexus draws its own ring and glow -->
+        <item name="android:defaultFocusHighlightEnabled">false</item>
     </style>
 
     <style name="SettingsTheme" parent="AppTheme">
         <!-- Pocket Nexus plays its own sounds: no Android clicks while moving around -->
         <item name="android:soundEffectsEnabled">false</item>
+        <item name="android:defaultFocusHighlightEnabled">false</item>
     </style>
 </resources>

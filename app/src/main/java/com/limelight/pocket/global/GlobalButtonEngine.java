@@ -74,7 +74,21 @@ public final class GlobalButtonEngine {
     public GlobalButtonEngine(AccessibilityService service) {
         this.service = service;
         instance = this;
+        // Messages (Discord, WhatsApp...) pop up over every game; Guide answers them
+        com.limelight.pocket.device.PocketNotifications.setMessageListener(n -> {
+            boolean streaming = com.limelight.Game.instance != null && com.limelight.Game.instance.hasWindowFocus();
+            MessageBanner.show(service, n, !streaming);
+        });
     }
+
+    /** A button of ours is held down right now (Quick Switch waits for its release). */
+    static boolean buttonHeld() {
+        GlobalButtonEngine e = instance;
+        return e != null && e.down >= 0;
+    }
+
+    /** Guide went down while a message was showing: its release answers it. */
+    private boolean bannerDown;
 
     /** Which app is in front (from the service's window events), and the apps used last. */
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -150,6 +164,21 @@ public final class GlobalButtonEngine {
     public boolean onKeyEvent(KeyEvent event) {
         if (GlobalMenuActivity.isOpen()) {
             return keyWhileOpen(event);
+        }
+        // A message on screen: Guide answers it (as the PS button opens a PS5's)
+        if (buttonOf(event.getKeyCode()) == GlobalButtons.GUIDE
+                && (bannerDown || MessageBanner.canAnswer())) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (event.getRepeatCount() == 0) {
+                    bannerDown = true;
+                }
+                return true;
+            }
+            if (event.getAction() == KeyEvent.ACTION_UP && bannerDown) {
+                bannerDown = false;
+                MessageBanner.consumeGuide(service);
+                return true;
+            }
         }
         if (!GlobalButtons.enabled(service)) {
             return false;
@@ -298,6 +327,21 @@ public final class GlobalButtonEngine {
             case MUSIC:
                 start(c, com.limelight.pocket.music.MusicActivity.class);
                 return;
+            case QUICK_SWITCH:
+                GlobalMenuActivity.show(c, GlobalMenuActivity.MODE_SWITCH, front);
+                return;
+            case REPLY: {
+                com.limelight.pocket.device.PocketNotifications.Note n =
+                        com.limelight.pocket.device.PocketNotifications.lastMessage();
+                if (n != null && n.canReply()) {
+                    MessageBanner.hide(false);
+                    QuickReplyActivity.open(c, n);
+                }
+                else {
+                    Toast.makeText(c, R.string.pocket_message_none, Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
             case PLAY_PAUSE:
                 mediaKey(c, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 return;
@@ -461,6 +505,8 @@ public final class GlobalButtonEngine {
 
     public void destroy() {
         main.removeCallbacksAndMessages(null);
+        com.limelight.pocket.device.PocketNotifications.setMessageListener(null);
+        MessageBanner.hide(false);
         if (instance == this) {
             instance = null;
         }

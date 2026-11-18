@@ -52,6 +52,7 @@ public class GlobalMenuActivity extends Activity {
     public static final String EXTRA_FRONT = "front";
     public static final String MODE_RADIAL = "radial";
     public static final String MODE_QUICK = "quick";
+    public static final String MODE_SWITCH = "switch";
 
     /** The one open now (the button service tells it when the held button is let go). */
     private static GlobalMenuActivity open;
@@ -66,6 +67,9 @@ public class GlobalMenuActivity extends Activity {
         if (a != null && a.radial != null && a.radial.isShowing() && a.radial.getSelected() >= 0) {
             a.chooseRadial();
         }
+        else if (a != null && a.strip != null) {
+            a.chooseSwitch();
+        }
     }
 
     /** The button that opened it was pressed again: closes, as B does. */
@@ -77,6 +81,11 @@ public class GlobalMenuActivity extends Activity {
         if (a.radial != null && a.radial.isShowing()) {
             a.radial.hide();
             a.finishSoon(170);
+        }
+        else if (a.strip != null) {
+            // Quick Switch: each press moves on, like Tab with Alt held
+            a.strip.move(1);
+            a.armAuto();
         }
         else {
             a.closeQuick();
@@ -105,8 +114,9 @@ public class GlobalMenuActivity extends Activity {
             }
             boolean ringGone = radial != null && !radial.isShowing();
             boolean quickGone = quick != null && quick.isClosed();
-            boolean nothing = radial == null && quick == null;
-            if (ringGone || quickGone || nothing) {
+            boolean stripGone = strip != null && strip.isClosed();
+            boolean nothing = radial == null && quick == null && strip == null;
+            if (ringGone || quickGone || stripGone || nothing) {
                 if (++idleTicks >= 2) {
                     finishNow();
                     return;
@@ -122,6 +132,23 @@ public class GlobalMenuActivity extends Activity {
     private FrameLayout root;
     private RadialMenuView radial;
     private QuickSwitchView quick;
+    private com.limelight.pocket.ui.AppSwitchStrip strip;
+    private static final long AUTO_MS = 1300;
+    /** Quick Switch switches by itself a moment after the last press (not while one is held). */
+    private final Runnable autoPick = new Runnable() {
+        @Override
+        public void run() {
+            if (strip == null || finishing) {
+                return;
+            }
+            if (GlobalButtonEngine.buttonHeld()) {
+                strip.stopCountdown();
+                main.postDelayed(this, 200);
+                return;
+            }
+            chooseSwitch();
+        }
+    };
     private GlobalButtons.Action[] slots;
     private String front;
     private final List<HomeItem> quickItems = new ArrayList<>();
@@ -230,8 +257,13 @@ public class GlobalMenuActivity extends Activity {
         root.removeAllViews();
         radial = null;
         quick = null;
+        strip = null;
+        main.removeCallbacks(autoPick);
         if (MODE_QUICK.equals(mode)) {
             showQuick();
+        }
+        else if (MODE_SWITCH.equals(mode)) {
+            showSwitch();
         }
         else {
             showRadial();
@@ -370,6 +402,95 @@ public class GlobalMenuActivity extends Activity {
                 quick.setCards(cards, focus);
             });
         }, "pocket-quick").start();
+    }
+
+    // ---- Quick Switch -----------------------------------------------------------------------
+
+    private void showSwitch() {
+        strip = new com.limelight.pocket.ui.AppSwitchStrip(this);
+        root.addView(strip, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        strip.open();
+        PocketSounds.play(this, PocketSounds.OPEN);
+        final Context app = getApplicationContext();
+        final String now = front;
+        new Thread(() -> {
+            final List<com.limelight.pocket.ui.AppSwitchStrip.App> apps = new ArrayList<>();
+            PackageManager pm = app.getPackageManager();
+            List<String> recent = AppHistory.recent(app);
+            if (now != null && recent.contains(now)) {
+                recent.remove(now);
+            }
+            if (now != null) {
+                recent.add(0, now);
+            }
+            Set<String> seen = new HashSet<>();
+            for (String pkg : recent) {
+                if (apps.size() >= 8 || !seen.add(pkg)) {
+                    continue;
+                }
+                if (pm.getLaunchIntentForPackage(pkg) == null && !pkg.equals(app.getPackageName())) {
+                    continue;
+                }
+                Bitmap ic = icon(pm, pkg);
+                if (ic == null) {
+                    continue;
+                }
+                HomeItem item = AppHistory.itemFor(app, pkg);
+                String name = item != null ? item.name : label(pm, pkg);
+                apps.add(new com.limelight.pocket.ui.AppSwitchStrip.App(pkg, name, ic, pkg.equals(now)));
+            }
+            main.post(() -> {
+                if (strip == null || isFinishing()) {
+                    return;
+                }
+                if (apps.size() < 2) {
+                    // Nothing else open: say so a moment, then go
+                    strip.setApps(apps, 0);
+                    PocketSounds.play(this, PocketSounds.ERROR);
+                    main.postDelayed(this::closeSwitch, 700);
+                    return;
+                }
+                strip.setApps(apps, apps.get(0).now ? 1 : 0);
+                armAuto();
+            });
+        }, "pocket-switch").start();
+    }
+
+    private void armAuto() {
+        if (strip == null) {
+            return;
+        }
+        main.removeCallbacks(autoPick);
+        strip.countdown(AUTO_MS);
+        main.postDelayed(autoPick, AUTO_MS);
+    }
+
+    private void chooseSwitch() {
+        main.removeCallbacks(autoPick);
+        if (strip == null || finishing) {
+            return;
+        }
+        final com.limelight.pocket.ui.AppSwitchStrip.App a = strip.selectedApp();
+        if (a == null || a.now) {
+            closeSwitch();
+            return;
+        }
+        PocketSounds.play(this, PocketSounds.SELECT);
+        strip.close(() -> {
+            GlobalButtonEngine.resumeApp(getApplicationContext(), a.pkg);
+            finishNow();
+        });
+    }
+
+    private void closeSwitch() {
+        main.removeCallbacks(autoPick);
+        if (strip == null) {
+            finishSoon(0);
+            return;
+        }
+        PocketSounds.play(this, PocketSounds.CLOSE);
+        strip.close(this::finishNow);
     }
 
     private static String label(PackageManager pm, String pkg) {
@@ -621,6 +742,35 @@ public class GlobalMenuActivity extends Activity {
                     return true;
             }
         }
+        if (strip != null) {
+            switch (code) {
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                case KeyEvent.KEYCODE_BUTTON_L1:
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                case KeyEvent.KEYCODE_BUTTON_R1:
+                    if (down) {
+                        strip.move(code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_BUTTON_L1 ? -1 : 1);
+                        armAuto();
+                    }
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_A:
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                    if (first) {
+                        chooseSwitch();
+                    }
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_B:
+                case KeyEvent.KEYCODE_BACK:
+                case KeyEvent.KEYCODE_ESCAPE:
+                    if (first) {
+                        closeSwitch();
+                    }
+                    return true;
+                default:
+                    return true;
+            }
+        }
         if (quick != null) {
             switch (code) {
                 case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -692,6 +842,18 @@ public class GlobalMenuActivity extends Activity {
             }
             else {
                 radial.onStick(lx, ly);
+            }
+            return true;
+        }
+        if (strip != null) {
+            float x = Math.abs(hx) > 0.5f ? hx : lx;
+            int dir = x > 0.6f ? 1 : x < -0.6f ? -1 : 0;
+            if (dir != stickDir) {
+                stickDir = dir;
+                if (dir != 0) {
+                    strip.move(dir);
+                    armAuto();
+                }
             }
             return true;
         }

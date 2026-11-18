@@ -75,13 +75,15 @@ public class MusicActivity extends Activity {
         }
     }
 
-    private static final int TAB_ALBUMS = 0;
-    private static final int TAB_ARTISTS = 1;
-    private static final int TAB_SONGS = 2;
-    private static final int TAB_FOLDERS = 3;
-    private static final int[] TAB_NAMES = {R.string.pocket_music_albums, R.string.pocket_music_artists,
+    /** What any app on the handheld is playing (Spotify, YouTube Music...), with its controls. */
+    private static final int TAB_PLAYING = 0;
+    private static final int TAB_ALBUMS = 1;
+    private static final int TAB_ARTISTS = 2;
+    private static final int TAB_SONGS = 3;
+    private static final int TAB_FOLDERS = 4;
+    private static final int[] TAB_NAMES = {R.string.pocket_music_playing, R.string.pocket_music_albums, R.string.pocket_music_artists,
             R.string.pocket_music_songs, R.string.pocket_music_folders};
-    private static final String KEY_TAB = "pocket_music_tab";
+    private static final String KEY_TAB = "pocket_music_tab2";
     private static final int REQUEST_AUDIO = 7501;
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -111,6 +113,7 @@ public class MusicActivity extends Activity {
 
     private MiniBar mini;
     private NowPlaying now;
+    private DevicePlayerView device;
 
     private ListenableFuture<MediaController> controllerFuture;
     private MediaController controller;
@@ -137,7 +140,10 @@ public class MusicActivity extends Activity {
         ConsoleActivity.applyFullscreenWindow(this);
         d = getResources().getDisplayMetrics().density;
         accent = PocketTheme.accent(this);
-        tab = Math.max(0, Math.min(TAB_NAMES.length - 1, PocketPrefs.prefs(this).getInt(KEY_TAB, TAB_ALBUMS)));
+        tab = Math.max(0, Math.min(TAB_NAMES.length - 1, PocketPrefs.prefs(this).getInt(KEY_TAB, TAB_PLAYING)));
+        if (DevicePlayerView.somethingPlaying(this)) {
+            tab = TAB_PLAYING; // another app is playing: its controls first
+        }
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF07070A);
@@ -227,6 +233,20 @@ public class MusicActivity extends Activity {
         emptyView.setVisibility(View.GONE);
         body.addView(emptyView, full());
 
+        device = new DevicePlayerView(this, new DevicePlayerView.Host() {
+            @Override
+            public void onArt(android.graphics.Bitmap art) {
+                externalBackdrop(art);
+            }
+
+            @Override
+            public void onChanged() {
+                updateHints();
+            }
+        });
+        device.setVisibility(View.GONE);
+        body.addView(device, full());
+
         mini = new MiniBar(this);
         FrameLayout.LayoutParams mlp = new FrameLayout.LayoutParams(dp(470), dp(66), Gravity.BOTTOM | Gravity.START);
         mlp.leftMargin = dp(40);
@@ -256,6 +276,9 @@ public class MusicActivity extends Activity {
             if (Build.VERSION.SDK_INT >= 23) {
                 requestPermissions(new String[]{audioPermission()}, REQUEST_AUDIO);
             }
+        }
+        if (tab == TAB_PLAYING) {
+            showTab(false);
         }
     }
 
@@ -360,6 +383,9 @@ public class MusicActivity extends Activity {
     }
 
     private void setBackdrop(MusicLibrary.Song s) {
+        if (tab == TAB_PLAYING && device != null && device.hasSession()) {
+            return; // the other app's cover is behind
+        }
         long album = s != null ? s.albumId : -1;
         if (album == backAlbum) {
             return;
@@ -381,6 +407,22 @@ public class MusicActivity extends Activity {
             out.animate().cancel();
             out.animate().alpha(0f).setDuration(900).start();
         });
+    }
+
+    /** Another app's cover behind everything (faded out when it has none). */
+    private void externalBackdrop(android.graphics.Bitmap art) {
+        if (tab != TAB_PLAYING || isFinishing()) {
+            return;
+        }
+        backAlbum = -2;
+        ImageView in = backOnA ? backB : backA;
+        ImageView out = backOnA ? backA : backB;
+        backOnA = !backOnA;
+        in.setImageBitmap(art);
+        in.animate().cancel();
+        in.animate().alpha(art != null ? 0.85f : 0f).setDuration(900).start();
+        out.animate().cancel();
+        out.animate().alpha(0f).setDuration(900).start();
     }
 
     /** Plays these songs from the one at start (shuffled: in a random order, start first). */
@@ -426,6 +468,9 @@ public class MusicActivity extends Activity {
 
     private void showEmpty(String text) {
         emptyView.setText(text);
+        if (tab == TAB_PLAYING) {
+            return;
+        }
         emptyView.setVisibility(View.VISIBLE);
         grid.setVisibility(View.INVISIBLE);
     }
@@ -433,8 +478,36 @@ public class MusicActivity extends Activity {
     private void showTab(boolean animate) {
         PocketPrefs.prefs(this).edit().putInt(KEY_TAB, tab).apply();
         styleTabs(animate);
+        boolean playing = tab == TAB_PLAYING;
+        if (device.getVisibility() == View.VISIBLE && !playing) {
+            // Back to this app's own music: its colours behind again
+            device.stop();
+            device.setVisibility(View.GONE);
+            backAlbum = Long.MIN_VALUE;
+            if (controller != null) {
+                onPlayerChanged();
+            }
+        }
+        if (playing) {
+            countView.setText("");
+            emptyView.setVisibility(View.GONE);
+            grid.setVisibility(View.INVISIBLE);
+            device.setVisibility(View.VISIBLE);
+            device.start();
+            if (animate && PocketPrefs.animationsEnabled(this)) {
+                device.setAlpha(0f);
+                device.setTranslationY(dp(14));
+                device.animate().alpha(1f).translationY(0).setDuration(320).setInterpolator(Spring.POP).start();
+            }
+            device.focusMain();
+            updateHints();
+            return;
+        }
         if (lib == null || lib.isEmpty()) {
             countView.setText("");
+            emptyView.setVisibility(View.VISIBLE);
+            grid.setVisibility(View.INVISIBLE);
+            updateHints();
             return;
         }
         emptyView.setVisibility(View.GONE);
@@ -512,9 +585,6 @@ public class MusicActivity extends Activity {
     }
 
     private void moveTab(int dir) {
-        if (lib == null) {
-            return;
-        }
         closeDetail(false);
         tab = (tab + dir + TAB_NAMES.length) % TAB_NAMES.length;
         PocketSounds.play(this, PocketSounds.NAV);
@@ -666,6 +736,19 @@ public class MusicActivity extends Activity {
 
     private void updateHints() {
         List<ConsoleActivity.Hint> h = new ArrayList<>();
+        if (tab == TAB_PLAYING && detail == null && !now.isOpen()) {
+            h.add(ConsoleActivity.hintA(this, R.string.pocket_music_hint_select));
+            if (device != null && device.hasSession()) {
+                h.add(new ConsoleActivity.Hint("L2 R2", 0xFFFFFFFF, getString(R.string.pocket_music_hint_skip)));
+                h.add(ConsoleActivity.hintStart(this, R.string.pocket_music_hint_pause));
+                if (device.sessionCount() > 1) {
+                    h.add(ConsoleActivity.hintY(this, R.string.pocket_device_hint_switch));
+                }
+            }
+            h.add(ConsoleActivity.hintB(this, R.string.pocket_music_hint_close));
+            ConsoleActivity.fillHintBar(this, hints, h.toArray(new ConsoleActivity.Hint[0]));
+            return;
+        }
         if (now.isOpen()) {
             h.add(ConsoleActivity.hintA(this, R.string.pocket_music_hint_select));
             h.add(new ConsoleActivity.Hint("L1 R1", 0xFFFFFFFF, getString(R.string.pocket_music_hint_skip)));
@@ -689,6 +772,49 @@ public class MusicActivity extends Activity {
         int code = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         boolean first = down && event.getRepeatCount() == 0;
+        if (tab == TAB_PLAYING && detail == null && !now.isOpen()) {
+            // Another app's music: its controls
+            switch (code) {
+                case KeyEvent.KEYCODE_BUTTON_START:
+                case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                    if (device.hasSession()) {
+                        if (first) {
+                            device.togglePlay();
+                        }
+                        return true;
+                    }
+                    break;
+                case KeyEvent.KEYCODE_BUTTON_L2:
+                case KeyEvent.KEYCODE_BUTTON_R2:
+                    if (device.hasSession()) {
+                        if (first) {
+                            device.skip(code == KeyEvent.KEYCODE_BUTTON_L2 ? -1 : 1);
+                        }
+                        return true;
+                    }
+                    break;
+                case KeyEvent.KEYCODE_BUTTON_Y:
+                    if (device.sessionCount() > 1) {
+                        if (first) {
+                            device.nextSource();
+                        }
+                        return true;
+                    }
+                    break;
+                case KeyEvent.KEYCODE_BUTTON_A:
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                    if (first) {
+                        View f = getCurrentFocus();
+                        if (f != null && f.isClickable()) {
+                            f.performClick();
+                        }
+                    }
+                    return true;
+                default:
+                    break;
+            }
+        }
         switch (code) {
             case KeyEvent.KEYCODE_BUTTON_START:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
@@ -832,12 +958,18 @@ public class MusicActivity extends Activity {
         ConsoleActivity.applyFullscreenWindow(this);
         main.removeCallbacks(tick);
         main.post(tick);
+        if (tab == TAB_PLAYING && device != null) {
+            device.start();
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         main.removeCallbacks(tick);
+        if (device != null) {
+            device.stop();
+        }
     }
 
     @Override
