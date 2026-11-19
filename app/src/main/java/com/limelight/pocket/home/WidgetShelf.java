@@ -54,14 +54,16 @@ import java.util.List;
 public final class WidgetShelf {
 
     private static final String KEY = "pocket_home_widgets";
-    private static final String DEFAULT = "clock,nowplaying,notifications,device";
+    private static final String DEFAULT = "clock,nowplaying,weather,week,notifications,device";
     private static final String CLOCK = "clock";
     private static final String NOW_PLAYING = "nowplaying";
     private static final String NOTIFICATIONS = "notifications";
     private static final String DEVICE = "device";
     private static final String PCS = "pcs";
+    private static final String WEATHER = "weather";
+    private static final String WEEK = "week";
     private static final String APP_WIDGET = "aw:";
-    private static final String[] BUILT_IN = {CLOCK, NOW_PLAYING, NOTIFICATIONS, DEVICE, PCS};
+    private static final String[] BUILT_IN = {CLOCK, NOW_PLAYING, WEATHER, WEEK, NOTIFICATIONS, DEVICE, PCS};
     private static final int HOST_ID = 0x504E;
     static final int REQUEST_BIND = 7411;
     static final int REQUEST_CONFIGURE = 7412;
@@ -131,7 +133,22 @@ public final class WidgetShelf {
     // ---- What's on it -------------------------------------------------------------------------
 
     private List<String> widgets() {
-        String s = PocketPrefs.prefs(activity).getString(KEY, DEFAULT);
+        android.content.SharedPreferences p = PocketPrefs.prefs(activity);
+        if (!p.getBoolean("pocket_widgets_v2", false)) {
+            // Once: the new weather and week widgets join a shelf set up before they existed
+            String had = p.getString(KEY, null);
+            if (had != null) {
+                StringBuilder b = new StringBuilder(had);
+                for (String w : new String[]{WEATHER, WEEK}) {
+                    if (!("," + had + ",").contains("," + w + ",")) {
+                        b.append(b.length() > 0 ? "," : "").append(w);
+                    }
+                }
+                p.edit().putString(KEY, b.toString()).apply();
+            }
+            p.edit().putBoolean("pocket_widgets_v2", true).apply();
+        }
+        String s = p.getString(KEY, DEFAULT);
         List<String> out = new ArrayList<>();
         for (String w : s.split(",")) {
             if (!w.trim().isEmpty()) {
@@ -285,24 +302,15 @@ public final class WidgetShelf {
         card.setFocusable(true);
         card.setClickable(true);
         card.setPadding(dp(14), dp(12), dp(14), dp(12));
-        final GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(18));
-        bg.setColor(0x1AFFFFFF);
-        bg.setStroke(Math.max(1, dp(1)), 0x1FFFFFFF);
+        final GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x24FFFFFF, 0x0FFFFFFF});
+        bg.setCornerRadius(dp(22));
+        bg.setStroke(Math.max(1, dp(1)), 0x1AFFFFFF);
         card.setBackground(bg);
-        card.setOnFocusChangeListener((v, has) -> {
-            bg.setStroke(has ? dp(2.5f) : Math.max(1, dp(1)), has ? 0xFFFFFFFF : 0x1FFFFFFF);
-            bg.setColor(has ? 0x2BFFFFFF : 0x1AFFFFFF);
-            float s = has ? 1.04f : 1f;
-            if (PocketPrefs.animationsEnabled(activity)) {
-                v.animate().scaleX(s).scaleY(s).setDuration(180).setInterpolator(PocketMotion.DECELERATE).start();
-            }
-            if (has) {
-                PocketSounds.play(activity, PocketSounds.NAV);
-            }
-        });
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(widthDp), dp(150));
-        lp.setMarginEnd(dp(12));
+        // Chosen like everything else: a white ring and a glow
+        com.limelight.pocket.ui.FocusGlow.apply(card, dp(22), false, 1.045f, null);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(widthDp), dp(WidgetCards.HEIGHT_DP));
+        lp.setMarginEnd(dp(14));
         card.setLayoutParams(lp);
         return card;
     }
@@ -321,145 +329,40 @@ public final class WidgetShelf {
         if (!Arrays.asList(BUILT_IN).contains(kind)) {
             return null;
         }
-        FrameLayout card = frame(kind, kind.equals(CLOCK) ? 210 : 250);
-        LinearLayout box = new LinearLayout(activity);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setTag("box");
-        card.addView(box, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        TextView label = text(10.5f, 0x99FFFFFF, PocketFonts.semibold());
-        label.setAllCaps(true);
-        label.setLetterSpacing(0.08f);
-        label.setTag("label");
-        TextView big = text(kind.equals(CLOCK) ? 38f : 17f, 0xFFFFFFFF, kind.equals(CLOCK) ? PocketFonts.display() : PocketFonts.semibold());
-        big.setTag("big");
-        TextView small = text(12f, 0xB3FFFFFF, PocketFonts.medium());
-        small.setTag("small");
-        small.setMaxLines(3);
-        box.addView(label);
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        blp.topMargin = dp(kind.equals(CLOCK) ? 2 : 8);
-        box.addView(big, blp);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        slp.topMargin = dp(4);
-        box.addView(small, slp);
-        if (kind.equals(NOW_PLAYING)) {
-            ImageView art = new ImageView(activity);
-            art.setTag("art");
-            art.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            art.setClipToOutline(true);
-            GradientDrawable r = new GradientDrawable();
-            r.setCornerRadius(dp(10));
-            art.setBackground(r);
-            FrameLayout.LayoutParams alp = new FrameLayout.LayoutParams(dp(56), dp(56), Gravity.BOTTOM | Gravity.END);
-            card.addView(art, alp);
+        WidgetCards.Card card;
+        switch (kind) {
+            case CLOCK:
+                card = new WidgetCards.ClockCard(activity, kind);
+                break;
+            case NOW_PLAYING:
+                card = new WidgetCards.MusicCard(activity, kind, this::controller);
+                break;
+            case NOTIFICATIONS:
+                card = new WidgetCards.NotesCard(activity, kind);
+                break;
+            case DEVICE:
+                card = new WidgetCards.DeviceCard(activity, kind);
+                break;
+            case WEATHER:
+                card = new WidgetCards.WeatherCard(activity, kind);
+                break;
+            case WEEK:
+                card = new WidgetCards.WeekCard(activity, kind);
+                break;
+            default:
+                card = new WidgetCards.PcsCard(activity, kind);
+                break;
         }
-        card.setOnClickListener(v -> act(kind));
-        update(card, kind);
+        card.setOnClickListener(v -> {
+            com.limelight.pocket.ui.FocusGlow.press(v);
+            act(kind);
+        });
         return card;
     }
 
     private void update(View card, String kind) {
-        TextView label = card.findViewWithTag("label");
-        TextView big = card.findViewWithTag("big");
-        TextView small = card.findViewWithTag("small");
-        if (label == null || big == null || small == null) {
-            return;
-        }
-        switch (kind) {
-            case CLOCK: {
-                label.setText(DateFormat.format("EEEE", new Date()));
-                big.setText(DateFormat.getTimeFormat(activity).format(new Date()));
-                small.setText(DateFormat.getLongDateFormat(activity).format(new Date()));
-                break;
-            }
-            case NOW_PLAYING: {
-                label.setText(R.string.pocket_widget_now_playing);
-                MediaController mc = controller();
-                ImageView art = card.findViewWithTag("art");
-                if (!PocketNotifications.allowed(activity)) {
-                    big.setText(R.string.pocket_widget_music_access);
-                    small.setText(R.string.pocket_widget_music_access_sub);
-                    if (art != null) {
-                        art.setImageDrawable(null);
-                    }
-                }
-                else if (mc == null || mc.getMetadata() == null) {
-                    big.setText(R.string.pocket_widget_nothing_playing);
-                    small.setText("");
-                    if (art != null) {
-                        art.setImageDrawable(null);
-                    }
-                }
-                else {
-                    MediaMetadata m = mc.getMetadata();
-                    CharSequence t = m.getText(MediaMetadata.METADATA_KEY_TITLE);
-                    CharSequence ar = m.getText(MediaMetadata.METADATA_KEY_ARTIST);
-                    PlaybackState st = mc.getPlaybackState();
-                    boolean playing = st != null && st.getState() == PlaybackState.STATE_PLAYING;
-                    big.setText(t != null ? t : "");
-                    small.setText((playing ? "▶  " : "❚❚  ") + (ar != null ? ar : appName(mc.getPackageName())));
-                    Bitmap b = m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
-                    if (b == null) {
-                        b = m.getBitmap(MediaMetadata.METADATA_KEY_ART);
-                    }
-                    if (art != null) {
-                        art.setImageBitmap(b);
-                    }
-                }
-                break;
-            }
-            case NOTIFICATIONS: {
-                label.setText(R.string.pocket_device_notifications);
-                if (!PocketNotifications.allowed(activity)) {
-                    big.setText(R.string.pocket_device_allow_notifications);
-                    small.setText("");
-                    break;
-                }
-                List<PocketNotifications.Note> notes = PocketNotifications.current(activity);
-                big.setText(notes.isEmpty() ? activity.getString(R.string.pocket_device_no_notifications)
-                        : activity.getResources().getQuantityString(R.plurals.pocket_widget_notes, notes.size(), notes.size()));
-                StringBuilder b = new StringBuilder();
-                for (int i = 0; i < notes.size() && i < 2; i++) {
-                    PocketNotifications.Note n = notes.get(i);
-                    if (b.length() > 0) {
-                        b.append('\n');
-                    }
-                    b.append(n.app).append(": ").append(n.title.isEmpty() ? n.text : n.title);
-                }
-                small.setText(b.toString());
-                break;
-            }
-            case DEVICE: {
-                label.setText(R.string.pocket_device_device);
-                big.setText(DevicePanelInfo.battery(activity));
-                small.setText(DevicePanelInfo.details(activity));
-                break;
-            }
-            case PCS: {
-                label.setText(R.string.pocket_widget_pcs);
-                List<ComputerDetails> pcs = HomeStore.computers(activity);
-                if (pcs.isEmpty()) {
-                    big.setText(R.string.pocket_home_no_pcs);
-                    small.setText("");
-                    break;
-                }
-                big.setText(pcs.get(0).name);
-                StringBuilder b = new StringBuilder();
-                for (ComputerDetails pc : pcs) {
-                    List<RecentGames.Game> g = RecentGames.forPc(activity, pc.uuid, 1);
-                    if (b.length() > 0) {
-                        b.append('\n');
-                    }
-                    b.append(pc.name);
-                    if (!g.isEmpty() && g.get(0).lastPlayed > 0) {
-                        b.append("  ·  ").append(g.get(0).app.getAppName());
-                    }
-                }
-                small.setText(b.toString());
-                break;
-            }
-            default:
-                break;
+        if (card instanceof WidgetCards.Card) {
+            ((WidgetCards.Card) card).update();
         }
     }
 
@@ -502,6 +405,11 @@ public final class WidgetShelf {
                     return;
                 }
                 MediaController mc = controller();
+                if (mc == null || mc.getMetadata() == null) {
+                    close();
+                    com.limelight.pocket.music.MusicActivity.open(activity);
+                    return;
+                }
                 if (mc != null) {
                     PlaybackState st = mc.getPlaybackState();
                     if (st != null && st.getState() == PlaybackState.STATE_PLAYING) {
@@ -529,6 +437,19 @@ public final class WidgetShelf {
                 close();
                 SectionBar.go(activity, SectionBar.HOME, SectionBar.STREAMING);
                 return;
+            case WEATHER:
+                if (Weather.cached(activity) == null) {
+                    askCity();
+                }
+                else {
+                    Weather.refresh(activity, true, now -> refresh());
+                    Toast.makeText(activity, R.string.pocket_weather_updating, Toast.LENGTH_SHORT).show();
+                }
+                return;
+            case WEEK:
+                close();
+                activity.startActivity(new Intent(activity, StatsActivity.class));
+                return;
             default:
                 break;
         }
@@ -536,10 +457,35 @@ public final class WidgetShelf {
 
     private View addCard() {
         FrameLayout card = frame("+", 150);
-        TextView t = text(14f, 0xD9FFFFFF, PocketFonts.semibold());
-        t.setText("+  " + activity.getString(R.string.pocket_home_add_widget));
+        GradientDrawable dash = new GradientDrawable();
+        dash.setCornerRadius(dp(22));
+        dash.setColor(0x0DFFFFFF);
+        dash.setStroke(Math.max(1, dp(1.5f)), 0x4DFFFFFF, dp(7), dp(5));
+        card.setBackground(dash);
+        LinearLayout box = new LinearLayout(activity);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        ImageView plus = new ImageView(activity);
+        plus.setScaleType(ImageView.ScaleType.CENTER);
+        GradientDrawable pc = new GradientDrawable();
+        pc.setShape(GradientDrawable.OVAL);
+        pc.setColor(0x26FFFFFF);
+        plus.setBackground(pc);
+        android.graphics.drawable.Drawable pd = activity.getDrawable(R.drawable.ic_pocket_plus);
+        if (pd != null) {
+            pd = pd.mutate();
+            pd.setTint(0xFFFFFFFF);
+            plus.setImageDrawable(pd);
+        }
+        box.addView(plus, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        TextView t = text(12.5f, 0xD9FFFFFF, PocketFonts.semibold());
+        t.setText(activity.getString(R.string.pocket_home_add_widget));
         t.setGravity(Gravity.CENTER);
-        card.addView(t, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        tl.topMargin = dp(10);
+        box.addView(t, tl);
+        card.addView(box, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         card.setOnClickListener(v -> showAddPanel());
         return card;
     }
@@ -568,7 +514,7 @@ public final class WidgetShelf {
             view.setAppWidget(id, info);
             card.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             int w = 300 - 12;
-            int h = 150 - 12;
+            int h = WidgetCards.HEIGHT_DP - 12;
             view.updateAppWidgetSize(null, w, h, w, h);
         } catch (RuntimeException e) {
             return null;
@@ -579,8 +525,9 @@ public final class WidgetShelf {
     void showAddPanel() {
         List<StreamMenuView.Item> items = new ArrayList<>();
         List<String> have = widgets();
-        int[] names = {R.string.pocket_widget_clock, R.string.pocket_widget_now_playing, R.string.pocket_device_notifications,
-                R.string.pocket_device_device, R.string.pocket_widget_pcs};
+        int[] names = {R.string.pocket_widget_clock, R.string.pocket_widget_now_playing, R.string.pocket_widget_weather,
+                R.string.pocket_widget_week, R.string.pocket_device_notifications, R.string.pocket_device_device,
+                R.string.pocket_widget_pcs};
         for (int i = 0; i < BUILT_IN.length; i++) {
             final String kind = BUILT_IN[i];
             if (have.contains(kind)) {
@@ -756,6 +703,29 @@ public final class WidgetShelf {
                 }
                 return true;
             }
+            case KeyEvent.KEYCODE_BUTTON_L2:
+            case KeyEvent.KEYCODE_BUTTON_R2:
+            case KeyEvent.KEYCODE_BUTTON_X: {
+                // On the music: the song before / after
+                View f = focused();
+                if (f == null || !NOW_PLAYING.equals(f.getTag())) {
+                    return k != KeyEvent.KEYCODE_BUTTON_X;
+                }
+                if (up) {
+                    MediaController mc = controller();
+                    if (mc != null) {
+                        PocketSounds.play(activity, PocketSounds.NAV);
+                        if (k == KeyEvent.KEYCODE_BUTTON_L2) {
+                            mc.getTransportControls().skipToPrevious();
+                        }
+                        else {
+                            mc.getTransportControls().skipToNext();
+                        }
+                        main.postDelayed(this::refresh, 450);
+                    }
+                }
+                return true;
+            }
             case KeyEvent.KEYCODE_BUTTON_Y:
                 if (up) {
                     View f = focused();
@@ -784,6 +754,18 @@ public final class WidgetShelf {
                 }));
             }
         }
+        if (WEATHER.equals(kind)) {
+            items.add(StreamMenuView.Item.action(activity.getString(R.string.pocket_weather_change_city), () -> {
+                activity.hideConsolePanel();
+                askCity();
+            }).withIcon("GLOBE"));
+            final boolean f = Weather.fahrenheit(activity);
+            items.add(StreamMenuView.Item.action(activity.getString(f ? R.string.pocket_weather_use_c : R.string.pocket_weather_use_f), () -> {
+                Weather.setFahrenheit(activity, !f);
+                activity.hideConsolePanel();
+                Weather.refresh(activity, true, now -> refresh());
+            }).withIcon("SUN"));
+        }
         items.add(StreamMenuView.Item.action(activity.getString(R.string.pocket_widget_move_left), () -> move(kind, -1)));
         items.add(StreamMenuView.Item.action(activity.getString(R.string.pocket_widget_move_right), () -> move(kind, 1)));
         items.add(StreamMenuView.Item.confirm(activity.getString(R.string.pocket_widget_remove), () -> {
@@ -806,6 +788,27 @@ public final class WidgetShelf {
         }));
         PocketSounds.play(activity, PocketSounds.OPEN);
         activity.showConsolePanel(activity.getString(R.string.pocket_home_widgets), null, null, items);
+    }
+
+    /** The weather's city, typed with the controller's keyboard. */
+    private void askCity() {
+        com.limelight.pocket.ui.TextPrompt.show(activity, activity.getString(R.string.pocket_weather_city_title),
+                activity.getString(R.string.pocket_weather_city_help), Weather.city(activity),
+                activity.getString(R.string.pocket_weather_city_hint), text -> {
+                    if (text.isEmpty()) {
+                        return;
+                    }
+                    Weather.setCity(activity, text, now -> {
+                        if (now == null) {
+                            PocketSounds.play(activity, PocketSounds.ERROR);
+                            Toast.makeText(activity, R.string.pocket_weather_not_found, Toast.LENGTH_SHORT).show();
+                        }
+                        else {
+                            PocketSounds.play(activity, PocketSounds.TOGGLE_ON);
+                        }
+                        refresh();
+                    });
+                });
     }
 
     private void move(String kind, int delta) {

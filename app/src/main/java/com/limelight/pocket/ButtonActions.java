@@ -107,9 +107,11 @@ public final class ButtonActions {
     public static final String LAUNCHER_FILES = "files";
     public static final String LAUNCHER_BROWSER = "browser";
     public static final String LAUNCHER_MUSIC = "music";
+    /** "Surprise me": a reel of the whole library that lands on something to play. */
+    public static final String LAUNCHER_SURPRISE = "surprise";
     public static final String[] LAUNCHER_ACTIONS = {LAUNCHER_SETTINGS, LAUNCHER_QUICK_RESUME,
             LAUNCHER_GAME_PAGE, LAUNCHER_RESUME_LAST, LAUNCHER_APPS, LAUNCHER_RETRO, LAUNCHER_CLOUD,
-            LAUNCHER_DEVICE, LAUNCHER_SEARCH, LAUNCHER_FILES, LAUNCHER_BROWSER, LAUNCHER_MUSIC, LAUNCHER_NONE};
+            LAUNCHER_DEVICE, LAUNCHER_SEARCH, LAUNCHER_FILES, LAUNCHER_BROWSER, LAUNCHER_MUSIC, LAUNCHER_SURPRISE, LAUNCHER_NONE};
 
     public static int launcherLabel(String action) {
         switch (action) {
@@ -125,6 +127,7 @@ public final class ButtonActions {
             case LAUNCHER_FILES: return R.string.pocket_files_title;
             case LAUNCHER_BROWSER: return R.string.pocket_browser_title;
             case LAUNCHER_MUSIC: return R.string.pocket_music_title;
+            case LAUNCHER_SURPRISE: return R.string.pocket_surprise_title;
             default: return R.string.pocket_launcher_settings;
         }
     }

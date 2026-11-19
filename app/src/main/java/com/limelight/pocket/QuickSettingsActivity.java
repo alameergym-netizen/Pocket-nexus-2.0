@@ -347,6 +347,33 @@ public class QuickSettingsActivity extends ConsoleActivity {
             }
         });
 
+        addHeader(R.string.pocket_header_weather);
+        addToggle(getString(R.string.pocket_set_status_weather), getString(R.string.pocket_set_status_weather_sub),
+                () -> prefs().getBoolean("pocket_status_weather", true),
+                value -> prefs().edit().putBoolean("pocket_status_weather", value).apply());
+        addAction(getString(R.string.pocket_weather_city_title), getString(R.string.pocket_weather_city_help),
+                () -> {
+                    String c = com.limelight.pocket.home.Weather.city(this);
+                    return c != null ? c : "";
+                },
+                () -> com.limelight.pocket.ui.TextPrompt.show(this, getString(R.string.pocket_weather_city_title),
+                        getString(R.string.pocket_weather_city_help), com.limelight.pocket.home.Weather.city(this),
+                        getString(R.string.pocket_weather_city_hint), text -> {
+                            if (text.isEmpty()) {
+                                return;
+                            }
+                            com.limelight.pocket.home.Weather.setCity(this, text, now -> {
+                                if (now == null) {
+                                    PocketSounds.play(this, PocketSounds.ERROR);
+                                    Toast.makeText(this, R.string.pocket_weather_not_found, Toast.LENGTH_SHORT).show();
+                                }
+                                refreshRows();
+                            });
+                        }));
+        addToggle(getString(R.string.pocket_set_weather_f), null,
+                () -> com.limelight.pocket.home.Weather.fahrenheit(this),
+                value -> com.limelight.pocket.home.Weather.setFahrenheit(this, value));
+
         addHeader(R.string.pocket_header_nexus_apps);
         for (final com.limelight.pocket.apps.NexusApps.App app : com.limelight.pocket.apps.NexusApps.ALL) {
             addAction(getString(app.label), getString(app.blurb), null,
@@ -675,6 +702,26 @@ public class QuickSettingsActivity extends ConsoleActivity {
     }
 
     private static final int REQUEST_MUSIC = 7501;
+    private static final int REQUEST_BACKUP = 7502;
+    private static final int REQUEST_RESTORE = 7503;
+
+    private void backup() {
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/json").putExtra(Intent.EXTRA_TITLE, SettingsBackup.fileName()), REQUEST_BACKUP);
+        } catch (RuntimeException e) {
+            PocketSounds.play(this, PocketSounds.ERROR);
+        }
+    }
+
+    private void restore() {
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*"), REQUEST_RESTORE);
+        } catch (RuntimeException e) {
+            PocketSounds.play(this, PocketSounds.ERROR);
+        }
+    }
 
     private void pickMusic() {
         try {
@@ -688,6 +735,36 @@ public class QuickSettingsActivity extends ConsoleActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if ((requestCode == REQUEST_BACKUP || requestCode == REQUEST_RESTORE) && resultCode == RESULT_OK
+                && data != null && data.getData() != null) {
+            final android.net.Uri uri = data.getData();
+            final boolean saving = requestCode == REQUEST_BACKUP;
+            new Thread(() -> {
+                final int n = saving ? SettingsBackup.write(getApplicationContext(), uri)
+                        : SettingsBackup.read(getApplicationContext(), uri);
+                runOnUiThread(() -> {
+                    if (n < 0) {
+                        PocketSounds.play(this, PocketSounds.ERROR);
+                        Toast.makeText(this, saving ? R.string.pocket_backup_failed : R.string.pocket_restore_failed,
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                    Toast.makeText(this, getString(saving ? R.string.pocket_backup_done : R.string.pocket_restore_done, n),
+                            Toast.LENGTH_LONG).show();
+                    if (!saving) {
+                        // Everything starts again with the settings that came back
+                        getWindow().getDecorView().postDelayed(() -> {
+                            Intent home = new Intent(this, com.limelight.pocket.home.HomeActivity.class)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(home);
+                            android.os.Process.killProcess(android.os.Process.myPid());
+                        }, 1200);
+                    }
+                });
+            }, "pocket-backup").start();
+            return;
+        }
         if (requestCode == REQUEST_MUSIC && resultCode == RESULT_OK && data != null && data.getData() != null) {
             android.net.Uri uri = data.getData();
             try {
@@ -1299,6 +1376,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     /** Accounts, the device, and the advanced things. */
     private void buildSystemTab() {
+        addHeader(R.string.pocket_header_backup);
+        addAction(getString(R.string.pocket_backup_title), getString(R.string.pocket_backup_sub), null, this::backup);
+        addAction(getString(R.string.pocket_restore_title), getString(R.string.pocket_restore_sub), null, this::restore);
+
         addHeader(R.string.pocket_device_tools);
         addAction(getString(R.string.pocket_search_title), getString(R.string.pocket_search_sub), null,
                 () -> com.limelight.pocket.search.SearchActivity.open(this));

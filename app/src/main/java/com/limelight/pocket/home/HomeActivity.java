@@ -1234,6 +1234,13 @@ public class HomeActivity extends ConsoleActivity {
         if (widgets != null && widgets.isOpen() && !isConsolePanelShowing() && widgets.handleKey(event)) {
             return true;
         }
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_THUMBL && !isConsolePanelShowing()) {
+            // L3: "Surprise me" (a reel of the whole library lands on something to play)
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                SurpriseActivity.open(this);
+            }
+            return true;
+        }
         return super.dispatchKeyEvent(event);
     }
 

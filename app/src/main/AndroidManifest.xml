@@ -463,6 +463,11 @@
             android:screenOrientation="sensorLandscape"
             android:windowSoftInputMode="adjustResize" />
         <activity
+            android:name=".pocket.home.SurpriseActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape" />
+        <activity
             android:name=".pocket.home.StatsActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
             android:exported="false"

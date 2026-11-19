@@ -326,6 +326,9 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                 PocketSounds.play(this, PocketSounds.OPEN);
                 com.limelight.pocket.music.MusicActivity.open(this);
                 break;
+            case ButtonActions.LAUNCHER_SURPRISE:
+                com.limelight.pocket.home.SurpriseActivity.open(this);
+                break;
             case ButtonActions.LAUNCHER_NONE:
                 break;
             default:
@@ -1591,6 +1594,63 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         TextView clock = findViewById(R.id.pocketClock);
         if (clock != null) {
             clock.setText(DateFormat.getTimeFormat(this).format(new Date()));
+            updateWeatherChip();
+        }
+    }
+
+    private LinearLayout weatherChip;
+    private com.limelight.pocket.home.WidgetCards.SkyIcon weatherIcon;
+    private TextView weatherText;
+    private long weatherShown = -1;
+
+    /** The weather next to the clock (its sky drawn, the temperature), when it's known. */
+    private void updateWeatherChip() {
+        TextView clock = findViewById(R.id.pocketClock);
+        if (clock == null || !(clock.getParent() instanceof LinearLayout)) {
+            return;
+        }
+        if (!PocketPrefs.prefs(this).getBoolean("pocket_status_weather", true)) {
+            if (weatherChip != null) {
+                weatherChip.setVisibility(View.GONE);
+            }
+            return;
+        }
+        com.limelight.pocket.home.Weather.refresh(this, false, n -> {
+            if (!isFinishing()) {
+                updateWeatherChip();
+            }
+        });
+        com.limelight.pocket.home.Weather.Now now = com.limelight.pocket.home.Weather.cached(this);
+        if (now == null) {
+            return;
+        }
+        float d = getResources().getDisplayMetrics().density;
+        if (weatherChip == null) {
+            LinearLayout bar = (LinearLayout) clock.getParent();
+            weatherChip = new LinearLayout(this);
+            weatherChip.setOrientation(LinearLayout.HORIZONTAL);
+            weatherChip.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            weatherIcon = new com.limelight.pocket.home.WidgetCards.SkyIcon(this);
+            weatherChip.addView(weatherIcon, new LinearLayout.LayoutParams(Math.round(19 * d), Math.round(19 * d)));
+            weatherText = new TextView(this);
+            weatherText.setTypeface(com.limelight.pocket.ui.PocketFonts.semibold());
+            weatherText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f);
+            weatherText.setTextColor(0xFFFFFFFF);
+            weatherText.setShadowLayer(8 * d, 0, 0, 0x99000000);
+            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            tl.setMarginStart(Math.round(4 * d));
+            weatherChip.addView(weatherText, tl);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.setMarginStart(Math.round(12 * d));
+            bar.addView(weatherChip, bar.indexOfChild(clock), lp);
+        }
+        weatherChip.setVisibility(View.VISIBLE);
+        if (now.at != weatherShown) {
+            weatherShown = now.at;
+            weatherIcon.set(now.sky, now.day);
+            weatherText.setText(now.temp + "°");
         }
     }
 
