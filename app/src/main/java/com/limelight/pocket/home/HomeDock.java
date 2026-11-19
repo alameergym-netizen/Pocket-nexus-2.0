@@ -107,7 +107,7 @@ final class HomeDock {
     }
 
     /** The dock's height on Home: the row, and the name's pill over it. */
-    static final int HEIGHT_DP = 78;
+    static final int HEIGHT_DP = 74;
     private static final int BAND = 48;
     private static final int BOX = 44;
     private static final int ICON = 38;

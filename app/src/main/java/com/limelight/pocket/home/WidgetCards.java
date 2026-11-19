@@ -821,7 +821,8 @@ public final class WidgetCards {
             if (now == null) {
                 String guess = Weather.city(c);
                 city.setText((guess != null ? guess : c.getString(R.string.pocket_widget_weather)).toUpperCase(Locale.ROOT));
-                temp.setText("--°");
+                temp.setText("");
+                temp.setVisibility(GONE);
                 words.setText(guess != null ? R.string.pocket_weather_loading : R.string.pocket_weather_set_city);
                 range.setText(R.string.pocket_weather_hint);
                 icon.set(Weather.PARTLY, true);
@@ -829,6 +830,7 @@ public final class WidgetCards {
                 return;
             }
             city.setText(now.city.toUpperCase(Locale.ROOT));
+            temp.setVisibility(VISIBLE);
             temp.setText(now.temp + "°");
             words.setText(skyWord(c, now.sky));
             range.setText(c.getString(R.string.pocket_weather_range, now.high + "°", now.low + "°"));
