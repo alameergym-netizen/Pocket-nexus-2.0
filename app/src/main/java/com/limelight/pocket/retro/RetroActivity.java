@@ -1645,8 +1645,8 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                     try {
                         int n = ScreenScraper.scrape(app, rom);
                         msg = n > 0 ? getString(R.string.pocket_ss_got, n) : getString(R.string.pocket_ss_none);
-                    } catch (ScreenScraper.ScrapeException e) {
-                        msg = e.getMessage();
+                    } catch (ScreenScraper.ScrapeException err) {
+                        msg = err.getMessage();
                     }
                     final String m = msg;
                     runOnUiThread(() -> {
