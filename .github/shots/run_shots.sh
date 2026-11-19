@@ -190,7 +190,11 @@ for mode in grid xmb carousel; do
   fi
 done
 
-# Home's newer parts: the widgets (down from the dock), Surprise me (L3), Music, docked mode
+# Home's newer parts: the widgets (down from the dock), Surprise me (L3), Music, docked mode.
+# Home's default layout first (the dock isn't there in the others)
+rm -rf /tmp/seedt; mkdir -p /tmp/seedt
+printf 'pref\tstring\tpocket_home_layout\ttiles\n' > /tmp/seedt/seed.txt
+ensure_emulator && push_seed /tmp/seedt
 if scene widgets; then
   key KEYCODE_DPAD_DOWN dpad 1.5
   key KEYCODE_DPAD_DOWN dpad 1.5; shot 26_dock

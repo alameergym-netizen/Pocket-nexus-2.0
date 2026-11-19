@@ -121,7 +121,8 @@ public class SurpriseActivity extends Activity {
         eyebrow = text(11f, 0x99FFFFFF, PocketFonts.bold());
         eyebrow.setLetterSpacing(0.2f);
         eyebrow.setText(getString(R.string.pocket_surprise_title).toUpperCase(java.util.Locale.ROOT));
-        head.addView(eyebrow);
+        head.addView(eyebrow, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         hl.topMargin = dp(34);
@@ -151,7 +152,9 @@ public class SurpriseActivity extends Activity {
         title = text(24f, 0xFFFFFFFF, PocketFonts.display());
         title.setGravity(Gravity.CENTER);
         title.setMaxWidth(dp(640));
-        foot.addView(title);
+        // Its own width (a vertical row's default would squeeze it to the hints' width)
+        foot.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         where = text(13f, 0xB3FFFFFF, PocketFonts.medium());
         LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -181,7 +184,7 @@ public class SurpriseActivity extends Activity {
             try {
                 for (HomeStore.Entry e : HomeStore.load(app)) {
                     HomeItem i = e.item;
-                    if (i == null || !playable(app, i) || !seen.add(i.key())) {
+                    if (i == null || !(HomeItem.ANDROID.equals(i.kind) || playable(app, i)) || !seen.add(i.key())) {
                         continue;
                     }
                     found.add(new Pick(i, i.name, e.pcName.isEmpty() ? app.getString(R.string.pocket_surprise_from_home) : e.pcName));
@@ -191,6 +194,12 @@ public class SurpriseActivity extends Activity {
             try {
                 File rootDir = RetroLibrary.romRoot(app);
                 RetroLibrary.Library lib = rootDir != null ? RetroLibrary.cached(app, rootDir) : null;
+                if (lib == null && rootDir != null) {
+                    try {
+                        lib = RetroLibrary.scan(app, rootDir);
+                    } catch (RuntimeException ignored) {
+                    }
+                }
                 if (lib != null) {
                     com.limelight.pocket.retro.EsdeConfig cfg = RetroLibrary.config(app);
                     for (List<RomScanner.Rom> roms : lib.games.values()) {
