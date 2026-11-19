@@ -58,7 +58,7 @@ final class HomeDock {
     private static final String NEXUS = "nexus:";
     private static final String APP = "app:";
     private static final String DEFAULT = "nexus:music,nexus:files,nexus:browser,nexus:search,nexus:stats,"
-            + "nexus:apps,widgets,nexus:settings";
+            + "nexus:apps,nexus:surprise,widgets,nexus:settings";
 
     private final HomeActivity activity;
     private final Host host;

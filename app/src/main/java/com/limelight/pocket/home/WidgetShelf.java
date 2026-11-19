@@ -54,7 +54,7 @@ import java.util.List;
 public final class WidgetShelf {
 
     private static final String KEY = "pocket_home_widgets";
-    private static final String DEFAULT = "clock,nowplaying,weather,week,notifications,device";
+    private static final String DEFAULT = "clock,nowplaying,weather,news,week,notifications,device";
     private static final String CLOCK = "clock";
     private static final String NOW_PLAYING = "nowplaying";
     private static final String NOTIFICATIONS = "notifications";
@@ -62,8 +62,9 @@ public final class WidgetShelf {
     private static final String PCS = "pcs";
     private static final String WEATHER = "weather";
     private static final String WEEK = "week";
+    private static final String NEWS = "news";
     private static final String APP_WIDGET = "aw:";
-    private static final String[] BUILT_IN = {CLOCK, NOW_PLAYING, WEATHER, WEEK, NOTIFICATIONS, DEVICE, PCS};
+    private static final String[] BUILT_IN = {CLOCK, NOW_PLAYING, WEATHER, WEEK, NEWS, NOTIFICATIONS, DEVICE, PCS};
     private static final int HOST_ID = 0x504E;
     static final int REQUEST_BIND = 7411;
     static final int REQUEST_CONFIGURE = 7412;
@@ -139,7 +140,7 @@ public final class WidgetShelf {
             String had = p.getString(KEY, null);
             if (had != null) {
                 StringBuilder b = new StringBuilder(had);
-                for (String w : new String[]{WEATHER, WEEK}) {
+                for (String w : new String[]{WEATHER, NEWS, WEEK}) {
                     if (!("," + had + ",").contains("," + w + ",")) {
                         b.append(b.length() > 0 ? "," : "").append(w);
                     }
@@ -182,23 +183,25 @@ public final class WidgetShelf {
         panel = new LinearLayout(activity);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setTag("glass_panel");
-        panel.setPadding(dp(18), dp(14), dp(18), dp(16));
+        panel.setPadding(dp(20), dp(16), dp(20), dp(16));
         GradientDrawable plain = new GradientDrawable();
-        plain.setCornerRadius(dp(22));
+        plain.setCornerRadius(dp(28));
         plain.setColor(0xE614141A);
         panel.setBackground(plain);
         activity.makeGlass(panel);
 
         TextView title = new TextView(activity);
         title.setText(R.string.pocket_home_widgets);
-        title.setTypeface(PocketFonts.semibold());
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        title.setTypeface(PocketFonts.display());
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
         title.setTextColor(0xFFFFFFFF);
-        TextView hint = new TextView(activity);
-        hint.setText(R.string.pocket_home_widgets_hint);
-        hint.setTypeface(PocketFonts.medium());
-        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
-        hint.setTextColor(0x99FFFFFF);
+        // What the buttons do here, as everywhere else: drawn button glyphs
+        LinearLayout hint = com.limelight.pocket.ui.ConsoleScreen.hintBar(activity);
+        ConsoleActivity.fillHintBar(activity, hint,
+                ConsoleActivity.hintA(activity, R.string.pocket_hint_open),
+                new ConsoleActivity.Hint("L2 R2", 0xFFFFFFFF, activity.getString(R.string.pocket_widget_hint_skip)),
+                ConsoleActivity.hintY(activity, R.string.pocket_hint_options),
+                ConsoleActivity.hintB(activity, R.string.pocket_hint_close));
         LinearLayout head = new LinearLayout(activity);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
@@ -349,6 +352,9 @@ public final class WidgetShelf {
             case WEEK:
                 card = new WidgetCards.WeekCard(activity, kind);
                 break;
+            case NEWS:
+                card = new WidgetCards.NewsCard(activity, kind);
+                break;
             default:
                 card = new WidgetCards.PcsCard(activity, kind);
                 break;
@@ -450,6 +456,18 @@ public final class WidgetShelf {
                 close();
                 activity.startActivity(new Intent(activity, StatsActivity.class));
                 return;
+            case NEWS: {
+                View f = focused();
+                News.Story st = f instanceof WidgetCards.NewsCard ? ((WidgetCards.NewsCard) f).current() : null;
+                if (st != null) {
+                    close();
+                    com.limelight.pocket.browser.BrowserActivity.open(activity, st.link);
+                }
+                else {
+                    News.refresh(activity, true, list -> refresh());
+                }
+                return;
+            }
             default:
                 break;
         }
@@ -526,7 +544,7 @@ public final class WidgetShelf {
         List<StreamMenuView.Item> items = new ArrayList<>();
         List<String> have = widgets();
         int[] names = {R.string.pocket_widget_clock, R.string.pocket_widget_now_playing, R.string.pocket_widget_weather,
-                R.string.pocket_widget_week, R.string.pocket_device_notifications, R.string.pocket_device_device,
+                R.string.pocket_widget_week, R.string.pocket_widget_news, R.string.pocket_device_notifications, R.string.pocket_device_device,
                 R.string.pocket_widget_pcs};
         for (int i = 0; i < BUILT_IN.length; i++) {
             final String kind = BUILT_IN[i];
@@ -706,8 +724,15 @@ public final class WidgetShelf {
             case KeyEvent.KEYCODE_BUTTON_L2:
             case KeyEvent.KEYCODE_BUTTON_R2:
             case KeyEvent.KEYCODE_BUTTON_X: {
-                // On the music: the song before / after
+                // On the music: the song before / after; on the news: the story before / after
                 View f = focused();
+                if (f instanceof WidgetCards.NewsCard) {
+                    if (up) {
+                        PocketSounds.play(activity, PocketSounds.NAV);
+                        ((WidgetCards.NewsCard) f).step(k == KeyEvent.KEYCODE_BUTTON_L2 ? -1 : 1);
+                    }
+                    return true;
+                }
                 if (f == null || !NOW_PLAYING.equals(f.getTag())) {
                     return k != KeyEvent.KEYCODE_BUTTON_X;
                 }
@@ -754,6 +779,13 @@ public final class WidgetShelf {
                 }));
             }
         }
+        if (NEWS.equals(kind)) {
+            items.add(StreamMenuView.Item.submenu(activity.getString(R.string.pocket_news_feeds), this::pushFeeds).withIcon("GLOBE"));
+            items.add(StreamMenuView.Item.action(activity.getString(R.string.pocket_news_refresh), () -> {
+                activity.hideConsolePanel();
+                News.refresh(activity, true, list -> refresh());
+            }).withIcon("RESTART"));
+        }
         if (WEATHER.equals(kind)) {
             items.add(StreamMenuView.Item.action(activity.getString(R.string.pocket_weather_change_city), () -> {
                 activity.hideConsolePanel();
@@ -788,6 +820,36 @@ public final class WidgetShelf {
         }));
         PocketSounds.play(activity, PocketSounds.OPEN);
         activity.showConsolePanel(activity.getString(R.string.pocket_home_widgets), null, null, items);
+    }
+
+    /** The news feeds: each on or off, and one more by its address. */
+    private void pushFeeds() {
+        List<StreamMenuView.Item> page = new ArrayList<>();
+        java.util.Set<String> on = News.chosen(activity);
+        List<String[]> all = new ArrayList<>(Arrays.asList(News.FEEDS));
+        for (String u : News.custom(activity)) {
+            all.add(new String[]{u.replaceFirst("^https?://(www\\.)?", ""), u});
+        }
+        for (final String[] f : all) {
+            final boolean has = on.contains(f[1]);
+            page.add(StreamMenuView.Item.action((has ? "✓  " : "") + f[0], () -> {
+                News.setChosen(activity, f[1], !has);
+                PocketSounds.play(activity, has ? PocketSounds.TOGGLE_OFF : PocketSounds.TOGGLE_ON);
+                activity.hideConsolePanel();
+                News.refresh(activity, true, list -> refresh());
+            }));
+        }
+        page.add(StreamMenuView.Item.action(activity.getString(R.string.pocket_news_add), () -> {
+            activity.hideConsolePanel();
+            com.limelight.pocket.ui.TextPrompt.show(activity, activity.getString(R.string.pocket_news_add),
+                    activity.getString(R.string.pocket_news_add_help), "", "https://", text -> {
+                        if (!text.isEmpty()) {
+                            News.addCustom(activity, text);
+                            News.refresh(activity, true, list -> refresh());
+                        }
+                    });
+        }).withIcon("SEARCH"));
+        activity.pushConsolePage(activity.getString(R.string.pocket_news_feeds), page);
     }
 
     /** The weather's city, typed with the controller's keyboard. */

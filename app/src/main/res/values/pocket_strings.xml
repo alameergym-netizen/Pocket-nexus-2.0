@@ -1661,4 +1661,13 @@
     <string name="pocket_set_status_weather">Weather by the clock</string>
     <string name="pocket_set_status_weather_sub">The sky and temperature next to the time, at the top of every screen.</string>
     <string name="pocket_set_weather_f">Show in Fahrenheit</string>
+    <string name="pocket_widget_news">Game news</string>
+    <string name="pocket_news_loading">Getting the latest news…</string>
+    <string name="pocket_news_hint">A to read · L2 / R2 for more</string>
+    <string name="pocket_news_feeds">News sources</string>
+    <string name="pocket_news_refresh">Refresh now</string>
+    <string name="pocket_news_add">Add a feed</string>
+    <string name="pocket_news_add_help">The address of any site's RSS or Atom feed.</string>
+    <string name="pocket_widget_hint_skip">Skip</string>
+    <string name="pocket_nexus_surprise_about">Can\'t choose? A reel of your games lands on one (L3 on Home too)</string>
 </resources>

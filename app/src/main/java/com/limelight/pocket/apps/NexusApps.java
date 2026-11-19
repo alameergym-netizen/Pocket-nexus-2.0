@@ -46,6 +46,7 @@ public final class NexusApps {
     public static final String STATS = "stats";
     public static final String APPS = "apps";
     public static final String SETTINGS = "settings";
+    public static final String SURPRISE = "surprise";
 
     public static final class App {
         public final String id;
@@ -73,6 +74,7 @@ public final class NexusApps {
             new App(STATS, R.string.pocket_nexus_stats, R.string.pocket_nexus_stats_about, "CHART", 0xFFA48BFF, 0xFF3B2491),
             new App(APPS, R.string.pocket_nexus_apps, R.string.pocket_nexus_apps_about, "APPS", 0xFF6EE08E, 0xFF13693A),
             new App(SETTINGS, R.string.pocket_nexus_settings, R.string.pocket_nexus_settings_about, "GEAR", 0xFF9AA3B5, 0xFF2E3442),
+            new App(SURPRISE, R.string.pocket_surprise_title, R.string.pocket_nexus_surprise_about, "SHUFFLE", 0xFFFFD54A, 0xFFE0457B),
     };
 
     public static App byId(String id) {
@@ -111,6 +113,9 @@ public final class NexusApps {
                 return true;
             case STATS:
                 com.limelight.pocket.home.StatsActivity.open(from);
+                return true;
+            case SURPRISE:
+                com.limelight.pocket.home.SurpriseActivity.open(from);
                 return true;
             case APPS:
                 AppDrawerActivity.open(from);

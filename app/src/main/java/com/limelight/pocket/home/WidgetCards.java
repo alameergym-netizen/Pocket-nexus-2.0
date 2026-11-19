@@ -1173,4 +1173,161 @@ public final class WidgetCards {
             }
         }
     }
+
+    // ---- News ----------------------------------------------------------------------------------
+
+    /** Game news: the newest headlines over their pictures, one after another. */
+    static final class NewsCard extends Card {
+        private final ImageView pic;
+        private final TextView from;
+        private final TextView headline;
+        private final TextView when;
+        private final LinearLayout dots;
+        private final java.util.List<News.Story> stories = new java.util.ArrayList<>();
+        private int at;
+        private String sig = "";
+        private final Runnable turn = new Runnable() {
+            @Override
+            public void run() {
+                if (isAttachedToWindow() && stories.size() > 1 && !isFocused()) {
+                    show(at + 1, true);
+                }
+                postDelayed(this, 7000);
+            }
+        };
+
+        NewsCard(Context c, String kind) {
+            super(c, kind, 320);
+            FrameLayout l = layer();
+            l.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF3A1F2B, 0xFF140B12}));
+            pic = new ImageView(c);
+            pic.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            l.addView(pic, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            View scrim = new View(c);
+            scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{0x66000000, 0x33000000, 0xE6000000}));
+            l.addView(scrim, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            LinearLayout col = column(Gravity.BOTTOM);
+            col.setPadding(dp(16), dp(14), dp(16), dp(14));
+            l.addView(col, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            LinearLayout head = new LinearLayout(c);
+            head.setOrientation(LinearLayout.HORIZONTAL);
+            head.setGravity(Gravity.CENTER_VERTICAL);
+            from = caption("");
+            head.addView(from, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            dots = new LinearLayout(c);
+            dots.setOrientation(LinearLayout.HORIZONTAL);
+            head.addView(dots);
+            LayoutParams hl = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP);
+            hl.setMargins(dp(16), dp(14), dp(16), 0);
+            l.addView(head, hl);
+            headline = text(15f, 0xFFFFFFFF, PocketFonts.semibold());
+            headline.setMaxLines(3);
+            headline.setLineSpacing(0, 1.05f);
+            headline.setShadowLayer(10 * d, 0, d, 0x99000000);
+            col.addView(headline);
+            when = text(11f, 0xB3FFFFFF, PocketFonts.medium());
+            col.addView(when, wrap(5));
+            update();
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            removeCallbacks(turn);
+            postDelayed(turn, 7000);
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            removeCallbacks(turn);
+            super.onDetachedFromWindow();
+        }
+
+        @Override
+        void update() {
+            setStories(News.cached(getContext()));
+            News.refresh(getContext(), false, this::setStories);
+        }
+
+        void setStories(java.util.List<News.Story> list) {
+            StringBuilder b = new StringBuilder();
+            for (News.Story s : list) {
+                b.append(s.link).append('|');
+            }
+            if (b.toString().equals(sig) && !stories.isEmpty()) {
+                return;
+            }
+            sig = b.toString();
+            stories.clear();
+            stories.addAll(list.subList(0, Math.min(6, list.size())));
+            if (stories.isEmpty()) {
+                from.setText(getContext().getString(R.string.pocket_widget_news).toUpperCase(Locale.ROOT));
+                headline.setText(R.string.pocket_news_loading);
+                when.setText(R.string.pocket_news_hint);
+                return;
+            }
+            show(0, false);
+        }
+
+        /** The story before / after (L2, R2). */
+        void step(int dir) {
+            if (stories.size() > 1) {
+                show(at + dir, true);
+                removeCallbacks(turn);
+                postDelayed(turn, 9000);
+            }
+        }
+
+        News.Story current() {
+            return stories.isEmpty() ? null : stories.get(at);
+        }
+
+        private void show(int i, boolean animate) {
+            if (stories.isEmpty()) {
+                return;
+            }
+            at = ((i % stories.size()) + stories.size()) % stories.size();
+            final News.Story s = stories.get(at);
+            Runnable fill = () -> {
+                from.setText((getContext().getString(R.string.pocket_widget_news) + "  ·  " + s.source).toUpperCase(Locale.ROOT));
+                headline.setText(s.title);
+                when.setText(s.at > 0 ? android.text.format.DateUtils.getRelativeTimeSpanString(s.at,
+                        System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS) : "");
+                pic.setImageDrawable(null);
+                final String want = s.image;
+                News.image(want, bm -> {
+                    News.Story now = current();
+                    if (now != null && want.equals(now.image)) {
+                        pic.setImageBitmap(bm);
+                        if (PocketPrefs.animationsEnabled(getContext())) {
+                            pic.setAlpha(0f);
+                            pic.animate().alpha(1f).setDuration(420).start();
+                        }
+                    }
+                });
+                dots.removeAllViews();
+                for (int k = 0; k < stories.size(); k++) {
+                    View dot = new View(getContext());
+                    GradientDrawable g = new GradientDrawable();
+                    g.setCornerRadius(dp(3));
+                    g.setColor(k == at ? 0xFFFFFFFF : 0x59FFFFFF);
+                    dot.setBackground(g);
+                    LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(k == at ? 14 : 5), dp(5));
+                    dl.setMarginStart(dp(4));
+                    dots.addView(dot, dl);
+                }
+            };
+            if (animate && PocketPrefs.animationsEnabled(getContext())) {
+                headline.animate().alpha(0f).translationY(dp(6)).setDuration(140).withEndAction(() -> {
+                    fill.run();
+                    headline.setTranslationY(-dp(6));
+                    headline.animate().alpha(1f).translationY(0).setDuration(260).start();
+                }).start();
+            }
+            else {
+                fill.run();
+            }
+        }
+    }
 }
