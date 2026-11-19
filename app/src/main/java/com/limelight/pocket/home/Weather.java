@@ -85,8 +85,12 @@ public final class Weather {
         if (p.contains(KEY_UNITS)) {
             return p.getBoolean(KEY_UNITS, false);
         }
+        // Fahrenheit only where it's used: a US language setting alone isn't enough (most handhelds
+        // ship in English (US)), the time zone must be American too
         String country = Locale.getDefault().getCountry();
-        return "US".equals(country) || "LR".equals(country) || "MM".equals(country);
+        String zone = TimeZone.getDefault().getID();
+        boolean american = zone.startsWith("America/") || zone.startsWith("US/") || zone.equals("Pacific/Honolulu");
+        return ("US".equals(country) && american) || "Africa/Monrovia".equals(zone);
     }
 
     public static void setFahrenheit(Context c, boolean f) {
@@ -116,7 +120,12 @@ public final class Weather {
             return null;
         }
         try {
-            return parse(new JSONObject(s));
+            JSONObject o = new JSONObject(s);
+            // Kept in the other unit (or from before the unit was kept): fetched again
+            if (!o.has("f") || o.getBoolean("f") != fahrenheit(c)) {
+                return null;
+            }
+            return parse(o);
         } catch (Exception e) {
             return null;
         }
@@ -229,6 +238,7 @@ public final class Weather {
         keep.put("nextHigh", nh);
         keep.put("nextSky", ns);
         keep.put("at", System.currentTimeMillis());
+        keep.put("f", f);
         p.edit().putString(KEY_CACHE, keep.toString()).apply();
         return parse(keep);
     }
