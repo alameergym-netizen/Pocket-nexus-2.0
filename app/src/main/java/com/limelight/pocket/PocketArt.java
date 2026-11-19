@@ -386,7 +386,12 @@ public final class PocketArt {
         String style = com.limelight.pocket.ui.LibraryLayout.cardStyle(app);
         boolean wantWide = com.limelight.pocket.ui.LibraryLayout.STYLE_WIDE.equals(style) && !has(app, uuid, appId, WIDE);
         boolean wantIcon = com.limelight.pocket.ui.LibraryLayout.STYLE_ICON.equals(style) && !has(app, uuid, appId, ICON);
-        if (!wantHero && !wantLogo && !wantCover && !wantWide && !wantIcon) {
+        // Moving art too (an animated cover, a moving background), once per game, when it's on
+        String motionKey = KEY_MOTION_TRIED + uuid + "_" + appId;
+        boolean wantMotion = animatedArt(app) && !PocketPrefs.prefs(app).getBoolean(motionKey, false)
+                && (com.limelight.pocket.ui.MotionArt.file(app, uuid, appId, COVER) == null
+                || com.limelight.pocket.ui.MotionArt.file(app, uuid, appId, HERO) == null);
+        if (!wantHero && !wantLogo && !wantCover && !wantWide && !wantIcon && !wantMotion) {
             return false;
         }
         boolean got = false;
@@ -422,7 +427,56 @@ public final class PocketArt {
         if (wantIcon) {
             got |= fetchFirst(app, key, uuid, appId, gameId, ICON);
         }
+        if (wantMotion) {
+            PocketPrefs.prefs(app).edit().putBoolean(motionKey, true).apply();
+            for (int kind : new int[]{COVER, HERO}) {
+                if (com.limelight.pocket.ui.MotionArt.file(app, uuid, appId, kind) == null) {
+                    try {
+                        got |= fetchMoving(app, key, uuid, appId, gameId, kind);
+                    } catch (IOException | RuntimeException ignored) {
+                        // The still art stays
+                    }
+                }
+            }
+        }
         return got;
+    }
+
+    /** SteamGridDB's animated art (covers as GIF / animated WebP, backgrounds also as video). */
+    public static final String KEY_ANIMATED = "pocket_sgdb_animated";
+    private static final String KEY_MOTION_TRIED = "pocket_sgdb_motion_tried_";
+
+    public static boolean animatedArt(Context c) {
+        return PocketPrefs.prefs(c).getBoolean(KEY_ANIMATED, true);
+    }
+
+    /** Looks for moving art again for every game (after it's turned on). */
+    public static void retryAnimated(Context c) {
+        SharedPreferences p = PocketPrefs.prefs(c);
+        SharedPreferences.Editor e = p.edit();
+        for (String k : p.getAll().keySet()) {
+            if (k.startsWith(KEY_MOTION_TRIED) || k.startsWith(KEY_TRIED)) {
+                e.remove(k);
+            }
+        }
+        e.apply();
+    }
+
+    /** The community's favourite moving art of one kind, kept beside the still one. */
+    private static boolean fetchMoving(Context app, String key, String uuid, int appId, int gameId, int kind) throws IOException {
+        for (SteamGridDb.Image i : SteamGridDb.images(key, gameId, kind, 0, true)) {
+            String ext = com.limelight.pocket.ui.MotionArt.extFor(i.mime, i.url);
+            if (ext == null) {
+                continue;
+            }
+            byte[] data = SteamGridDb.download(i.url, MAX_DOWNLOAD);
+            if (data == null || data.length == 0) {
+                continue;
+            }
+            com.limelight.pocket.ui.MotionArt.save(app, uuid, appId, kind, data, ext);
+            return true;
+        }
+        return false;
     }
 
     /**

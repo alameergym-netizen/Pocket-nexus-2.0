@@ -35,6 +35,11 @@ public final class TextPrompt {
     }
 
     public static void show(Activity a, String title, String help, String initial, String hint, final Done done) {
+        show(a, title, help, initial, hint, false, done);
+    }
+
+    public static void show(Activity a, String title, String help, String initial, String hint, boolean secret,
+                            final Done done) {
         final float d = a.getResources().getDisplayMetrics().density;
         final Dialog dialog = new Dialog(a);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -74,7 +79,8 @@ public final class TextPrompt {
         field.setTextColor(0xFFFFFFFF);
         field.setTypeface(PocketFonts.medium());
         field.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        field.setInputType(secret ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+                : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         field.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_FLAG_NO_FULLSCREEN);
         int fp = Math.round(16 * d);
         field.setPadding(fp, 0, fp, 0);

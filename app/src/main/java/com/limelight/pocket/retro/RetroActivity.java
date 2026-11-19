@@ -1632,6 +1632,31 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 Toast.makeText(this, R.string.pocket_art_finding, Toast.LENGTH_SHORT).show();
                 scrape(rom, true);
             }));
+            items.add(StreamMenuView.Item.action(getString(R.string.pocket_ss_scrape_one), () -> {
+                hideConsolePanel();
+                if (!ScreenScraper.ready(this)) {
+                    Toast.makeText(this, R.string.pocket_ss_need_dev, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Toast.makeText(this, R.string.pocket_ss_working, Toast.LENGTH_SHORT).show();
+                final android.content.Context app = getApplicationContext();
+                new Thread(() -> {
+                    String msg;
+                    try {
+                        int n = ScreenScraper.scrape(app, rom);
+                        msg = n > 0 ? getString(R.string.pocket_ss_got, n) : getString(R.string.pocket_ss_none);
+                    } catch (ScreenScraper.ScrapeException e) {
+                        msg = e.getMessage();
+                    }
+                    final String m = msg;
+                    runOnUiThread(() -> {
+                        if (!isFinishing()) {
+                            Toast.makeText(this, m, Toast.LENGTH_LONG).show();
+                            showEntries();
+                        }
+                    });
+                }, "pocket-ss").start();
+            }).withIcon("SEARCH"));
             final String here = inSystem != null ? inSystem : rom.system;
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_scrape_system), () -> scrapeMissing(here)));
             items.add(StreamMenuView.Item.header(rom.file.getAbsolutePath()));

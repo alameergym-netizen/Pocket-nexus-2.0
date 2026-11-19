@@ -12,6 +12,8 @@ import android.os.Looper;
 import android.view.Display;
 import android.widget.Toast;
 
+import com.limelight.R;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

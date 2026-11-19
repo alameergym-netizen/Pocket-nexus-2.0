@@ -1350,6 +1350,17 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> PocketArt.autoArt(this),
                 value -> prefs().edit().putBoolean(PocketArt.KEY_AUTO_ART, value).apply());
 
+        addScreenScraper();
+
+        addToggle(getString(R.string.pocket_set_animated_art), getString(R.string.pocket_set_animated_art_sub),
+                () -> PocketArt.animatedArt(this),
+                value -> {
+                    prefs().edit().putBoolean(PocketArt.KEY_ANIMATED, value).apply();
+                    if (value) {
+                        PocketArt.retryAnimated(this);
+                    }
+                });
+
         addToggle(getString(R.string.pocket_set_logos), getString(R.string.pocket_set_logos_sub),
                 () -> PocketArt.logosForNames(this),
                 value -> prefs().edit().putBoolean(PocketArt.KEY_LOGOS, value).apply());
@@ -1610,6 +1621,94 @@ public class QuickSettingsActivity extends ConsoleActivity {
     }
 
     // ---- Row builders -------------------------------------------------------------------
+
+    /** ScreenScraper: the account, the developer ID it asks for, what to save, and scrape everything. */
+    private void addScreenScraper() {
+        addHeader(R.string.pocket_ss_title);
+        addAction(getString(R.string.pocket_ss_account), getString(R.string.pocket_ss_account_sub),
+                () -> {
+                    String u = prefs().getString(com.limelight.pocket.retro.ScreenScraper.KEY_USER, "");
+                    return u.isEmpty() ? getString(R.string.pocket_ss_not_set) : u;
+                },
+                () -> askText(R.string.pocket_ss_user, R.string.pocket_ss_account_sub,
+                        com.limelight.pocket.retro.ScreenScraper.KEY_USER, false,
+                        () -> askText(R.string.pocket_ss_pass, R.string.pocket_ss_account_sub,
+                                com.limelight.pocket.retro.ScreenScraper.KEY_PASS, true, null)));
+        addAction(getString(R.string.pocket_ss_dev), getString(R.string.pocket_ss_dev_sub),
+                () -> getString(com.limelight.pocket.retro.ScreenScraper.ready(this) ? R.string.pocket_art_key_set
+                        : R.string.pocket_ss_not_set),
+                () -> askText(R.string.pocket_ss_dev_id, R.string.pocket_ss_dev_sub,
+                        com.limelight.pocket.retro.ScreenScraper.KEY_DEV_ID, false,
+                        () -> askText(R.string.pocket_ss_dev_pass, R.string.pocket_ss_dev_sub,
+                                com.limelight.pocket.retro.ScreenScraper.KEY_DEV_PASS, true, null)));
+        final String[] regions = {"wor", "us", "eu", "jp"};
+        addChoice(getString(R.string.pocket_ss_region), null,
+                new String[]{getString(R.string.pocket_ss_region_world), "USA", getString(R.string.pocket_ss_region_eu),
+                        getString(R.string.pocket_ss_region_jp)},
+                () -> Math.max(0, java.util.Arrays.asList(regions).indexOf(
+                        prefs().getString(com.limelight.pocket.retro.ScreenScraper.KEY_REGION, "wor"))),
+                index -> prefs().edit().putString(com.limelight.pocket.retro.ScreenScraper.KEY_REGION, regions[index]).apply(),
+                null);
+        addToggle(getString(R.string.pocket_ss_videos), getString(R.string.pocket_ss_videos_sub),
+                () -> prefs().getBoolean(com.limelight.pocket.retro.ScreenScraper.KEY_VIDEOS, true),
+                value -> prefs().edit().putBoolean(com.limelight.pocket.retro.ScreenScraper.KEY_VIDEOS, value).apply());
+        addToggle(getString(R.string.pocket_ss_only_missing), null,
+                () -> prefs().getBoolean(com.limelight.pocket.retro.ScreenScraper.KEY_ONLY_MISSING, true),
+                value -> prefs().edit().putBoolean(com.limelight.pocket.retro.ScreenScraper.KEY_ONLY_MISSING, value).apply());
+        final String[] status = {null};
+        addAction(getString(R.string.pocket_ss_all), getString(R.string.pocket_ss_all_sub),
+                () -> status[0] != null ? status[0]
+                        : com.limelight.pocket.retro.ScreenScraper.isRunning() ? getString(R.string.pocket_ss_working) : "",
+                () -> {
+                    if (com.limelight.pocket.retro.ScreenScraper.isRunning()) {
+                        com.limelight.pocket.retro.ScreenScraper.stop();
+                        status[0] = getString(R.string.pocket_ss_stopping);
+                        refreshRows();
+                        return;
+                    }
+                    if (!com.limelight.pocket.retro.ScreenScraper.ready(this)) {
+                        PocketSounds.play(this, PocketSounds.ERROR);
+                        Toast.makeText(this, R.string.pocket_ss_need_dev, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    java.util.List<com.limelight.pocket.retro.RomScanner.Rom> roms =
+                            com.limelight.pocket.retro.ScreenScraper.allRoms(this);
+                    if (roms.isEmpty()) {
+                        Toast.makeText(this, R.string.pocket_ss_no_roms, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    com.limelight.pocket.retro.ScreenScraper.scrapeAll(this, roms,
+                            new com.limelight.pocket.retro.ScreenScraper.Progress() {
+                                @Override
+                                public void onProgress(int done, int total, int found, String name) {
+                                    status[0] = (done + 1) + " / " + total + "  ·  " + name;
+                                    if (!isFinishing()) {
+                                        refreshRows();
+                                    }
+                                }
+
+                                @Override
+                                public void onDone(int found, int total, String problem) {
+                                    status[0] = problem != null ? problem : getString(R.string.pocket_ss_done, found, total);
+                                    if (!isFinishing()) {
+                                        refreshRows();
+                                    }
+                                }
+                            });
+                });
+    }
+
+    /** One line typed with the controller's keyboard into a setting (then, maybe, the next). */
+    private void askText(int title, int help, final String key, boolean secret, final Runnable then) {
+        com.limelight.pocket.ui.TextPrompt.show(this, getString(title), getString(help),
+                secret ? "" : prefs().getString(key, ""), "", secret, text -> {
+                    prefs().edit().putString(key, text).apply();
+                    refreshRows();
+                    if (then != null) {
+                        getWindow().getDecorView().postDelayed(then, 250);
+                    }
+                });
+    }
 
     /** A part of a tab with its own title (Streaming: then Connection), a hairline above it. */
     private void addSpacerHeader(int text) {
