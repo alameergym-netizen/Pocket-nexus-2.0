@@ -139,9 +139,10 @@ public final class PocketUi {
      * move, a click for a choice, a heavier one for opening something, two for "can't".
      */
     public static void haptic(Context context, final int kind) {
-        if (context == null || !PocketPrefs.hapticsEnabled(context)) {
-            return;
+        if (context == null || !PocketPrefs.hapticsEnabled(context) || com.limelight.pocket.DockMode.docked()) {
+            return; // (docked: the handheld is on a desk, not in hands)
         }
+        final int strength = PocketPrefs.prefs(context).getInt("pocket_haptic_strength", 2);
         long now = android.os.SystemClock.uptimeMillis();
         if (kind == HAPTIC_TICK && now - lastHaptic < 35) {
             return; // holding the D-pad: not a rattle
@@ -154,7 +155,21 @@ public final class PocketUi {
                 if (vibrator == null || !vibrator.hasVibrator()) {
                     return;
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && strength != 2 && vibrator.hasAmplitudeControl()) {
+                    // Light (1) or strong (3): a short pulse of that strength instead of the system's own
+                    int ms = kind == HAPTIC_TICK ? 7 : kind == HAPTIC_HEAVY ? 22 : 14;
+                    int amp = kind == HAPTIC_TICK ? 50 : kind == HAPTIC_HEAVY ? 170 : 110;
+                    amp = Math.min(255, strength == 1 ? amp / 2 : Math.round(amp * 1.5f));
+                    ms = strength == 1 ? Math.max(5, ms - 3) : ms + 6;
+                    if (kind == HAPTIC_DOUBLE) {
+                        vibrator.vibrate(VibrationEffect.createWaveform(new long[]{0, ms, 70, ms},
+                                new int[]{0, amp, 0, amp}, -1));
+                    }
+                    else {
+                        vibrator.vibrate(VibrationEffect.createOneShot(ms, amp));
+                    }
+                }
+                else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     int effect = kind == HAPTIC_CLICK ? VibrationEffect.EFFECT_CLICK
                             : kind == HAPTIC_HEAVY ? VibrationEffect.EFFECT_HEAVY_CLICK
                             : kind == HAPTIC_DOUBLE ? VibrationEffect.EFFECT_DOUBLE_CLICK : VibrationEffect.EFFECT_TICK;

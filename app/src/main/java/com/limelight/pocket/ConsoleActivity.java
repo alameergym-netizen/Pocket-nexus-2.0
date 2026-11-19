@@ -528,6 +528,9 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             recreate();
             return;
         }
+        // Handheld or docked (on a TV): room at the edges, the TV icon by the clock
+        DockMode.addListener(dockListener);
+        applyDockLook();
         // A crash or caught error from last time: show it once, with a Copy button
         CrashReporter.showPendingReport(this);
         // A stream that was suspended (screen off, Home) or is switching quality comes back now
@@ -612,6 +615,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        DockMode.removeListener(dockListener);
         // The other screens read their own layout (or the shared one)
         PocketPrefs.setLayoutScope(null);
         com.limelight.pocket.device.PocketNotifications.setListener(null);
@@ -1595,6 +1599,40 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         if (clock != null) {
             clock.setText(DateFormat.getTimeFormat(this).format(new Date()));
             updateWeatherChip();
+        }
+    }
+
+    private final DockMode.Listener dockListener = docked -> {
+        if (!isFinishing()) {
+            applyDockLook();
+        }
+    };
+    private android.widget.ImageView dockChip;
+
+    /** Docked on a TV: room at the screen's edges (TVs crop them), and a TV icon by the clock. */
+    private void applyDockLook() {
+        boolean docked = DockMode.isDocked(this);
+        float d = getResources().getDisplayMetrics().density;
+        View content = findViewById(android.R.id.content);
+        if (content != null) {
+            int m = Math.round(DockMode.safeMarginDp(this) * d);
+            content.setPadding(m, Math.round(m * 0.6f), m, Math.round(m * 0.6f));
+        }
+        TextView clock = findViewById(R.id.pocketClock);
+        if (clock == null || !(clock.getParent() instanceof LinearLayout)) {
+            return;
+        }
+        if (dockChip == null && docked) {
+            LinearLayout bar = (LinearLayout) clock.getParent();
+            dockChip = new android.widget.ImageView(this);
+            dockChip.setImageDrawable(com.limelight.pocket.ui.PocketIcons.drawable("DESKTOP", Math.round(17 * d), 0xFFFFFFFF));
+            dockChip.setContentDescription(getString(R.string.pocket_dock_docked));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Math.round(19 * d), Math.round(19 * d));
+            lp.setMarginStart(Math.round(12 * d));
+            bar.addView(dockChip, bar.indexOfChild(clock), lp);
+        }
+        if (dockChip != null) {
+            dockChip.setVisibility(docked ? View.VISIBLE : View.GONE);
         }
     }
 

@@ -29,6 +29,8 @@ public class ArtemisApplication extends Application {
         }
         // Pocket Nexus: the interface typeface (Inter)
         com.limelight.pocket.ui.PocketFonts.init(this);
+        // Handheld or docked: watches for a TV being plugged in or out
+        com.limelight.pocket.DockMode.watch(this);
         // Screenshots on the build's emulator: games and art to show (never runs on a handheld)
         com.limelight.pocket.PreviewSeed.apply(this);
         ProfilesManager profilesManager = ProfilesManager.getInstance();

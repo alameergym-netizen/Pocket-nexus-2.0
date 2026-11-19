@@ -51,7 +51,21 @@ ensure_emulator() {
   alive || { log "emulator log:"; tail -n 25 /tmp/emu-$restarts.log; return 1; }
   # A restarted emulator can come back without the app (and its seed)
   timeout 20 adb shell pm path $PKG > /dev/null 2>&1 || prepare_app
+  ensure_seeded
   return 0
+}
+
+# The seed must have been read (the app renames it seed.done): an emulator that died during the
+# first start left the app on its first boot setup, and every shot showed that
+ensure_seeded() {
+  if timeout 10 adb shell ls /sdcard/Android/data/$PKG/files/preview/seed.done > /dev/null 2>&1; then
+    return 0
+  fi
+  log "seeding again"
+  timeout 60 adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n $PKG/com.limelight.PcView > /dev/null; sleep 6
+  push_seed /tmp/seed
+  timeout 60 adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n $PKG/com.limelight.PcView > /dev/null; sleep 6
+  adbt shell am force-stop $PKG
 }
 
 prepare_app() {
@@ -101,6 +115,7 @@ prepare_app
 for sys in nes snes n64 psx gba megadrive; do adbt shell mkdir -p /sdcard/ROMs/$sys; done
 adbt shell 'touch "/sdcard/ROMs/nes/Super Mario Bros. (World).nes" "/sdcard/ROMs/nes/The Legend of Zelda (USA).nes" "/sdcard/ROMs/snes/Super Metroid (Japan, USA).sfc" "/sdcard/ROMs/n64/Super Mario 64 (USA).z64" "/sdcard/ROMs/psx/Castlevania - Symphony of the Night (USA).chd" "/sdcard/ROMs/gba/Metroid Fusion (USA).gba" "/sdcard/ROMs/megadrive/Sonic The Hedgehog (USA, Europe).md"'
 adbt shell appops set --uid $PKG MANAGE_EXTERNAL_STORAGE allow
+ensure_emulator && ensure_seeded
 adbt logcat -c
 
 if scene home; then
@@ -174,6 +189,38 @@ for mode in grid xmb carousel; do
     timeout 40 adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1 && timeout 20 adb pull /sdcard/ui.xml "$SHOTS/ui_android_$mode.xml" > /dev/null 2>&1
   fi
 done
+
+# Home's newer parts: the widgets (down from the dock), Surprise me (L3), Music, docked mode
+if scene widgets; then
+  key KEYCODE_DPAD_DOWN dpad 1.5
+  key KEYCODE_DPAD_DOWN dpad 1.5; shot 26_dock
+  key KEYCODE_DPAD_DOWN dpad 4; shot 26_widgets
+  key KEYCODE_DPAD_RIGHT dpad 2; shot 26_widgets_next
+  key KEYCODE_DPAD_RIGHT dpad 2
+  key KEYCODE_DPAD_RIGHT dpad 2; shot 26_widgets_more
+fi
+if scene surprise; then
+  key KEYCODE_BUTTON_THUMBL gamepad 7; shot 27_surprise
+fi
+if scene music; then
+  key KEYCODE_DPAD_DOWN dpad 1.5
+  key KEYCODE_DPAD_DOWN dpad 1.5
+  key KEYCODE_BUTTON_A gamepad 5; shot 28_music
+fi
+if scene settings_home; then
+  key KEYCODE_BUTTON_START gamepad 3
+  key KEYCODE_BUTTON_R1 gamepad 2; shot 29_settings_home
+  key KEYCODE_BUTTON_R1 gamepad 2
+  key KEYCODE_BUTTON_R1 gamepad 2; shot 29_settings_streaming
+fi
+rm -rf /tmp/seedd; mkdir -p /tmp/seedd
+printf 'pref\tstring\tpocket_dock_mode\tdocked\n' > /tmp/seedd/seed.txt
+if ensure_emulator; then
+  push_seed /tmp/seedd
+  if scene docked; then
+    sleep 2; shot 30_docked_home
+  fi
+fi
 
 # The game page last: its videos can bring the emulator down
 if scene game_page; then

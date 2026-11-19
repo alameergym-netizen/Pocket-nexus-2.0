@@ -1672,4 +1672,21 @@
     <string name="pocket_nexus_surprise_about">Can\'t choose? A reel of your games lands on one (L3 on Home too)</string>
     <string name="pocket_gb_hint_switch">Switch</string>
     <string name="pocket_gb_hint_home">Home</string>
+    <string name="pocket_set_dock_mode">Mode</string>
+    <string name="pocket_set_dock_mode_sub">Automatic finds a TV (HDMI, a dock, a USB-C screen). Docked keeps its own stream resolution, frame rate and bit rate: set them once while docked and they come back each time. No buzzing while docked.</string>
+    <string name="pocket_dock_auto">Automatic</string>
+    <string name="pocket_dock_handheld">Handheld</string>
+    <string name="pocket_dock_docked">Docked</string>
+    <string name="pocket_set_dock_now">Right now</string>
+    <string name="pocket_set_dock_now_sub">The mode in use, and whether a TV is plugged in.</string>
+    <string name="pocket_dock_tv_found">TV connected</string>
+    <string name="pocket_set_dock_edges">Room at the TV\'s edges</string>
+    <string name="pocket_set_dock_edges_sub">Some TVs crop the picture\'s edges. Docked only.</string>
+    <string name="pocket_dock_now_docked">Docked mode: the TV\'s stream settings are on</string>
+    <string name="pocket_dock_now_handheld">Handheld mode: the handheld\'s stream settings are back</string>
+    <string name="pocket_set_haptic_strength">Vibration strength</string>
+    <string name="pocket_set_haptic_strength_sub">How strongly the handheld buzzes when you move and choose.</string>
+    <string name="pocket_haptic_light">Light</string>
+    <string name="pocket_haptic_normal">Normal</string>
+    <string name="pocket_haptic_strong">Strong</string>
 </resources>

@@ -1195,6 +1195,14 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addToggle(getString(R.string.pocket_set_haptics), getString(R.string.pocket_set_haptics_sub),
                 () -> PocketPrefs.hapticsEnabled(this),
                 value -> prefs().edit().putBoolean(PocketPrefs.KEY_HAPTICS, value).apply());
+        addChoice(getString(R.string.pocket_set_haptic_strength), getString(R.string.pocket_set_haptic_strength_sub),
+                new String[]{getString(R.string.pocket_haptic_light), getString(R.string.pocket_haptic_normal),
+                        getString(R.string.pocket_haptic_strong)},
+                () -> prefs().getInt("pocket_haptic_strength", 2) - 1,
+                index -> {
+                    prefs().edit().putInt("pocket_haptic_strength", index + 1).apply();
+                    com.limelight.pocket.ui.PocketUi.haptic(this, com.limelight.pocket.ui.PocketUi.HAPTIC_HEAVY);
+                }, null);
 
         addHeader(R.string.pocket_header_sounds);
 
@@ -1376,6 +1384,32 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     /** Accounts, the device, and the advanced things. */
     private void buildSystemTab() {
+        // Handheld or docked (on a TV): like a Switch, each with its own stream settings
+        addHeader(R.string.pocket_header_dock);
+        final String[] modes = {DockMode.AUTO, DockMode.HANDHELD, DockMode.DOCKED};
+        addChoice(getString(R.string.pocket_set_dock_mode), getString(R.string.pocket_set_dock_mode_sub),
+                new String[]{getString(R.string.pocket_dock_auto), getString(R.string.pocket_dock_handheld),
+                        getString(R.string.pocket_dock_docked)},
+                () -> java.util.Arrays.asList(modes).indexOf(DockMode.mode(this)),
+                index -> DockMode.setMode(this, modes[index]), null);
+        addAction(getString(R.string.pocket_set_dock_now), getString(R.string.pocket_set_dock_now_sub),
+                () -> getString(DockMode.isDocked(this) ? R.string.pocket_dock_docked : R.string.pocket_dock_handheld)
+                        + (DockMode.onTv(this) ? "  ·  " + getString(R.string.pocket_dock_tv_found) : ""),
+                null);
+        final int[] edges = {0, 12, 24, 36, 48};
+        addChoice(getString(R.string.pocket_set_dock_edges), getString(R.string.pocket_set_dock_edges_sub),
+                new String[]{getString(R.string.pocket_off), "12 dp", "24 dp", "36 dp", "48 dp"},
+                () -> {
+                    int v = prefs().getInt("pocket_dock_safe_area", 24);
+                    for (int i = 0; i < edges.length; i++) {
+                        if (edges[i] == v) {
+                            return i;
+                        }
+                    }
+                    return 2;
+                },
+                index -> prefs().edit().putInt("pocket_dock_safe_area", edges[index]).apply(), null);
+
         addHeader(R.string.pocket_header_backup);
         addAction(getString(R.string.pocket_backup_title), getString(R.string.pocket_backup_sub), null, this::backup);
         addAction(getString(R.string.pocket_restore_title), getString(R.string.pocket_restore_sub), null, this::restore);
