@@ -323,9 +323,23 @@ public class GlobalMenuActivity extends Activity {
 
     private void showQuick() {
         quick = new QuickSwitchView(this);
-        quick.setHints(getString(R.string.pocket_gb_quick_hints));
         root.addView(quick, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+        // The same button hints as everywhere else (drawn glyphs), bottom right
+        android.widget.LinearLayout hints = com.limelight.pocket.ui.ConsoleScreen.hintBar(this);
+        com.limelight.pocket.ConsoleActivity.fillHintBar(this, hints,
+                com.limelight.pocket.ConsoleActivity.hintA(this, R.string.pocket_gb_hint_switch),
+                com.limelight.pocket.ConsoleActivity.hintX(this, R.string.pocket_hint_close),
+                com.limelight.pocket.ConsoleActivity.hintY(this, R.string.pocket_gb_hint_home),
+                com.limelight.pocket.ConsoleActivity.hintB(this, R.string.pocket_hint_back));
+        float dd = getResources().getDisplayMetrics().density;
+        FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM | android.view.Gravity.END);
+        hl.rightMargin = Math.round(40 * dd);
+        hl.bottomMargin = Math.round(18 * dd);
+        hints.setAlpha(0f);
+        root.addView(hints, hl);
+        quick.attachHints(hints);
         quick.open();
         PocketSounds.play(this, PocketSounds.OPEN);
         final Context app = getApplicationContext();

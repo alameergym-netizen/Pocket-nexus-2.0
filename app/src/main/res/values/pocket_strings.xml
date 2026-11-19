@@ -1670,4 +1670,6 @@
     <string name="pocket_news_add_help">The address of any site\'s RSS or Atom feed.</string>
     <string name="pocket_widget_hint_skip">Skip</string>
     <string name="pocket_nexus_surprise_about">Can\'t choose? A reel of your games lands on one (L3 on Home too)</string>
+    <string name="pocket_gb_hint_switch">Switch</string>
+    <string name="pocket_gb_hint_home">Home</string>
 </resources>

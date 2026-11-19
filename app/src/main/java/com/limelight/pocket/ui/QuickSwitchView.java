@@ -100,6 +100,14 @@ public final class QuickSwitchView extends View {
         setWillNotDraw(false);
     }
 
+    private View hintView;
+
+    /** The button hints (drawn glyphs, as everywhere), faded in and out with it. */
+    public void attachHints(View v) {
+        hintView = v;
+        hints = "";
+    }
+
     public void setHints(String hints) {
         this.hints = hints;
         invalidate();
@@ -196,7 +204,8 @@ public final class QuickSwitchView extends View {
     }
 
     private float cardW() {
-        return Math.min(getHeight() * 0.36f, 170 * d);
+        // Sized like the rest of the console UI: about a quarter of the height (Home's covers' size)
+        return Math.min(getHeight() * 0.25f, 132 * d);
     }
 
     private float cardH() {
@@ -253,16 +262,17 @@ public final class QuickSwitchView extends View {
         float left = 56 * d;
         float cw = cardW();
         float ch = cardH();
-        float rowY = h * 0.56f;
+        float rowY = h * 0.58f;
         int alpha = (int) (255 * o);
 
         // Above: what this is, and the chosen one's name
         eyebrow.setAlpha((int) (0x99 * o));
         c.drawText(getContext().getString(R.string.pocket_quick_title).toUpperCase(java.util.Locale.getDefault()),
-                left, rowY - ch / 2f - 86 * d, eyebrow);
+                left, rowY - ch / 2f - 104 * d, eyebrow);
         Card focus = cards.isEmpty() ? null : cards.get(selected);
         float swap = Math.max(0f, Math.min(1f, nameSwap.value));
-        float ty = rowY - ch / 2f - 50 * d + (1 - swap) * 8 * d;
+        // Well clear of the chosen card, which grows and rises a little
+        float ty = rowY - ch / 2f - 68 * d + (1 - swap) * 8 * d;
         title.setAlpha((int) (alpha * swap));
         sub.setAlpha((int) (0xB3 * o * swap));
         String name = focus != null ? focus.title : getContext().getString(loading ? R.string.pocket_gb_looking
@@ -360,9 +370,14 @@ public final class QuickSwitchView extends View {
         }
 
         // The buttons' jobs
-        sub.setAlpha((int) (0x99 * o));
-        float hw = sub.measureText(hints);
-        c.drawText(hints, w - left - hw, h - 26 * d, sub);
+        if (hintView != null) {
+            hintView.setAlpha(o);
+        }
+        else if (!hints.isEmpty()) {
+            sub.setAlpha((int) (0x99 * o));
+            float hw = sub.measureText(hints);
+            c.drawText(hints, w - left - hw, h - 26 * d, sub);
+        }
 
         if (moving) {
             postInvalidateOnAnimation();

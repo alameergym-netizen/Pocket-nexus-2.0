@@ -46,8 +46,11 @@ public final class MetaStrip {
         if (animate) {
             ring.grow();
         }
-        String word = note != null && !note.isEmpty() && note.length() <= 18 && !note.matches(".*\\d.*")
-                ? note : verdict(c, score);
+        // The source's own word when it has one ("Very Positive"), not a plain "critics" / "users"
+        boolean plain = note == null || note.isEmpty() || note.length() > 18 || note.matches(".*\\d.*")
+                || note.toLowerCase(java.util.Locale.ROOT).matches("(critics?|users?|players?|reviews?|score|rating|"
+                + "critic score|user score|metascore)");
+        String word = plain ? verdict(c, score) : note;
         LinearLayout words = twoLines(c, source, word);
         LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -114,7 +117,9 @@ public final class MetaStrip {
         cap.setMaxLines(1);
         cap.setEllipsize(TextUtils.TruncateAt.END);
         cap.setShadowLayer(8 * d, 0, d, 0x99000000);
-        col.addView(cap);
+        // Its own width (a vertical row's default is the row's width, which squeezed it to the value's)
+        col.addView(cap, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         TextView val = new TextView(c);
         val.setText(value);
         val.setTypeface(PocketFonts.semibold());

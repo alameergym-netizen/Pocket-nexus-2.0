@@ -255,9 +255,9 @@ public class HomeActivity extends ConsoleActivity {
             }
         });
         FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                Math.round(64 * d), Gravity.BOTTOM | Gravity.START);
-        dlp.setMarginStart(Math.round(30 * d));
-        dlp.bottomMargin = Math.round(12 * d);
+                Math.round(HomeDock.HEIGHT_DP * d), Gravity.BOTTOM | Gravity.START);
+        dlp.setMarginStart(Math.round(32 * d));
+        dlp.bottomMargin = Math.round(14 * d);
         ((ViewGroup) findViewById(R.id.pocketMain)).addView(dock.view(), dlp);
         dock.refresh();
         widgets = new WidgetShelf(this, () -> dock.focusLast());
@@ -1366,7 +1366,7 @@ public class HomeActivity extends ConsoleActivity {
             rlp.topMargin = 0;
             // Clear of the button hints under it, and of the dock (the round buttons) when it's there
             boolean withDock = dock != null && !portal;
-            int bottom = withDock ? 84 : 40;
+            int bottom = withDock ? 92 : 40;
             if (dock != null) {
                 dock.view().setVisibility(withDock ? View.VISIBLE : View.GONE);
             }
