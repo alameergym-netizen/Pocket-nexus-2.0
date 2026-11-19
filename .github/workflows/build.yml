@@ -131,7 +131,7 @@ jobs:
     if: github.ref_name != 'ci-logs' && github.ref_name != 'ci-shots'
     # Pinned: the emulator dies on install on the 2026-11-11 Ubuntu 26.04 runner image
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    timeout-minutes: 110
     steps:
       - name: Checkout
         uses: actions/checkout@v4

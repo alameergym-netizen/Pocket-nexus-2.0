@@ -35,7 +35,7 @@ ensure_emulator() {
   alive && return 0
   [ $restarts -gt 0 ] && { log "emulator log ($restarts):"; tail -n 25 /tmp/emu-$restarts.log; }
   log "last words ($restarts):"; grep -vE "AudioFlinger|throttle" /tmp/live-logcat-$restarts.txt 2>/dev/null | tail -n 60 | cut -c1-220
-  [ $restarts -ge 3 ] && return 1
+  [ $restarts -ge 7 ] && return 1
   restarts=$((restarts+1))
   log "restarting the emulator ($restarts)"
   pkill -f qemu-system 2>/dev/null; sleep 3
