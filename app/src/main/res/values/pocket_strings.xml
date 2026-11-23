@@ -1784,4 +1784,7 @@
     <string name="pocket_store_clear_cache">Clear the cache (%1$s)</string>
     <string name="pocket_store_clear_info">Clear game info (%1$s, fetched again when needed)</string>
     <string name="pocket_store_cleared">Cleared</string>
+    <string name="pocket_set_signin_helper">Start at the Windows sign-in screen</string>
+    <string name="pocket_set_signin_helper_sub">Off (recommended): every stream goes straight to the virtual display, as in Artemis. On: when the PC seems to be at its sign-in screen, the stream shows its own screen first and moves to the virtual display after you sign in.</string>
+    <string name="pocket_header_app_about">About</string>
 </resources>

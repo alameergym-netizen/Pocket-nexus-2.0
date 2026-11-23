@@ -835,7 +835,12 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         if (signInChecking) {
             return; // a second press while checking
         }
-        if (uuid == null || host == null || !PocketPrefs.companionRecentlySeen(this, uuid)
+        // Off unless turned on (Settings, Streaming): a slow answer from the helper (a busy PC, a
+        // full-screen app in front) made a stream start on the PC's own screen and only switch
+        // to the virtual display later, or never. The stream goes to the virtual display at once,
+        // as in Artemis.
+        if (!PocketPrefs.prefs(this).getBoolean(PocketPrefs.KEY_SIGNIN_HELPER, false)
+                || uuid == null || host == null || !PocketPrefs.companionRecentlySeen(this, uuid)
                 || !gameIntent.getBooleanExtra(com.limelight.Game.EXTRA_VDISPLAY,
                 com.limelight.preferences.PreferenceConfiguration.readPreferences(this).useVirtualDisplay)) {
             start.run();

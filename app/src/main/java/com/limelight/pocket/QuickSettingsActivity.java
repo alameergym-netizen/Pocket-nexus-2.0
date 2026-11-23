@@ -253,6 +253,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 addAdvanced("category_video_settings", "list_audio_config", "category_advanced_settings",
                         "checkbox_enable_sops", "checkbox_smart_clipboard_sync", "category_ui_settings",
                         "category_perf_monitor_settings");
+                // And the full advanced screen itself (Artemis's own), for everything else
+                addHeader(R.string.pocket_header_advanced);
+                addAction(getString(R.string.pocket_set_advanced), getString(R.string.pocket_set_advanced_sub), null,
+                        () -> startActivity(new Intent(this, StreamSettings.class)));
                 addSpacerHeader(R.string.pocket_tab_connection);
                 buildConnectionTab();
                 break;
@@ -564,6 +568,9 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addToggle(getString(R.string.pocket_set_vdisplay), getString(R.string.pocket_set_vdisplay_sub),
                 () -> prefs().getBoolean("checkbox_use_virtual_display", false),
                 value -> prefs().edit().putBoolean("checkbox_use_virtual_display", value).apply());
+        addToggle(getString(R.string.pocket_set_signin_helper), getString(R.string.pocket_set_signin_helper_sub),
+                () -> prefs().getBoolean(PocketPrefs.KEY_SIGNIN_HELPER, false),
+                value -> prefs().edit().putBoolean(PocketPrefs.KEY_SIGNIN_HELPER, value).apply());
 
         addToggle(getString(R.string.pocket_set_hdr), null,
                 () -> prefs().getBoolean("checkbox_enable_hdr", false),
@@ -1544,10 +1551,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
             Toast.makeText(this, R.string.pocket_tips_reset_done, Toast.LENGTH_SHORT).show();
         });
 
-        addHeader(R.string.pocket_header_advanced);
-
-        addAction(getString(R.string.pocket_set_advanced), getString(R.string.pocket_set_advanced_sub), null,
-                () -> startActivity(new Intent(this, StreamSettings.class)));
+        addHeader(R.string.pocket_header_app_about);
 
         addAction(getString(R.string.pocket_set_about), getString(R.string.pocket_about_sub),
                 () -> BuildConfig.VERSION_NAME, null);

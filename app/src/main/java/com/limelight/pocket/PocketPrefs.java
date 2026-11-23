@@ -13,6 +13,9 @@ import androidx.preference.PreferenceManager;
  * They live in the default shared preferences next to the upstream Artemis options.
  */
 public final class PocketPrefs {
+    /** Windows' sign-in screen: stream the PC's own screen until signed in (off: virtual display at once). */
+    public static final String KEY_SIGNIN_HELPER = "pocket_signin_helper";
+
     private PocketPrefs() {}
 
     // Hotkey that opens settings (home screens) or the quick menu (while streaming).
