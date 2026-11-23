@@ -63,7 +63,7 @@ public final class CloudService {
     // The apps' own web clients (theirs, not remade): signed in once, each in its own process
     public static final CloudService DISCORD = new CloudService("discord", R.string.pocket_cloud_discord,
             R.string.pocket_cloud_discord_about, "https://discord.com/app",
-            new String[] {"com.discord"}, CloudPlayerActivity.Discord.class, 0xFF5865F2, true, "BELL");
+            new String[] {"com.discord"}, CloudPlayerActivity.Discord.class, 0xFF5865F2, true, "CHAT");
     public static final CloudService YT_MUSIC = new CloudService("ytmusic", R.string.pocket_cloud_ytmusic,
             R.string.pocket_cloud_ytmusic_about, "https://music.youtube.com",
             new String[] {"com.google.android.apps.youtube.music"}, CloudPlayerActivity.YtMusic.class, 0xFFE01B1B, true, "MUSIC");

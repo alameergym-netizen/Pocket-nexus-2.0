@@ -207,8 +207,7 @@ if scene surprise; then
   key KEYCODE_BUTTON_THUMBL gamepad 7; shot 27_surprise
 fi
 if scene music; then
-  key KEYCODE_DPAD_DOWN dpad 1.5
-  key KEYCODE_DPAD_DOWN dpad 1.5
+  key KEYCODE_DPAD_DOWN dpad 2
   key KEYCODE_BUTTON_A gamepad 5; shot 28_music
 fi
 if scene settings_home; then
@@ -216,6 +215,7 @@ if scene settings_home; then
   key KEYCODE_BUTTON_R1 gamepad 2; shot 29_settings_home
   key KEYCODE_BUTTON_R1 gamepad 2
   key KEYCODE_BUTTON_R1 gamepad 2; shot 29_settings_streaming
+  key KEYCODE_DPAD_RIGHT dpad 1
   for i in $(seq 1 22); do key KEYCODE_DPAD_DOWN dpad 0.25; done
   sleep 1; shot 29_settings_stream_all
   for i in $(seq 1 30); do key KEYCODE_DPAD_DOWN dpad 0.25; done

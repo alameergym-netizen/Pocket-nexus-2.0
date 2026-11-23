@@ -154,8 +154,27 @@ public final class CloudArt {
                 Paint disc = new Paint(Paint.ANTI_ALIAS_FLAG);
                 disc.setColor(0x2EFFFFFF);
                 c.drawCircle(w / 2f, cy, w * 0.2f, disc);
-                com.limelight.pocket.ui.PocketIcons.draw(c, s.glyph, w / 2f, cy, w * 0.2f, 0xFFFFFFFF,
-                        new Paint(Paint.ANTI_ALIAS_FLAG));
+                if ("CHAT".equals(s.glyph)) {
+                    // Two speech bubbles
+                    Paint b = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    b.setColor(0xFFFFFFFF);
+                    float u = w * 0.02f;
+                    c.drawRoundRect(new RectF(w / 2f - 7 * u, cy - 5.5f * u, w / 2f + 5 * u, cy + 3 * u), 3 * u, 3 * u, b);
+                    Path tail = new Path();
+                    tail.moveTo(w / 2f - 4 * u, cy + 2.5f * u);
+                    tail.lineTo(w / 2f - 5.5f * u, cy + 6 * u);
+                    tail.lineTo(w / 2f - 0.5f * u, cy + 2.5f * u);
+                    tail.close();
+                    c.drawPath(tail, b);
+                    b.setColor(p[1]);
+                    for (int i = -1; i <= 1; i++) {
+                        c.drawCircle(w / 2f - u + i * 3 * u, cy - 1.2f * u, 1.1f * u, b);
+                    }
+                }
+                else {
+                    com.limelight.pocket.ui.PocketIcons.draw(c, s.glyph, w / 2f, cy, w * 0.2f, 0xFFFFFFFF,
+                            new Paint(Paint.ANTI_ALIAS_FLAG));
+                }
             }
             else {
                 cloudMark(c, w / 2f, cy, w * 0.46f, p[1]);

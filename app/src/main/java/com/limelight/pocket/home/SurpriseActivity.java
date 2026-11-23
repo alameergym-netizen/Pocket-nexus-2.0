@@ -143,7 +143,7 @@ public class SurpriseActivity extends Activity {
         holder.addView(reel, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(270)));
         FrameLayout.LayoutParams rl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(270),
                 Gravity.CENTER_VERTICAL);
-        rl.topMargin = -dp(14);
+        rl.topMargin = -dp(46);
         root.addView(holder, rl);
 
         LinearLayout foot = new LinearLayout(this);
@@ -381,7 +381,7 @@ public class SurpriseActivity extends Activity {
             if (ring != null) {
                 ring.animate().alpha(1f).setDuration(260).start();
             }
-            winnerCard.animate().scaleX(1.24f).scaleY(1.24f).alpha(1f).setDuration(520).setInterpolator(Spring.POP).start();
+            winnerCard.animate().scaleX(1.14f).scaleY(1.14f).alpha(1f).setDuration(520).setInterpolator(Spring.POP).start();
         }
         if (winner.cover != null) {
             backdrop.setImageBitmap(winner.cover);

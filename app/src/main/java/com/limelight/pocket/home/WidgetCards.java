@@ -239,8 +239,9 @@ public final class WidgetCards {
             paint.setShader(null);
             boolean sun = hour >= 6f && hour < 18.5f;
             float t = sun ? (hour - 6f) / 12.5f : (((hour - 18.5f) + 24f) % 24f) / 11.5f;
-            float x = w * (0.18f + 0.72f * t);
-            float y = h * (0.62f - 0.5f * (float) Math.sin(Math.PI * t));
+            // On the right half, high up: the words are at the bottom left
+            float x = w * (0.52f + 0.38f * t);
+            float y = h * (0.42f - 0.26f * (float) Math.sin(Math.PI * t));
             float r = 13 * d;
             if (!sun) {
                 // Stars, always in the same places

@@ -1619,8 +1619,16 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         float d = getResources().getDisplayMetrics().density;
         View content = findViewById(android.R.id.content);
         if (content != null) {
-            int m = Math.round(DockMode.safeMarginDp(this) * d);
-            content.setPadding(m, Math.round(m * 0.6f), m, Math.round(m * 0.6f));
+            // Drawn a little smaller, from the middle, so nothing is cut at the edges (the layout
+            // itself stays as it is: padding would squeeze it and push things over each other)
+            float m = DockMode.safeMarginDp(this) * d;
+            float w = Math.max(1, getResources().getDisplayMetrics().widthPixels);
+            float s = Math.max(0.85f, 1f - 2f * m / w);
+            content.setPadding(0, 0, 0, 0);
+            content.setPivotX(w / 2f);
+            content.setPivotY(getResources().getDisplayMetrics().heightPixels / 2f);
+            content.setScaleX(s);
+            content.setScaleY(s);
         }
         TextView clock = findViewById(R.id.pocketClock);
         if (clock == null || !(clock.getParent() instanceof LinearLayout)) {
