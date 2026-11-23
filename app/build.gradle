@@ -15,7 +15,10 @@ android {
         resourceConfigurations += ["en"]
 
         versionName "1.0.0-pocket"
-        versionCode = 100
+        // Each CI build counts up (so the in-app updater's installs are always newer)
+        versionCode = 100 + (System.getenv('GITHUB_RUN_NUMBER') ?: '0').toInteger()
+        // The build's commit, for the in-app updater to compare with the newest release
+        buildConfigField "String", "GIT_SHA", "\"${(System.getenv('GITHUB_SHA') ?: 'dev').take(7)}\""
 
         // Artemis Pocket targets the Retroid Pocket 6 (Snapdragon 8 Gen 2), so only arm64 is built
         ndk {

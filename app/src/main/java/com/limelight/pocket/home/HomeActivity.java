@@ -347,6 +347,13 @@ public class HomeActivity extends ConsoleActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Now and then: is there a newer build? (Settings, System, Updates installs it)
+        com.limelight.pocket.Updater.checkSometimes(this, (r, error) -> {
+            if (r != null && !isFinishing()) {
+                PocketSounds.play(this, PocketSounds.OPEN);
+                android.widget.Toast.makeText(this, R.string.pocket_upd_toast, android.widget.Toast.LENGTH_LONG).show();
+            }
+        });
         resumed = true;
         if (dock != null) {
             dock.refresh();

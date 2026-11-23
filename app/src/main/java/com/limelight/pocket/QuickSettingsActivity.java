@@ -1405,7 +1405,19 @@ public class QuickSettingsActivity extends ConsoleActivity {
     }
 
     /** Accounts, the device, and the advanced things. */
+    /** Where the update is (checking, downloading 40%...), shown on its row. */
+    private String updateStatus;
+
     private void buildSystemTab() {
+        addAction(getString(R.string.pocket_store_title), getString(R.string.pocket_store_sub), null, this::storage);
+
+        addHeader(R.string.pocket_upd_header);
+        addAction(getString(R.string.pocket_upd_check), getString(R.string.pocket_upd_check_sub, Updater.current()),
+                () -> updateStatus != null ? updateStatus
+                        : Updater.knownNewer(this) != null ? getString(R.string.pocket_upd_ready_short)
+                        : getString(R.string.pocket_upd_this, Updater.current()),
+                this::checkUpdate);
+
         // Handheld or docked (on a TV): like a Switch, each with its own stream settings
         addHeader(R.string.pocket_header_dock_mode);
         final String[] modes = {DockMode.AUTO, DockMode.HANDHELD, DockMode.DOCKED};
@@ -1770,6 +1782,161 @@ public class QuickSettingsActivity extends ConsoleActivity {
                     }).withIcon("RESTART"));
             hideConsolePanel();
             showConsolePanel(getString(R.string.pocket_cc_title), null, null, items);
+        });
+    }
+
+    /** What Pocket Nexus keeps on the handheld, how big, and what can go. */
+    private void storage() {
+        java.util.List<com.limelight.pocket.ui.StreamMenuView.Item> wait = new java.util.ArrayList<>();
+        wait.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.pocket_store_counting)));
+        showConsolePanel(getString(R.string.pocket_store_title), null, null, wait);
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            final java.io.File files = app.getFilesDir();
+            final long art = size(new java.io.File(files, "pocket_art"));
+            final long info = size(new java.io.File(files, "pocket_info"));
+            final long cache = size(app.getCacheDir()) + size(app.getExternalCacheDir());
+            long web = 0;
+            java.io.File data = files.getParentFile();
+            java.io.File[] all = data != null ? data.listFiles() : null;
+            if (all != null) {
+                for (java.io.File f : all) {
+                    if (f.getName().startsWith("app_webview")) {
+                        web += size(f);
+                    }
+                }
+            }
+            final long everything = size(data) + size(app.getExternalCacheDir()) + size(app.getExternalFilesDir(null));
+            final long webTotal = web;
+            runOnUiThread(() -> {
+                if (isFinishing() || !isConsolePanelShowing()) {
+                    return;
+                }
+                java.util.List<com.limelight.pocket.ui.StreamMenuView.Item> items = new java.util.ArrayList<>();
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.pocket_store_line_art, fmt(art))));
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.pocket_store_line_info, fmt(info))));
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.pocket_store_line_web, fmt(webTotal))));
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.pocket_store_line_cache, fmt(cache))));
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(getString(R.string.pocket_store_clear_cache, fmt(cache)), () -> {
+                    deleteInside(app.getCacheDir());
+                    deleteInside(app.getExternalCacheDir());
+                    PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                    hideConsolePanel();
+                    Toast.makeText(this, R.string.pocket_store_cleared, Toast.LENGTH_SHORT).show();
+                }).withIcon("TRASH"));
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(getString(R.string.pocket_store_clear_info, fmt(info)), () -> {
+                    deleteInside(new java.io.File(app.getFilesDir(), "pocket_info"));
+                    PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                    hideConsolePanel();
+                    Toast.makeText(this, R.string.pocket_store_cleared, Toast.LENGTH_SHORT).show();
+                }).withIcon("TRASH"));
+                showConsolePanel(getString(R.string.pocket_store_title),
+                        getString(R.string.pocket_store_total, fmt(everything)), null, items);
+            });
+        }, "pocket-storage").start();
+    }
+
+    private String fmt(long bytes) {
+        return android.text.format.Formatter.formatShortFileSize(this, bytes);
+    }
+
+    private static long size(java.io.File f) {
+        if (f == null || !f.exists()) {
+            return 0;
+        }
+        if (f.isFile()) {
+            return f.length();
+        }
+        long sum = 0;
+        java.io.File[] kids = f.listFiles();
+        if (kids != null) {
+            for (java.io.File k : kids) {
+                sum += size(k);
+            }
+        }
+        return sum;
+    }
+
+    private static void deleteInside(java.io.File dir) {
+        java.io.File[] kids = dir != null ? dir.listFiles() : null;
+        if (kids == null) {
+            return;
+        }
+        for (java.io.File k : kids) {
+            if (k.isDirectory()) {
+                deleteInside(k);
+            }
+            //noinspection ResultOfMethodCallIgnored
+            k.delete();
+        }
+    }
+
+    /** Looks for a newer build; shows what changed and offers to install it. */
+    private void checkUpdate() {
+        if (updateStatus != null && updateStatus.endsWith("%")) {
+            return; // downloading
+        }
+        updateStatus = getString(R.string.pocket_upd_checking);
+        refreshRows();
+        Updater.check(this, (r, error) -> {
+            updateStatus = null;
+            refreshRows();
+            if (isFinishing()) {
+                return;
+            }
+            java.util.List<com.limelight.pocket.ui.StreamMenuView.Item> items = new java.util.ArrayList<>();
+            if (r == null) {
+                PocketSounds.play(this, error != null ? PocketSounds.ERROR : PocketSounds.TOGGLE_ON);
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(error != null
+                        ? getString(R.string.pocket_upd_error, error) : getString(R.string.pocket_upd_newest)));
+                showConsolePanel(getString(R.string.pocket_upd_header), null, null, items);
+                return;
+            }
+            PocketSounds.play(this, PocketSounds.OPEN);
+            final Updater.Release rel = r;
+            items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(getString(R.string.pocket_upd_install,
+                    android.text.format.Formatter.formatShortFileSize(this, rel.size)), () -> {
+                hideConsolePanel();
+                download(rel);
+            }).withIcon("RESTART"));
+            if (rel.changes.isEmpty()) {
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.pocket_upd_no_list)));
+            }
+            for (int i = 0; i < rel.changes.size() && i < 14; i++) {
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note("•  " + rel.changes.get(i)));
+            }
+            showConsolePanel(getString(R.string.pocket_upd_ready), getString(R.string.pocket_upd_from_to,
+                    Updater.current(), rel.sha), null, items);
+        });
+    }
+
+    private void download(Updater.Release rel) {
+        updateStatus = "0%";
+        refreshRows();
+        Updater.download(this, rel, new Updater.Progress() {
+            @Override
+            public void onProgress(int percent) {
+                updateStatus = getString(R.string.pocket_upd_downloading) + " " + percent + "%";
+                if (!isFinishing()) {
+                    refreshRows();
+                }
+            }
+
+            @Override
+            public void onDone(java.io.File apk, String error) {
+                updateStatus = null;
+                if (isFinishing()) {
+                    return;
+                }
+                refreshRows();
+                if (apk == null) {
+                    PocketSounds.play(QuickSettingsActivity.this, PocketSounds.ERROR);
+                    Toast.makeText(QuickSettingsActivity.this, getString(R.string.pocket_upd_error, error), Toast.LENGTH_LONG).show();
+                    return;
+                }
+                PocketSounds.play(QuickSettingsActivity.this, PocketSounds.TOGGLE_ON);
+                Updater.install(QuickSettingsActivity.this, apk);
+            }
         });
     }
 
