@@ -1736,4 +1736,5 @@
     <string name="pocket_cloud_keepalive_title">%1$s is open</string>
     <string name="pocket_cloud_keepalive_music">Keeps playing while you play. Tap to go back to it.</string>
     <string name="pocket_cloud_keepalive_voice">Voice and messages keep going while you play. Tap to go back.</string>
+    <string name="pocket_cloud_open">Open</string>
 </resources>

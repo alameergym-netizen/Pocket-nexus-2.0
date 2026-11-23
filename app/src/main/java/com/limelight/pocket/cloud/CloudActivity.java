@@ -196,7 +196,8 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
         TextView subtitle = findViewById(R.id.pocketHeroSubtitle);
         if (subtitle != null) {
             subtitle.setVisibility(View.VISIBLE);
-            String sub = getString(R.string.pocket_cloud_plays_with, CloudClients.preferred(this, s).label);
+            String sub = s.app ? getString(s.about)
+                    : getString(R.string.pocket_cloud_plays_with, CloudClients.preferred(this, s).label);
             if (s.isRunning(this)) {
                 sub = getString(R.string.pocket_cloud_running) + "  ·  " + sub;
             }
@@ -206,7 +207,8 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
         if (play != null) {
             PocketUi.stylePlayPill(play);
             play.setVisibility(View.VISIBLE);
-            play.setText("▶  " + getString(s.isRunning(this) ? R.string.pocket_cloud_return : R.string.pocket_hero_play));
+            play.setText("▶  " + getString(s.isRunning(this) ? R.string.pocket_cloud_return
+                    : s.app ? R.string.pocket_cloud_open : R.string.pocket_hero_play));
         }
     }
 
