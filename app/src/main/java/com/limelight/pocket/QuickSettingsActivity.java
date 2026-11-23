@@ -1396,7 +1396,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
     /** Accounts, the device, and the advanced things. */
     private void buildSystemTab() {
         // Handheld or docked (on a TV): like a Switch, each with its own stream settings
-        addHeader(R.string.pocket_header_dock);
+        addHeader(R.string.pocket_header_dock_mode);
         final String[] modes = {DockMode.AUTO, DockMode.HANDHELD, DockMode.DOCKED};
         addChoice(getString(R.string.pocket_set_dock_mode), getString(R.string.pocket_set_dock_mode_sub),
                 new String[]{getString(R.string.pocket_dock_auto), getString(R.string.pocket_dock_handheld),

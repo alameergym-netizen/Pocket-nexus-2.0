@@ -1232,6 +1232,9 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             switchNow.run();
             return;
         }
+        // The "Starting" screen steps aside for the question (it held back every button, so the
+        // question couldn't be answered and the screen stayed stuck there)
+        dropLaunchLayer();
         hideBlockingCard();
         blockingCard = new com.limelight.pocket.ui.ResumeOverlay(this);
         String runningName = running != null && !running.isEmpty() ? running : getString(R.string.pocket_switch_other);
@@ -1265,6 +1268,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     /** A blocking card where A does something (e.g. "Start anyway") and B cancels. */
     public void showWaitCard(String caption, String title, String subtitle, long durationMs,
                              Runnable onCancel, Runnable onConfirm) {
+        dropLaunchLayer();
         hideBlockingCard();
         blockingCard = new com.limelight.pocket.ui.ResumeOverlay(this);
         blockingCard.bind(caption, title, subtitle, hintA(this, R.string.pocket_hint_start_anyway),
@@ -1309,8 +1313,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                     break;
             }
         }
-        if (launchLayer != null) {
-            return true; // a game is launching: buttons wait
+        if (launchLayer != null && blockingCard == null) {
+            return true; // a game is launching: buttons wait (but never a question on top of it)
         }
         if (quickPanel != null) {
             return quickPanel.onKey(event);
@@ -2227,6 +2231,14 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         zoom.layout(Math.round(fl), Math.round(ft), Math.round(fl + fw), Math.round(ft + fh));
         PocketSounds.play(this, PocketSounds.OPEN);
         anim.start();
+    }
+
+    /** Takes the "Starting" layer away now (a question needs the screen instead). */
+    protected void dropLaunchLayer() {
+        if (launchLayer != null) {
+            launchCoverActive = false;
+            returnFromLaunch();
+        }
     }
 
     /** Back from a game: the library settles forward again as the launch layer fades. */

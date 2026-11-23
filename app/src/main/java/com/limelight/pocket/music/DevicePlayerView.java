@@ -565,7 +565,7 @@ public final class DevicePlayerView extends FrameLayout {
             title.setText(R.string.pocket_device_access);
             artist.setText(R.string.pocket_device_access_sub);
             album.setText("");
-            openApp.setText(R.string.pocket_device_allow);
+            openApp.setText(R.string.pocket_device_allow_access);
             openApp.setVisibility(VISIBLE);
             setArt(null, "none");
         }

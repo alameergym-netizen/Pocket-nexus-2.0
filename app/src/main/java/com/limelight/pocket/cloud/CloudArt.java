@@ -149,6 +149,14 @@ public final class CloudArt {
                 ip.setShadowLayer(w * 0.06f, 0, w * 0.02f, 0x66000000);
                 c.drawBitmap(icon, (w - icon.getWidth()) / 2f, cy - icon.getHeight() / 2f, ip);
             }
+            else if (s.glyph != null) {
+                // An app's client: its sign (music, chat) in a soft white disc
+                Paint disc = new Paint(Paint.ANTI_ALIAS_FLAG);
+                disc.setColor(0x2EFFFFFF);
+                c.drawCircle(w / 2f, cy, w * 0.2f, disc);
+                com.limelight.pocket.ui.PocketIcons.draw(c, s.glyph, w / 2f, cy, w * 0.2f, 0xFFFFFFFF,
+                        new Paint(Paint.ANTI_ALIAS_FLAG));
+            }
             else {
                 cloudMark(c, w / 2f, cy, w * 0.46f, p[1]);
             }
@@ -188,7 +196,8 @@ public final class CloudArt {
             lines.add(line.toString());
             float x = w * 0.08f;
             float y = h * 0.92f - (lines.size() - 1) * size * 1.05f;
-            c.drawText(ctx.getString(com.limelight.R.string.pocket_section_cloud).toUpperCase(java.util.Locale.getDefault()),
+            c.drawText(ctx.getString(s.app ? com.limelight.R.string.pocket_cloud_app_badge
+                            : com.limelight.R.string.pocket_section_cloud).toUpperCase(java.util.Locale.getDefault()),
                     x, y - size * 1.15f, eyebrow);
             for (String l : lines) {
                 c.drawText(l, x, y, t);

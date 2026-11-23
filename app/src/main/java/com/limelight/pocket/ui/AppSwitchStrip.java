@@ -81,7 +81,7 @@ public final class AppSwitchStrip extends FrameLayout {
         addView(bar, new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
 
         TextView eyebrow = new TextView(c);
-        eyebrow.setText(c.getString(R.string.pocket_switch_title).toUpperCase(java.util.Locale.ROOT));
+        eyebrow.setText(c.getString(R.string.pocket_qswitch_title).toUpperCase(java.util.Locale.ROOT));
         eyebrow.setTypeface(PocketFonts.bold());
         eyebrow.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
         eyebrow.setLetterSpacing(0.16f);

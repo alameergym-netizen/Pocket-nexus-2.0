@@ -67,7 +67,34 @@ public abstract class CloudPlayerActivity extends Activity {
         }
     }
 
+    /** Discord's own web client (chat and voice). */
+    public static final class Discord extends CloudPlayerActivity {
+        @Override
+        protected CloudService service() {
+            return CloudService.DISCORD;
+        }
+    }
+
+    /** YouTube Music's own web player. */
+    public static final class YtMusic extends CloudPlayerActivity {
+        @Override
+        protected CloudService service() {
+            return CloudService.YT_MUSIC;
+        }
+    }
+
+    /** Spotify's own web player. */
+    public static final class Spotify extends CloudPlayerActivity {
+        @Override
+        protected CloudService service() {
+            return CloudService.SPOTIFY;
+        }
+    }
+
     protected abstract CloudService service();
+
+    /** An app's web client: a pointer for the controller (null for game streams). */
+    private com.limelight.pocket.browser.WebPointer pointer;
 
     /** A game's own page to open (null: the service's start page). */
     public static final String EXTRA_URL = "pocket_cloud_url";
@@ -120,6 +147,13 @@ public abstract class CloudPlayerActivity extends Activity {
             return;
         }
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (service().app) {
+            pointer = new com.limelight.pocket.browser.WebPointer(this, web);
+            root.addView(pointer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT));
+            // Music keeps playing and voice keeps talking while a game is played
+            WebClientKeepAlive.start(this, service());
+        }
         setContentView(root);
         configure();
         String start = getIntent() != null ? getIntent().getStringExtra(EXTRA_URL) : null;
@@ -127,7 +161,8 @@ public abstract class CloudPlayerActivity extends Activity {
             web.loadUrl(start != null && !start.isEmpty() ? start : service().url);
         }
         web.requestFocus();
-        Toast.makeText(this, R.string.pocket_cloud_menu_tip, Toast.LENGTH_LONG).show();
+        Toast.makeText(this, service().app ? R.string.pocket_cloud_app_tip : R.string.pocket_cloud_menu_tip,
+                Toast.LENGTH_LONG).show();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -339,6 +374,9 @@ public abstract class CloudPlayerActivity extends Activity {
             web.destroy();
             web = null;
         }
+        if (service().app) {
+            WebClientKeepAlive.stop(this);
+        }
         super.onDestroy();
         if (closing) {
             // Nothing of the stream stays behind
@@ -379,12 +417,111 @@ public abstract class CloudPlayerActivity extends Activity {
             }
             return true;
         }
+        if (pointer != null) {
+            return appKey(event);
+        }
         if (KeyEvent.isGamepadButton(k) || isDpad(k)) {
             // Every button is the game's (an unused B must not become Back)
             web.dispatchKeyEvent(event);
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    /**
+     * An app's web client with the controller: the pointer (stick / D-pad, A), B back, Y the
+     * keyboard, X reloads, L1 / R1 back / forward, L2 / R2 zoom, Start the menu.
+     */
+    private boolean appKey(KeyEvent event) {
+        int k = event.getKeyCode();
+        boolean up = event.getAction() == KeyEvent.ACTION_UP;
+        boolean typing = isTyping();
+        if (typing && (isDpad(k) || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_DEL)) {
+            return super.dispatchKeyEvent(event);
+        }
+        if (pointer.onKey(event)) {
+            return true;
+        }
+        switch (k) {
+            case KeyEvent.KEYCODE_BUTTON_B:
+                if (up) {
+                    if (typing) {
+                        hideKeyboard();
+                    }
+                    else if (web.canGoBack()) {
+                        web.goBack();
+                    }
+                    else {
+                        showMenu();
+                    }
+                }
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_Y:
+                if (up) {
+                    web.requestFocus();
+                    android.view.inputmethod.InputMethodManager imm =
+                            (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) {
+                        imm.showSoftInput(web, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                    }
+                }
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_X:
+                if (up) {
+                    web.reload();
+                }
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_L1:
+                if (up && web.canGoBack()) {
+                    web.goBack();
+                }
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_R1:
+                if (up && web.canGoForward()) {
+                    web.goForward();
+                }
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_L2:
+                if (up) {
+                    web.zoomOut();
+                }
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_R2:
+                if (up) {
+                    web.zoomIn();
+                }
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_START:
+            case KeyEvent.KEYCODE_MENU:
+                if (up) {
+                    showMenu();
+                }
+                return true;
+            default:
+                return KeyEvent.isGamepadButton(k) || super.dispatchKeyEvent(event);
+        }
+    }
+
+    private boolean isTyping() {
+        android.view.inputmethod.InputMethodManager imm =
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        return imm != null && imm.isAcceptingText() && web.hasFocus();
+    }
+
+    private void hideKeyboard() {
+        android.view.inputmethod.InputMethodManager imm =
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(web.getWindowToken(), 0);
+        }
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(android.view.MotionEvent ev) {
+        if (pointer != null && (menu == null || !menu.isShowing()) && pointer.onMotion(ev)) {
+            return true;
+        }
+        return super.dispatchGenericMotionEvent(ev);
     }
 
     private static boolean isDpad(int k) {

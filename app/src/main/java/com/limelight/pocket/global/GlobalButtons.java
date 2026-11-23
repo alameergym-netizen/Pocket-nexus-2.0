@@ -54,7 +54,7 @@ public final class GlobalButtons {
         BROWSER("browser", R.string.pocket_browser_title),
         MUSIC("music", R.string.pocket_music_title),
         /** Alt+Tab: the open apps in a small row, on the one before this; it switches by itself. */
-        QUICK_SWITCH("switch", R.string.pocket_switch_title),
+        QUICK_SWITCH("switch", R.string.pocket_qswitch_title),
         /** Answers the newest message (Discord, WhatsApp...) with the controller's keyboard. */
         REPLY("reply", R.string.pocket_gb_reply);
 

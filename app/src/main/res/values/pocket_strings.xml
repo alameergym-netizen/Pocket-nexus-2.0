@@ -1721,4 +1721,19 @@
     <string name="pocket_ss_scrape_one">Scrape with ScreenScraper</string>
     <string name="pocket_ss_got">Saved %1$d pictures and videos</string>
     <string name="pocket_ss_none">ScreenScraper doesn\'t know this game</string>
+    <string name="pocket_qswitch_title">Quick Switch</string>
+    <string name="pocket_header_dock_mode">Handheld and docked</string>
+    <string name="pocket_device_allow_access">Allow access</string>
+    <string name="pocket_cloud_discord">Discord</string>
+    <string name="pocket_cloud_discord_about">Discord\'s own web client: your servers, chats and voice channels. Sign in once; voice keeps going while you play.</string>
+    <string name="pocket_cloud_ytmusic">YouTube Music</string>
+    <string name="pocket_cloud_ytmusic_about">YouTube Music\'s own web player. Keeps playing while you play. Google sign-in opens in Chrome.</string>
+    <string name="pocket_cloud_spotify">Spotify</string>
+    <string name="pocket_cloud_spotify_about">Spotify\'s own web player. Sign in once; keeps playing while you play.</string>
+    <string name="pocket_cloud_app_badge">App</string>
+    <string name="pocket_cloud_app_tip">Left stick: pointer · A: click · Right stick: scroll · Y: keyboard · B: back · Start: menu</string>
+    <string name="pocket_cloud_keepalive_channel">Apps playing in the background</string>
+    <string name="pocket_cloud_keepalive_title">%1$s is open</string>
+    <string name="pocket_cloud_keepalive_music">Keeps playing while you play. Tap to go back to it.</string>
+    <string name="pocket_cloud_keepalive_voice">Voice and messages keep going while you play. Tap to go back.</string>
 </resources>

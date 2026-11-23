@@ -16,6 +16,7 @@
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -322,6 +323,63 @@
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
             android:enableOnBackInvokedCallback="false"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
+        <!-- An app's own web client: own process, task and sign-in (keeps playing / talking in the background) -->
+        <activity
+            android:name=".pocket.cloud.CloudPlayerActivity$Discord"
+            android:label="@string/pocket_cloud_discord"
+            android:process=":discord"
+            android:taskAffinity="${applicationId}.discord"
+            android:launchMode="singleTask"
+            android:hardwareAccelerated="true"
+            android:resizeableActivity="true"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+            android:enableOnBackInvokedCallback="false"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
+        <service
+            android:name=".pocket.cloud.WebClientKeepAlive$Discord"
+            android:process=":discord"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback|microphone" />
+        <!-- An app's own web client: own process, task and sign-in (keeps playing / talking in the background) -->
+        <activity
+            android:name=".pocket.cloud.CloudPlayerActivity$YtMusic"
+            android:label="@string/pocket_cloud_ytmusic"
+            android:process=":ytmusic"
+            android:taskAffinity="${applicationId}.ytmusic"
+            android:launchMode="singleTask"
+            android:hardwareAccelerated="true"
+            android:resizeableActivity="true"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+            android:enableOnBackInvokedCallback="false"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
+        <service
+            android:name=".pocket.cloud.WebClientKeepAlive$YtMusic"
+            android:process=":ytmusic"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <!-- An app's own web client: own process, task and sign-in (keeps playing / talking in the background) -->
+        <activity
+            android:name=".pocket.cloud.CloudPlayerActivity$Spotify"
+            android:label="@string/pocket_cloud_spotify"
+            android:process=":spotify"
+            android:taskAffinity="${applicationId}.spotify"
+            android:launchMode="singleTask"
+            android:hardwareAccelerated="true"
+            android:resizeableActivity="true"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+            android:enableOnBackInvokedCallback="false"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
+        <service
+            android:name=".pocket.cloud.WebClientKeepAlive$Spotify"
+            android:process=":spotify"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <activity
             android:name=".pocket.apps.AppPickerActivity"
             android:screenOrientation="sensorLandscape"

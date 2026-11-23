@@ -23,9 +23,24 @@ public final class CloudService {
     public final String[] officialPackages;
     public final Class<? extends CloudPlayerActivity> player;
     public final int color;
+    /**
+     * An app's own web client (Discord, YouTube Music, Spotify), not a game stream: driven with a
+     * pointer (left stick / D-pad, A clicks, right stick scrolls), and kept alive in the background
+     * (music keeps playing, voice keeps talking) while a game is played.
+     */
+    public final boolean app;
+    /** Its drawn sign when its own app isn't installed (a Pocket Nexus glyph). */
+    public final String glyph;
 
     private CloudService(String id, int name, int about, String url, String[] officialPackages,
                          Class<? extends CloudPlayerActivity> player, int color) {
+        this(id, name, about, url, officialPackages, player, color, false, null);
+    }
+
+    private CloudService(String id, int name, int about, String url, String[] officialPackages,
+                         Class<? extends CloudPlayerActivity> player, int color, boolean app, String glyph) {
+        this.app = app;
+        this.glyph = glyph;
         this.id = id;
         this.name = name;
         this.about = about;
@@ -45,7 +60,18 @@ public final class CloudService {
             R.string.pocket_cloud_boosteroid_about, "https://cloud.boosteroid.com",
             new String[] {"com.boosteroid.streaming"}, CloudPlayerActivity.Boosteroid.class, 0xFF5B3CC4);
 
-    public static final CloudService[] ALL = {XCLOUD, GFN, BOOSTEROID};
+    // The apps' own web clients (theirs, not remade): signed in once, each in its own process
+    public static final CloudService DISCORD = new CloudService("discord", R.string.pocket_cloud_discord,
+            R.string.pocket_cloud_discord_about, "https://discord.com/app",
+            new String[] {"com.discord"}, CloudPlayerActivity.Discord.class, 0xFF5865F2, true, "BELL");
+    public static final CloudService YT_MUSIC = new CloudService("ytmusic", R.string.pocket_cloud_ytmusic,
+            R.string.pocket_cloud_ytmusic_about, "https://music.youtube.com",
+            new String[] {"com.google.android.apps.youtube.music"}, CloudPlayerActivity.YtMusic.class, 0xFFE01B1B, true, "MUSIC");
+    public static final CloudService SPOTIFY = new CloudService("spotify", R.string.pocket_cloud_spotify,
+            R.string.pocket_cloud_spotify_about, "https://open.spotify.com",
+            new String[] {"com.spotify.music"}, CloudPlayerActivity.Spotify.class, 0xFF1DB954, true, "MUSIC");
+
+    public static final CloudService[] ALL = {XCLOUD, GFN, BOOSTEROID, DISCORD, YT_MUSIC, SPOTIFY};
 
     public static CloudService byId(String id) {
         for (CloudService s : ALL) {
