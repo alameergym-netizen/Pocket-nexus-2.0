@@ -1737,4 +1737,25 @@
     <string name="pocket_cloud_keepalive_music">Keeps playing while you play. Tap to go back to it.</string>
     <string name="pocket_cloud_keepalive_voice">Voice and messages keep going while you play. Tap to go back.</string>
     <string name="pocket_cloud_open">Open</string>
+    <string name="pocket_section_all_stream">Every stream setting</string>
+    <string name="pocket_section_all_controls">Every controller, mouse and touch setting</string>
+    <string name="pocket_cc_title">Check my connection</string>
+    <string name="pocket_cc_sub">Your Wi-Fi band, signal and speed, and how quickly and steadily each PC answers, with what to change and a bit rate that fits.</string>
+    <string name="pocket_cc_checking">Checking the Wi-Fi and knocking on each PC…</string>
+    <string name="pocket_cc_link_usb">USB-C cable: the steadiest way to play</string>
+    <string name="pocket_cc_link_wifi">%1$s · signal %2$d of 4 · link %3$d Mbps</string>
+    <string name="pocket_cc_link_none">Not connected to a network</string>
+    <string name="pocket_cc_pc_line">%1$s: %2$d ms, varies ±%3$d ms, %4$d of %5$d lost</string>
+    <string name="pocket_cc_pc_none">%1$s: no answer (is it on, with Apollo or Sunshine running?)</string>
+    <string name="pocket_cc_usb_good">A cable carries the highest bit rates with no drops.</string>
+    <string name="pocket_cc_24ghz">You\'re on 2.4 GHz Wi-Fi: use the router\'s 5 GHz (or 6 GHz) network for a smoother, faster stream.</string>
+    <string name="pocket_cc_weak">The Wi-Fi signal is weak: move closer to the router or remove what\'s in between.</string>
+    <string name="pocket_cc_no_network">Connect to Wi-Fi, or plug in the USB-C cable.</string>
+    <string name="pocket_cc_pc_silent">%1$s didn\'t answer: check it\'s on and on the same network.</string>
+    <string name="pocket_cc_pc_unsteady">The way to %1$s is unsteady: put the PC on a cable to the router, and keep the handheld near it.</string>
+    <string name="pocket_cc_pc_slow">%1$s answers slowly: a cable from the PC to the router usually fixes it.</string>
+    <string name="pocket_cc_all_good">Everything looks good for streaming.</string>
+    <string name="pocket_cc_use">Use %1$d Mbps over Wi-Fi (fits this link)</string>
+    <string name="pocket_cc_used">Wi-Fi bit rate set to %1$d Mbps</string>
+    <string name="pocket_cc_again">Check again</string>
 </resources>

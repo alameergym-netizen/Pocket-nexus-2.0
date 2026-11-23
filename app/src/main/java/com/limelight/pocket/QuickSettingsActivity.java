@@ -247,16 +247,24 @@ public class QuickSettingsActivity extends ConsoleActivity {
         rowRefreshers.clear();
         switch (index) {
             case TAB_STREAM:
-                // The picture first, then what carries it
+                // The picture first, every other stream setting after it, then what carries it
                 buildStreamTab();
+                addSpacerHeader(R.string.pocket_section_all_stream);
+                addAdvanced("category_video_settings", "list_audio_config", "category_advanced_settings",
+                        "checkbox_enable_sops", "checkbox_smart_clipboard_sync", "category_ui_settings",
+                        "category_perf_monitor_settings");
                 addSpacerHeader(R.string.pocket_tab_connection);
                 buildConnectionTab();
                 break;
             case TAB_BUTTONS:
-                // The buttons and their shortcuts, then the keyboard and how the controls feel
+                // The buttons and their shortcuts, then the keyboard and how the controls feel,
+                // then every controller, mouse and touch setting
                 buildButtonsTab();
                 addSpacerHeader(R.string.pocket_section_feel);
                 buildControlsTab();
+                addSpacerHeader(R.string.pocket_section_all_controls);
+                addAdvanced("category_gamepad_settings", "category_input_settings", "category_onscreen_controls",
+                        "category_special_key_layout", "category_virtual_trackpad_settings");
                 break;
             case TAB_LOOK:
                 buildLookTab();
@@ -384,6 +392,9 @@ public class QuickSettingsActivity extends ConsoleActivity {
     // ---- Stream -------------------------------------------------------------------------
 
     private void buildStreamTab() {
+        // First: is the way to the PC good enough, and what bit rate can it carry?
+        addAction(getString(R.string.pocket_cc_title), getString(R.string.pocket_cc_sub), null, this::connectionCheck);
+
         addHeader(R.string.pocket_header_quality);
 
         final String[] presetKeys = {PocketSetup.PRESET_BATTERY, PocketSetup.PRESET_BALANCED, PocketSetup.PRESET_QUALITY};
@@ -1708,6 +1719,193 @@ public class QuickSettingsActivity extends ConsoleActivity {
                         getWindow().getDecorView().postDelayed(then, 250);
                     }
                 });
+    }
+
+    /** The connection check: the Wi-Fi, each PC's replies, advice, and a bit rate to use. */
+    private void connectionCheck() {
+        java.util.List<com.limelight.pocket.ui.StreamMenuView.Item> wait = new java.util.ArrayList<>();
+        wait.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.pocket_cc_checking)));
+        PocketSounds.play(this, PocketSounds.OPEN);
+        showConsolePanel(getString(R.string.pocket_cc_title), null, null, wait);
+        ConnectionCheck.run(this, com.limelight.pocket.home.HomeStore.computers(this), r -> {
+            if (isFinishing() || !isConsolePanelShowing()) {
+                return;
+            }
+            java.util.List<com.limelight.pocket.ui.StreamMenuView.Item> items = new java.util.ArrayList<>();
+            String link;
+            if (r.usb) {
+                link = getString(R.string.pocket_cc_link_usb);
+            }
+            else if (r.wifi) {
+                String band = r.bandGhz10 == 60 ? "6 GHz" : r.bandGhz10 == 50 ? "5 GHz" : r.bandGhz10 == 24 ? "2.4 GHz" : "Wi-Fi";
+                link = getString(R.string.pocket_cc_link_wifi, band, r.signal, r.linkMbps);
+            }
+            else {
+                link = getString(R.string.pocket_cc_link_none);
+            }
+            items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(link));
+            for (ConnectionCheck.Pc pc : r.pcs) {
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(pc.avgMs < 0
+                        ? getString(R.string.pocket_cc_pc_none, pc.name)
+                        : getString(R.string.pocket_cc_pc_line, pc.name, pc.avgMs, pc.jitterMs, pc.lost, pc.tries)));
+            }
+            for (String a : r.advice) {
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note("•  " + a));
+            }
+            if (r.suggestedMbps > 0) {
+                final int mbps = r.suggestedMbps;
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(
+                        getString(R.string.pocket_cc_use, mbps), () -> {
+                            prefs().edit().putInt("seekbar_bitrate_kbps", mbps * 1000).apply();
+                            PocketSounds.play(this, PocketSounds.TOGGLE_ON);
+                            hideConsolePanel();
+                            refreshRows();
+                            Toast.makeText(this, getString(R.string.pocket_cc_used, mbps), Toast.LENGTH_SHORT).show();
+                        }).withIcon("SPEED"));
+            }
+            items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(getString(R.string.pocket_cc_again),
+                    () -> {
+                        hideConsolePanel();
+                        connectionCheck();
+                    }).withIcon("RESTART"));
+            hideConsolePanel();
+            showConsolePanel(getString(R.string.pocket_cc_title), null, null, items);
+        });
+    }
+
+    /** Settings the rows above already show (in their own way): not shown twice. */
+    private static final java.util.Set<String> COVERED = new java.util.HashSet<>(java.util.Arrays.asList(
+            "list_resolution", "list_fps", "seekbar_bitrate_kbps", "frame_pacing", "checkbox_enable_hdr",
+            "checkbox_use_virtual_display", "checkbox_ultra_low_latency", "checkbox_enable_perf_overlay",
+            "checkbox_enable_perf_overlay_lite", "checkbox_enable_rumble", "checkbox_flip_face_buttons",
+            "checkbox_gamepad_motion_fallback", "checkbox_mouse_emulation", "checkbox_vibrate_fallback",
+            "seekbar_deadzone", "video_format", "pref_low_latency_frame_balance"));
+
+    /**
+     * Every setting of these groups of the full settings screen, as rows here (each group under
+     * its own title): switches, choices, sliders as steps, text to type.
+     */
+    private void addAdvanced(String... groups) {
+        java.util.List<AdvancedPrefs.Category> all = AdvancedPrefs.load(this);
+        for (String g : groups) {
+            for (AdvancedPrefs.Category cat : all) {
+                if (!cat.is(g)) {
+                    continue;
+                }
+                boolean headed = false;
+                for (final AdvancedPrefs.Item it : cat.items) {
+                    if (COVERED.contains(it.key)) {
+                        continue;
+                    }
+                    if (!headed) {
+                        addHeaderText(cat.title != null ? cat.title : g);
+                        headed = true;
+                    }
+                    addAdvancedRow(it);
+                }
+            }
+        }
+    }
+
+    private void addAdvancedRow(final AdvancedPrefs.Item it) {
+        final SharedPreferences p = prefs();
+        switch (it.type) {
+            case AdvancedPrefs.CHECK:
+                addToggle(it.title, it.summary,
+                        () -> p.getBoolean(it.key, Boolean.parseBoolean(it.def)),
+                        value -> p.edit().putBoolean(it.key, value).apply());
+                break;
+            case AdvancedPrefs.LIST:
+                addChoice(it.title, it.summary, it.entries,
+                        () -> {
+                            String v = p.getString(it.key, it.def);
+                            return v == null ? -1 : java.util.Arrays.asList(it.values).indexOf(v);
+                        },
+                        index -> p.edit().putString(it.key, it.values[index]).apply(), null);
+                break;
+            case AdvancedPrefs.SEEK: {
+                int count = (it.max - it.min) / it.step + 1;
+                int stride = count > 41 ? (int) Math.ceil(count / 40.0) * it.step : it.step;
+                final java.util.List<Integer> steps = new java.util.ArrayList<>();
+                for (int v = it.min; v <= it.max; v += stride) {
+                    steps.add(v);
+                }
+                if (steps.get(steps.size() - 1) != it.max) {
+                    steps.add(it.max);
+                }
+                String[] labels = new String[steps.size()];
+                for (int i = 0; i < labels.length; i++) {
+                    int v = steps.get(i);
+                    String n = it.divisor > 1 ? trimNumber(v / (float) it.divisor) : String.valueOf(v);
+                    labels[i] = it.suffix != null && !it.suffix.isEmpty() ? n + " " + it.suffix.trim() : n;
+                }
+                int def;
+                try {
+                    def = it.def != null ? Integer.parseInt(it.def.trim()) : it.min;
+                } catch (NumberFormatException e) {
+                    def = it.min;
+                }
+                final int fallback = def;
+                addChoice(it.title, it.summary, labels,
+                        () -> {
+                            int v;
+                            try {
+                                v = p.getInt(it.key, fallback);
+                            } catch (ClassCastException e) {
+                                v = fallback;
+                            }
+                            int best = 0;
+                            for (int i = 1; i < steps.size(); i++) {
+                                if (Math.abs(steps.get(i) - v) < Math.abs(steps.get(best) - v)) {
+                                    best = i;
+                                }
+                            }
+                            return best;
+                        },
+                        index -> p.edit().putInt(it.key, steps.get(index)).apply(), null);
+                break;
+            }
+            case AdvancedPrefs.EDIT:
+                addAction(it.title, it.summary,
+                        () -> {
+                            String v = p.getString(it.key, it.def);
+                            return v != null ? v : "";
+                        },
+                        () -> com.limelight.pocket.ui.TextPrompt.show(this, it.title, it.summary,
+                                p.getString(it.key, it.def), "", text -> {
+                                    p.edit().putString(it.key, text).apply();
+                                    refreshRows();
+                                }));
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static String trimNumber(float f) {
+        String s = String.format(java.util.Locale.US, "%.2f", f);
+        while (s.contains(".") && (s.endsWith("0") || s.endsWith("."))) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    /** A section title from text (the full screen's own group names). */
+    private void addHeaderText(String text) {
+        TextView header = new TextView(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = rowsContainer.getChildCount() == 0 ? 0 : dp(14);
+        lp.bottomMargin = dp(6);
+        header.setLayoutParams(lp);
+        header.setPaddingRelative(dp(6), 0, 0, 0);
+        header.setText(text);
+        header.setAllCaps(true);
+        header.setLetterSpacing(0.18f);
+        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
+        header.setTypeface(com.limelight.pocket.ui.PocketFonts.medium());
+        header.setTextColor(ContextCompat.getColor(this, R.color.pocket_text_dim));
+        rowsContainer.addView(header);
     }
 
     /** A part of a tab with its own title (Streaming: then Connection), a hairline above it. */
