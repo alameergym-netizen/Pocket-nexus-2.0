@@ -42,6 +42,8 @@ public final class ConnectionCheck {
     public static final class Result {
         public boolean wifi;
         public boolean usb;
+        /** Through a VPN (Tailscale, ZeroTier...): playing away from home. */
+        public boolean vpn;
         public int bandGhz10; // 24, 50, 60 (2.4, 5, 6 GHz)
         public int rssi;
         public int signal; // 0..4
@@ -84,6 +86,7 @@ public final class ConnectionCheck {
             if (nc != null) {
                 r.wifi = nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
                 r.usb = nc.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) || nc.hasTransport(NetworkCapabilities.TRANSPORT_USB);
+                r.vpn = nc.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
             }
         }
         WifiManager wm = (WifiManager) c.getSystemService(Context.WIFI_SERVICE);
@@ -157,6 +160,13 @@ public final class ConnectionCheck {
         }
         else {
             r.advice.add(c.getString(R.string.pocket_cc_no_network));
+        }
+        if (r.vpn) {
+            // Away from home: the internet in between carries less than the home network
+            r.advice.add(c.getString(R.string.pocket_cc_vpn));
+            if (r.suggestedMbps > 30) {
+                r.suggestedMbps = 30;
+            }
         }
         for (Pc pc : r.pcs) {
             if (pc.avgMs < 0) {

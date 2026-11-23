@@ -216,6 +216,16 @@ if scene settings_home; then
   key KEYCODE_BUTTON_R1 gamepad 2; shot 29_settings_home
   key KEYCODE_BUTTON_R1 gamepad 2
   key KEYCODE_BUTTON_R1 gamepad 2; shot 29_settings_streaming
+  for i in $(seq 1 22); do key KEYCODE_DPAD_DOWN dpad 0.25; done
+  sleep 1; shot 29_settings_stream_all
+  for i in $(seq 1 30); do key KEYCODE_DPAD_DOWN dpad 0.25; done
+  sleep 1; shot 29_settings_stream_more
+fi
+if scene cloud_apps; then
+  key KEYCODE_BUTTON_R1 gamepad 2
+  key KEYCODE_BUTTON_R1 gamepad 3
+  for i in 1 2 3; do key KEYCODE_DPAD_RIGHT dpad 1; done
+  sleep 2; shot 31_cloud_apps
 fi
 rm -rf /tmp/seedd; mkdir -p /tmp/seedd
 printf 'pref\tstring\tpocket_dock_mode\tdocked\n' > /tmp/seedd/seed.txt

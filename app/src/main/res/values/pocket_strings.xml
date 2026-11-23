@@ -1758,4 +1758,5 @@
     <string name="pocket_cc_use">Use %1$d Mbps over Wi-Fi (fits this link)</string>
     <string name="pocket_cc_used">Wi-Fi bit rate set to %1$d Mbps</string>
     <string name="pocket_cc_again">Check again</string>
+    <string name="pocket_cc_vpn">You\'re playing through a VPN (like Tailscale): the internet in between carries less, so a lower bit rate is safer.</string>
 </resources>
