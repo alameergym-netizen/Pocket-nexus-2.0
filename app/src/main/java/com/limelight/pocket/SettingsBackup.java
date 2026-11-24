@@ -120,41 +120,81 @@ public final class SettingsBackup {
                 text = buf.toString("UTF-8");
             }
             Map<String, Map<String, Object>> staged = decode(new JSONObject(text));
-            // Check stored types across every file before writing anything.
+            Map<String, SharedPreferences> stores = new java.util.LinkedHashMap<>();
             for (String name : FILES) {
-                Map<String, Object> values = staged.get(name == null ? "main" : name);
-                if (values == null) { continue; }
-                Map<String, ?> existing = prefs(c, name).getAll();
-                for (Map.Entry<String, Object> entry : values.entrySet()) {
-                    Object old = existing.get(entry.getKey());
-                    if (old != null && !sameType(old, entry.getValue())) { return -1; }
-                }
+                String file = name == null ? "main" : name;
+                if (staged.containsKey(file)) stores.put(file, prefs(c, name));
             }
-            int count = 0;
-            for (String name : FILES) {
-                Map<String, Object> values = staged.get(name == null ? "main" : name);
-                if (values == null || values.isEmpty()) { continue; }
-                SharedPreferences.Editor ed = prefs(c, name).edit();
-                for (Map.Entry<String, Object> entry : values.entrySet()) {
-                    String k = entry.getKey();
-                    Object v = entry.getValue();
-                    if (v instanceof Boolean) { ed.putBoolean(k, (Boolean) v); }
-                    else if (v instanceof Integer) { ed.putInt(k, (Integer) v); }
-                    else if (v instanceof Long) { ed.putLong(k, (Long) v); }
-                    else if (v instanceof Float) { ed.putFloat(k, (Float) v); }
-                    else if (v instanceof String) { ed.putString(k, (String) v); }
-                    else if (v instanceof Set) {
-                        @SuppressWarnings("unchecked") Set<String> strings = (Set<String>) v;
-                        ed.putStringSet(k, strings);
-                    }
-                }
-                if (!ed.commit()) { return -1; }
-                count += values.size();
-            }
-            return count;
+            return restoreStaged(stores, staged);
         } catch (Exception e) {
             return -1;
         }
+    }
+
+    /**
+     * Validate all stores before writing. On a synchronous commit failure, attempt to
+     * restore only the touched keys (including keys in the failing store). This is
+     * not a crash-atomic database transaction; import must be done while idle.
+     */
+    static synchronized int restoreStaged(Map<String, SharedPreferences> stores,
+            Map<String, Map<String, Object>> staged) {
+        Map<String, Map<String, Object>> originals = new java.util.LinkedHashMap<>();
+        java.util.List<String> attempted = new java.util.ArrayList<>();
+        int count = 0;
+        try {
+            for (Map.Entry<String, Map<String, Object>> file : staged.entrySet()) {
+                SharedPreferences store = stores.get(file.getKey());
+                if (store == null) return -1;
+                Map<String, ?> existing = store.getAll();
+                Map<String, Object> before = new java.util.LinkedHashMap<>();
+                for (Map.Entry<String, Object> entry : file.getValue().entrySet()) {
+                    Object old = existing.get(entry.getKey());
+                    if (old != null && !sameType(old, entry.getValue())) return -1;
+                    before.put(entry.getKey(), old instanceof Set ? new HashSet<>((Set<?>) old) : old);
+                }
+                originals.put(file.getKey(), before);
+            }
+            for (Map.Entry<String, Map<String, Object>> file : staged.entrySet()) {
+                if (file.getValue().isEmpty()) continue;
+                attempted.add(file.getKey());
+                if (!commitValues(stores.get(file.getKey()), file.getValue())) {
+                    throw new IllegalStateException("Settings commit failed");
+                }
+                count += file.getValue().size();
+            }
+            return count;
+        } catch (RuntimeException failed) {
+            for (int i = attempted.size() - 1; i >= 0; i--) {
+                String file = attempted.get(i);
+                try {
+                    if (!commitValues(stores.get(file), originals.get(file))) {
+                        android.util.Log.e("NexusBackup", "Settings rollback commit failed");
+                    }
+                } catch (RuntimeException rollbackFailed) {
+                    android.util.Log.e("NexusBackup", "Settings rollback failed");
+                }
+            }
+            return -1;
+        }
+    }
+
+    private static boolean commitValues(SharedPreferences prefs, Map<String, Object> values) {
+        SharedPreferences.Editor ed = prefs.edit();
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            String k = entry.getKey();
+            Object v = entry.getValue();
+            if (v == null) ed.remove(k);
+            else if (v instanceof Boolean) ed.putBoolean(k, (Boolean) v);
+            else if (v instanceof Integer) ed.putInt(k, (Integer) v);
+            else if (v instanceof Long) ed.putLong(k, (Long) v);
+            else if (v instanceof Float) ed.putFloat(k, (Float) v);
+            else if (v instanceof String) ed.putString(k, (String) v);
+            else if (v instanceof Set) {
+                @SuppressWarnings("unchecked") Set<String> strings = (Set<String>) v;
+                ed.putStringSet(k, new HashSet<>(strings));
+            } else throw new IllegalArgumentException("Unsupported settings value");
+        }
+        return ed.commit();
     }
 
     /** Device-bound state is not portable across app installs. */

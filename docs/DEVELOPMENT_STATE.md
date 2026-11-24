@@ -21,3 +21,6 @@ PR #27 USB/privacy: Windows CI 45462100156 and Android CI 45462100192 passed ind
 
 ## Release progress
 0/14 fully accepted gates, not 0% of development effort. Partial foundation, core, shell, gaming, stream, hardware, data, host, audio, connect, services. Automation, optimization/recovery and release remain open. Update this checkpoint after verified integration, retaining links to evidence.
+
+## G01 candidate
+Foundation release-gate work adds rollback-on-commit-failure, explicit release version/signing guard and Android 13 synthetic package upgrade CI. See docs/HORIZON_FOUNDATION_GATE.md. PR #31 remains independent; combine only with fresh CI. No private key is stored or requested in chat. Full release gate remains open pending validation.
