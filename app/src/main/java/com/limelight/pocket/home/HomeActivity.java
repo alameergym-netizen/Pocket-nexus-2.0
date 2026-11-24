@@ -397,6 +397,7 @@ public class HomeActivity extends ConsoleActivity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        focusGeneration++;
         if (keyArt != null) { keyArt.pauseMotion(); }
         main.removeCallbacks(startAmbient);
         if (ambient != null && ambient.showing()) {
@@ -482,6 +483,7 @@ public class HomeActivity extends ConsoleActivity {
     }
 
     private void show(List<HomeStore.Entry> list) {
+        boolean firstLoad = !loadedOnce;
         loadedOnce = true;
         focusGeneration++;
         String keep = heroKey;
@@ -508,6 +510,15 @@ public class HomeActivity extends ConsoleActivity {
             target = Math.max(0, Math.min(heroPos, entries.size() - 1));
         }
         heroKey = null;
+        if (workspace && firstLoad) {
+            // Before cards arrive Android can focus the empty detail surface or dock.
+            // The initial game owns the first controller focus, not a placeholder action.
+            target = 0;
+            updateHero(target);
+            if (row.isInTouchMode()) row.requestFocusFromTouch();
+            focusAt(target, 0);
+            return;
+        }
         View focus = getCurrentFocus();
         boolean onActions = focus != null && (focus == play || focus == info || focus == more);
         if (onActions) {
@@ -548,7 +559,8 @@ public class HomeActivity extends ConsoleActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         View focus = getCurrentFocus();
-        boolean inside = focus != null && (row.hasFocus() || focus == play || focus == info || focus == more);
+        boolean inside = focus != null && (row.hasFocus() || focus == play || focus == info || focus == more
+                || (dock != null && dock.hasFocus()));
         if (hasFocus && !inside && !entries.isEmpty() && !isConsolePanelShowing()) {
             focusAt(heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
         }

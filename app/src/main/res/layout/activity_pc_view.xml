@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Artemis Pocket: console home screen (mono glass) -->
+<!-- Horizon Connect: PC discovery and connection status -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -169,7 +169,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="28dp"
-            android:paddingTop="20dp"
+            android:paddingTop="8dp"
             android:paddingEnd="28dp">
 
             <TextView
@@ -180,8 +180,21 @@
                 android:shadowColor="#80000000"
                 android:shadowRadius="8"
                 android:text="@string/pocket_my_pcs"
-                android:textColor="#B8FFFFFF"
-                android:textSize="10sp" />
+                android:textColor="#E0FFFFFF"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/horizonConnectSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="#D21C2532"
+                android:padding="6dp"
+                android:fontFamily="@font/inter_medium"
+                android:textColor="#FFFFFFFF"
+                android:textSize="11sp"
+                android:ellipsize="end"
+                android:maxLines="2" />
 
             <!-- A game's logo (when there is one) takes the place of its name. Both sit in a
                  box of one fixed height, so moving between a PC (its name) and a game (its
@@ -189,7 +202,7 @@
             <FrameLayout
                 android:id="@+id/pocketHeroName"
                 android:layout_width="wrap_content"
-                android:layout_height="74dp"
+                android:layout_height="44dp"
                 android:layout_marginTop="4dp"
                 android:clipChildren="false"
                 android:clipToPadding="false">
@@ -224,8 +237,8 @@
                 android:id="@+id/pocketHeroMeta"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:minHeight="34dp"
+                android:layout_marginTop="6dp"
+                android:minHeight="32dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
                 android:gravity="center_vertical"
@@ -331,8 +344,8 @@
 
                 <com.limelight.pocket.ui.PulseRingsView
                     android:id="@+id/pcs_loading"
-                    android:layout_width="72dp"
-                    android:layout_height="72dp" />
+                    android:layout_width="44dp"
+                    android:layout_height="44dp" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -351,8 +364,43 @@
                     android:gravity="center"
                     android:maxWidth="400dp"
                     android:text="@string/pocket_searching_sub"
-                    android:textColor="@color/pocket_text_dim"
+                    android:textColor="#D9FFFFFF"
                     android:textSize="11.5sp" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/horizonConnectAdd"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:background="@drawable/pocket_pill_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:text="@string/horizon_connect_add"
+                        android:textColor="@color/pocket_row_text"
+                        android:textSize="12sp" />
+                    <TextView
+                        android:id="@+id/horizonConnectHelp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/pocket_pill_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:text="@string/horizon_connect_usb"
+                        android:textColor="@color/pocket_row_text"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
         </FrameLayout>
 

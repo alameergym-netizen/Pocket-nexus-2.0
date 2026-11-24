@@ -50,7 +50,13 @@ def main(apk):
     assert grid[2] <= play[0], (grid, play)
     assert c.has(tree, "Quick Access"), "persistent tool strip missing"
     c.capture("01-workspace")
-    c.wait_for("initial Music tile", lambda t: focus_label(t, "Music"))
+    try:
+        c.wait_for("initial Music tile", lambda t: focus_label(t, "Music"))
+    except AssertionError:
+        tree = c.snap()
+        print("Focused nodes:", [(n.get("resource-id"), n.get("text"), n.get("content-desc"))
+                                 for n in tree.iter("node") if n.get("focused") == "true"], flush=True)
+        raise
     c.key("DPAD_RIGHT")
     c.wait_for("Files tile", lambda t: focus_label(t, "Files"))
     c.key("DPAD_DOWN")
