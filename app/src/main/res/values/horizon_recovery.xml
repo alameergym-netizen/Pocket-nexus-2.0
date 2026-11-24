@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_recovery_heading">Recovery</string>
+    <string name="horizon_other_launcher">Open another Android launcher</string>
+    <string name="horizon_other_launcher_sub">Leave Pocket Nexus for this session and keep your default Home app.</string>
+</resources>

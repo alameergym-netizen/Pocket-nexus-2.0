@@ -1,5 +1,6 @@
 """Exercise existing Back mapping and controller navigation on a clean CI emulator."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -49,6 +50,13 @@ def launch():
 
 def control(tree):
     return has(tree, "Nexus Control") and has(tree, "QUICK ACTIONS")
+
+def tap_label(tree, label):
+    node = next(n for n in tree.iter("node") if label in (n.get("text"), n.get("content-desc")))
+    left, top, right, bottom = map(int, re.findall(r"\d+", node.get("bounds", "")))
+    assert left < right and top < bottom
+    adb("shell", "input", "tap", str((left + right) // 2), str((top + bottom) // 2))
+
 
 def open_control():
     key("F8")
@@ -132,6 +140,19 @@ def main(apk):
     key("BACK")
     wait_for("Back closes compact Control", lambda t: not control(t))
     print("PASS: compact scroll and controller access", flush=True)
+
+    setup_device(320)
+    key("BUTTON_START")
+    quick_settings = wait_for("console settings", lambda t: has(t, "Settings") and has(t, "System"))
+    tap_label(quick_settings, "System")
+    recovery = wait_for("Android launcher recovery action", lambda t: has(t, "Recovery")
+                        and has(t, "Open another Android launcher"))
+    capture("05-system-recovery")
+    tap_label(recovery, "Open another Android launcher")
+    wait_for("Android launcher or launcher chooser", lambda t: not has(t, "Open another Android launcher")
+             and any(n.get("package") not in ("", None, PKG) for n in t.iter("node")))
+    capture("06-android-launcher")
+    print("PASS: System offers an Android launcher escape", flush=True)
 
 if __name__ == "__main__":
     try:
