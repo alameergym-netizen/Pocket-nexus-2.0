@@ -68,6 +68,7 @@ public final class HorizonAudio {
             case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
             case AudioDeviceInfo.TYPE_BLE_HEADSET:
             case AudioDeviceInfo.TYPE_BLE_SPEAKER:
+            case AudioDeviceInfo.TYPE_BLE_BROADCAST:
                 return R.string.horizon_audio_bluetooth;
             case AudioDeviceInfo.TYPE_USB_DEVICE:
             case AudioDeviceInfo.TYPE_USB_ACCESSORY:
@@ -108,8 +109,8 @@ public final class HorizonAudio {
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_snapshot)));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_route_title),
                 () -> showStreamRoute(a)));
-        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_buds_title),
-                () -> showBluetooth(a)));
+        rows.add(StreamMenuView.Item.submenu(a.getString(R.string.horizon_buds_title),
+                () -> showHeadphones(a)));
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_audio_fx_title)));
         rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_audio_fx_title),
                 a.getString(com.limelight.pocket.PocketPrefs.prefs(a)
@@ -120,14 +121,7 @@ public final class HorizonAudio {
                 () -> launch(a, new Intent(Settings.ACTION_SOUND_SETTINGS))));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_audio_bluetooth_settings),
                 () -> launch(a, new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
-        // Huawei AI Life is an optional official-app handoff, not an ANC or EQ protocol.
-        try {
-            Intent aiLife = a.getPackageManager().getLaunchIntentForPackage("com.huawei.smarthome");
-            if (aiLife != null) {
-                rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_audio_ai_life),
-                        () -> launch(a, aiLife)));
-            }
-        } catch (RuntimeException ignored) {}
+        addCompanion(a, rows, "com.huawei.smarthome", R.string.horizon_audio_ai_life);
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_limit)));
         return rows;
     }
@@ -161,53 +155,82 @@ public final class HorizonAudio {
         a.showConsolePanel(a.getString(R.string.horizon_route_title),null,null,rows);
     }
 
-    private static void showBluetooth(ConsoleActivity a) {
+    public static void showHeadphones(ConsoleActivity a) {
+        String title = a.getString(R.string.horizon_headphones_title);
+        List<StreamMenuView.Item> rows = headphoneItems(a);
+        if (a.isConsolePanelShowing()) {
+            a.pushConsolePage(title, rows);
+        } else {
+            a.showConsolePanel(title, null, null, rows);
+        }
+    }
+
+    private static List<StreamMenuView.Item> headphoneItems(ConsoleActivity a) {
         List<StreamMenuView.Item> rows = new ArrayList<>();
-        rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_note)));
-        boolean found = false;
+        AudioDeviceInfo[] devices = null;
         if (Build.VERSION.SDK_INT >= 23) {
             try {
                 AudioManager am = (AudioManager) a.getSystemService(Context.AUDIO_SERVICE);
                 if (am != null) {
-                    for (AudioDeviceInfo device : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
-                        int t = device.getType();
-                        if (t != AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-                                && t != AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                                && t != AudioDeviceInfo.TYPE_BLE_HEADSET
-                                && t != AudioDeviceInfo.TYPE_BLE_SPEAKER
-                                && t != AudioDeviceInfo.TYPE_BLE_BROADCAST) { continue; }
-                        CharSequence raw = device.getProductName();
-                        String name = raw == null || raw.length() == 0
-                                ? a.getString(R.string.horizon_audio_unavailable) : raw.toString();
-                        String transport = t == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ? "A2DP"
-                                : t == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ? "SCO" : "Bluetooth LE";
-                        rows.add(StreamMenuView.Item.header(name));
-                        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_transport),transport));
-                        if (HorizonBudsPolicy.matches7i(name)) {
-                            rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_name_match)));
-                        }
-                        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_rates),
-                                capability(a,device.getSampleRates())));
-                        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_channels),
-                                capability(a,device.getChannelCounts())));
-                        found = true;
-                    }
+                    devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
                 }
             } catch (RuntimeException ignored) {}
         }
-        if (!found) { rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_unavailable))); }
+        if (devices != null) {
+            for (AudioDeviceInfo device : devices) {
+                String transport = headphoneTransport(a, device.getType());
+                if (transport == null) { continue; }
+                CharSequence raw = device.getProductName();
+                String name = raw == null || raw.length() == 0
+                        ? a.getString(typeLabel(device.getType())) : raw.toString();
+                rows.add(StreamMenuView.Item.header(name));
+                rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_transport), transport));
+                if (HorizonBudsPolicy.matches7i(name)) {
+                    rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_name_match)));
+                }
+                rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_rates),
+                        capability(a, device.getSampleRates())));
+                rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_channels),
+                        capability(a, device.getChannelCounts())));
+            }
+        }
+        if (rows.isEmpty()) {
+            rows.add(StreamMenuView.Item.note(a.getString(devices == null
+                    ? R.string.horizon_headphones_unavailable : R.string.horizon_headphones_empty)));
+        } else {
+            rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_note)));
+        }
+        rows.add(StreamMenuView.Item.repeatable(a.getString(R.string.horizon_audio_bluetooth_settings),
+                () -> launch(a, new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
+        rows.add(StreamMenuView.Item.repeatable(a.getString(R.string.horizon_headphones_refresh),
+                () -> a.replaceConsolePageItems(headphoneItems(a))));
+        addCompanion(a, rows, "com.huawei.smarthome", R.string.horizon_audio_ai_life);
+        addCompanion(a, rows, "io.github.librebuds", R.string.horizon_buds_open_libre);
+        return rows;
+    }
+
+    private static String headphoneTransport(Context context, int type) {
+        switch (type) {
+            case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET: return context.getString(R.string.horizon_audio_wired);
+            case AudioDeviceInfo.TYPE_USB_HEADSET: return context.getString(R.string.horizon_audio_usb);
+            case AudioDeviceInfo.TYPE_BLUETOOTH_A2DP: return "A2DP";
+            case AudioDeviceInfo.TYPE_BLUETOOTH_SCO: return "SCO";
+            case AudioDeviceInfo.TYPE_BLE_HEADSET:
+            case AudioDeviceInfo.TYPE_BLE_SPEAKER:
+            case AudioDeviceInfo.TYPE_BLE_BROADCAST: return "Bluetooth LE";
+            default: return null;
+        }
+    }
+
+    private static void addCompanion(ConsoleActivity a, List<StreamMenuView.Item> rows,
+                                     String packageName, int label) {
         try {
-            Intent libre = a.getPackageManager().getLaunchIntentForPackage("io.github.librebuds");
-            if (libre != null) {
-                rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_buds_open_libre),() -> launch(a,libre)));
-            } else {
-                rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_libre_missing)));
+            Intent intent = a.getPackageManager().getLaunchIntentForPackage(packageName);
+            if (intent != null) {
+                rows.add(StreamMenuView.Item.repeatable(a.getString(label), () -> launch(a, intent)));
             }
         } catch (RuntimeException ignored) {}
-        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_audio_bluetooth_settings),
-                () -> launch(a,new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
-        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh),() -> showBluetooth(a)));
-        a.showConsolePanel(a.getString(R.string.horizon_buds_title),null,null,rows);
     }
 
     private static String capability(Context c, int[] values) {

@@ -1134,6 +1134,12 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         }
     }
 
+    public void replaceConsolePageItems(List<StreamMenuView.Item> items) {
+        if (isConsolePanelShowing()) {
+            consolePanel.replacePageItems(items);
+        }
+    }
+
     public void hideConsolePanel() {
         if (consolePanel != null) {
             consolePanel.hide();

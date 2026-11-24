@@ -14,11 +14,14 @@
     <string name="horizon_route_standard">Standard</string>
     <string name="horizon_route_note">Buffer capacity and Android track mode are not end-to-end Bluetooth latency, negotiated codec or measured audio delay. Snapshot of this PC stream only.</string>
     <string name="horizon_buds_title">Bluetooth audio details</string>
+    <string name="horizon_headphones_title">Headphones</string>
+    <string name="horizon_headphones_empty">No headphones or Bluetooth audio devices detected.</string>
+    <string name="horizon_headphones_unavailable">Android could not report audio devices. Check Bluetooth settings for paired devices.</string>
+    <string name="horizon_headphones_refresh">Refresh devices</string>
     <string name="horizon_buds_note">Android-visible outputs, not necessarily active routes. Rates and channels are reported capabilities, not negotiated values. No ANC, battery or vendor commands.</string>
     <string name="horizon_buds_transport">Reported transport</string>
     <string name="horizon_buds_name_match">FreeBuds 7i name match only; hardware identity and vendor control are unverified.</string>
     <string name="horizon_buds_rates">Reported sample rates (Hz)</string>
     <string name="horizon_buds_channels">Reported channel counts</string>
     <string name="horizon_buds_open_libre">Open LibreBuds companion</string>
-    <string name="horizon_buds_libre_missing">LibreBuds companion not available. Its FreeBuds 7i basic support is listed as expected, not hardware tested.</string>
 </resources>

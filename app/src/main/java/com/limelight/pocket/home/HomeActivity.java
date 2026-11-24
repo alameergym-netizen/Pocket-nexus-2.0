@@ -68,6 +68,8 @@ import com.limelight.pocket.RecentGames;
 import com.limelight.pocket.apps.AndroidLibrary;
 import com.limelight.pocket.apps.HomeScreen;
 import com.limelight.pocket.cloud.CloudService;
+import com.limelight.pocket.device.HorizonAudio;
+import com.limelight.pocket.global.ControlCenterActivity;
 import com.limelight.pocket.info.GameInfo;
 import com.limelight.pocket.info.GameInfoService;
 import com.limelight.pocket.pclib.PcGame;
@@ -144,6 +146,8 @@ public class HomeActivity extends ConsoleActivity {
     private TextView title;
     private TextView desc;
     private TextView play;
+    private View nexusControl;
+    private View headphones;
     private TextView rowLabel;
     private ImageView logo;
     /** The logo's room at its usual size (dp), worked out from the screen; the size setting scales it. */
@@ -236,6 +240,8 @@ public class HomeActivity extends ConsoleActivity {
         logo = findViewById(R.id.pocketHeroLogo);
         info = findViewById(R.id.homeInfo);
         more = findViewById(R.id.homeMore);
+        nexusControl = findViewById(R.id.homeNexusControl);
+        headphones = findViewById(R.id.homeHeadphones);
         keyArt = KeyArtStage.find(this);
 
         heroView = findViewById(R.id.pocketHero);
@@ -279,7 +285,7 @@ public class HomeActivity extends ConsoleActivity {
             if (!inTouch && !isFinishing() && !isConsolePanelShowing()) {
                 View f = getCurrentFocus();
                 boolean inside = f != null && (row.hasFocus() || f == play || f == info || f == more
-                        || (dock != null && dock.hasFocus()));
+                        || isHomeTool(f) || (dock != null && dock.hasFocus()));
                 if (!inside && !entries.isEmpty()) {
                     focusAt(heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
                 }
@@ -490,7 +496,7 @@ public class HomeActivity extends ConsoleActivity {
         }
         heroKey = null;
         View focus = getCurrentFocus();
-        boolean onActions = focus != null && (focus == play || focus == info || focus == more);
+        boolean onActions = focus != null && (focus == play || focus == info || focus == more || isHomeTool(focus));
         if (onActions) {
             updateHero(target);
         }
@@ -524,7 +530,7 @@ public class HomeActivity extends ConsoleActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         View focus = getCurrentFocus();
-        boolean inside = focus != null && (row.hasFocus() || focus == play || focus == info || focus == more);
+        boolean inside = focus != null && (row.hasFocus() || focus == play || focus == info || focus == more || isHomeTool(focus));
         if (hasFocus && !inside && !entries.isEmpty() && !isConsolePanelShowing()) {
             focusAt(heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
         }
@@ -532,6 +538,10 @@ public class HomeActivity extends ConsoleActivity {
 
     private HomeStore.Entry entryAt(int position) {
         return position >= 0 && position < entries.size() ? entries.get(position) : null;
+    }
+
+    private boolean isHomeTool(View view) {
+        return view != null && (view == nexusControl || view == headphones);
     }
 
     // ---- Per kind ------------------------------------------------------------------------------
@@ -1543,6 +1553,26 @@ public class HomeActivity extends ConsoleActivity {
         });
         info.setOnClickListener(v -> onButtonX());
         more.setOnClickListener(v -> showOptions(heroPos));
+        nexusControl.setOnClickListener(v -> ControlCenterActivity.open(this));
+        headphones.setOnClickListener(v -> {
+            PocketSounds.play(this, PocketSounds.OPEN);
+            HorizonAudio.showHeadphones(this);
+        });
+        View.OnKeyListener fromTools = (v, keyCode, event) -> {
+            if (keyCode != KeyEvent.KEYCODE_DPAD_DOWN) {
+                return false;
+            }
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                if (layout != null && layout.arrange == com.limelight.pocket.ui.Layouts.SHELF) {
+                    play.requestFocus();
+                } else {
+                    focusAt(Math.max(0, heroPos), 0);
+                }
+            }
+            return true;
+        };
+        nexusControl.setOnKeyListener(fromTools);
+        headphones.setOnKeyListener(fromTools);
         View.OnFocusChangeListener grow = (v, has) -> {
             if (has) {
                 PocketUi.tick(this);
@@ -1572,7 +1602,10 @@ public class HomeActivity extends ConsoleActivity {
             }
             if (keyCode == (portalRow ? KeyEvent.KEYCODE_DPAD_DOWN : KeyEvent.KEYCODE_DPAD_UP)
                     && event.getAction() == KeyEvent.ACTION_DOWN) {
-                return true; // nothing on the other side but the tabs (L1 / R1) or the hints
+                if (!portalRow) {
+                    nexusControl.requestFocus();
+                }
+                return true;
             }
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v == play && event.getAction() == KeyEvent.ACTION_DOWN
                     && layout != null && layout.arrange != com.limelight.pocket.ui.Layouts.SHELF) {
@@ -2317,7 +2350,7 @@ public class HomeActivity extends ConsoleActivity {
             return;
         }
         View focus = getCurrentFocus();
-        if (focus == play || focus == info || focus == more || (dock != null && dock.hasFocus())) {
+        if (focus == play || focus == info || focus == more || isHomeTool(focus) || (dock != null && dock.hasFocus())) {
             focusAt(Math.max(0, heroPos), 0);
             return;
         }
@@ -2419,7 +2452,7 @@ public class HomeActivity extends ConsoleActivity {
                 }
                 boolean portal = layout != null && layout.arrange == com.limelight.pocket.ui.Layouts.PORTAL;
                 if (portal && event.getAction() == KeyEvent.ACTION_DOWN) {
-                    // The row is at the top: down to the game's buttons, nothing above
+                    // The row is between the Home tools and the game's buttons.
                     if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
                         if (play.getVisibility() == View.VISIBLE) {
                             play.requestFocus();
@@ -2427,10 +2460,20 @@ public class HomeActivity extends ConsoleActivity {
                         return true;
                     }
                     if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                        nexusControl.requestFocus();
                         return true;
                     }
                 }
                 boolean shelf = layout == null || layout.arrange == com.limelight.pocket.ui.Layouts.SHELF;
+                if (!shelf && !portal && keyCode == KeyEvent.KEYCODE_DPAD_UP && event.getAction() == KeyEvent.ACTION_DOWN) {
+                    int columns = row.getLayoutManager() instanceof GridLayoutManager
+                            ? ((GridLayoutManager) row.getLayoutManager()).getSpanCount() : 1;
+                    int pos = h.getBindingAdapterPosition();
+                    if (pos >= 0 && pos < columns) {
+                        nexusControl.requestFocus();
+                        return true;
+                    }
+                }
                 if (shelf && keyCode == KeyEvent.KEYCODE_DPAD_UP && event.getAction() == KeyEvent.ACTION_DOWN) {
                     if (play.getVisibility() == View.VISIBLE) {
                         play.requestFocus();

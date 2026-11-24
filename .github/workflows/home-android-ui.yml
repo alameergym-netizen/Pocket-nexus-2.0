@@ -1,0 +1,62 @@
+name: Home controls on Android
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [horizon-foundation]
+    paths:
+      - '.github/workflows/home-android-ui.yml'
+      - '.github/tests/home_shortcuts.py'
+      - 'app/src/main/java/com/limelight/pocket/home/HomeActivity.java'
+      - 'app/src/main/java/com/limelight/pocket/device/HorizonAudio.java'
+      - 'app/src/main/java/com/limelight/pocket/global/ControlCenterActivity.java'
+      - 'app/src/main/res/layout/activity_home.xml'
+      - 'app/src/main/res/values/horizon_home_quick_actions.xml'
+permissions:
+  contents: read
+concurrency:
+  group: home-ui-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  home:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Prepare Android SDK and build the emulator APK
+        shell: bash
+        run: |
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$sdk" --install "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1" "emulator" "system-images;android-33;google_apis;x86_64"
+          bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameDebug
+      - name: Test the Home controls on Android 13
+        shell: bash
+        run: |
+          sudo chmod 666 /dev/kvm
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n nexus-home -k 'system-images;android-33;google_apis;x86_64' --force
+          mkdir -p home-ui-results
+          "$ANDROID_HOME/emulator/emulator" -avd nexus-home -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > home-ui-results/emulator.log 2>&1 &
+          trap 'adb emu kill >/dev/null 2>&1 || true' EXIT
+          timeout 240 adb wait-for-device
+          timeout 240 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          set -o pipefail
+          result=0
+          python3 .github/tests/home_shortcuts.py app/build/outputs/apk/nonRoot_game/debug/*.apk 2>&1 | tee home-ui-results/result.log || result=$?
+          adb logcat -b crash -d > home-ui-results/crash.log || true
+          exit "$result"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Home-UI-results
+          path: home-ui-results/
+          if-no-files-found: warn
+          retention-days: 7
