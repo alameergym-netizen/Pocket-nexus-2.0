@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/horizon-reproducibility.yml'
       - '.github/tests/compare_apks.py'
+      - '.github/tests/compare_elf.py'
+      - 'framegen/**'
       - 'app/build.gradle'
       - 'gradle/wrapper/gradle-wrapper.properties'
 permissions:
@@ -39,6 +41,9 @@ jobs:
           set -euo pipefail
           export NEXUS_VERSION_CODE=920000
           export GITHUB_SHA="$(git rev-parse HEAD)"
+          # Clang honors SOURCE_DATE_EPOCH for __DATE__ and __TIME__.
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          printf "SOURCE_DATE_EPOCH=%s\n" "$SOURCE_DATE_EPOCH" >> reproducibility-evidence/toolchain.txt
           mkdir -p "$RUNNER_TEMP/nexus-rebuild"
           for name in first second; do
             bash gradlew --no-daemon clean
@@ -51,7 +56,18 @@ jobs:
             "$signer" verify --print-certs "$RUNNER_TEMP/nexus-rebuild/$name.apk" > "reproducibility-evidence/$name-signers.txt"
           done
           diff <(grep 'certificate SHA-256 digest:' reproducibility-evidence/first-signers.txt) <(grep 'certificate SHA-256 digest:' reproducibility-evidence/second-signers.txt)
-          python3 .github/tests/compare_apks.py "$RUNNER_TEMP/nexus-rebuild/first.apk" "$RUNNER_TEMP/nexus-rebuild/second.apk" reproducibility-evidence/comparison.json
+          # Keep the exact comparison strict; produce ELF diagnostics before returning its status.
+          status=0
+          python3 .github/tests/compare_apks.py "$RUNNER_TEMP/nexus-rebuild/first.apk" "$RUNNER_TEMP/nexus-rebuild/second.apk" reproducibility-evidence/comparison.json || status=$?
+          if [ "$status" -ne 0 ]; then
+            elf_tool="$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+            for name in first second; do
+              unzip -p "$RUNNER_TEMP/nexus-rebuild/$name.apk" lib/arm64-v8a/libpocketfg.so > "$RUNNER_TEMP/nexus-rebuild/$name.so"
+              "$elf_tool" --sections --notes --dynamic "$RUNNER_TEMP/nexus-rebuild/$name.so" > "reproducibility-evidence/$name-elf.txt"
+            done
+            python3 .github/tests/compare_elf.py "$RUNNER_TEMP/nexus-rebuild/first.so" "$RUNNER_TEMP/nexus-rebuild/second.so" reproducibility-evidence/elf-sections.json
+          fi
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
