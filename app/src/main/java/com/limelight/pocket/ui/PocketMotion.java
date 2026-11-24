@@ -18,7 +18,9 @@ public final class PocketMotion {
     private PocketMotion() {}
 
     public static boolean on(View view) {
-        return view != null && PocketPrefs.animationsEnabled(view.getContext());
+        return view != null && PocketPrefs.animationsEnabled(view.getContext())
+                && (android.os.Build.VERSION.SDK_INT < 26
+                    || android.animation.ValueAnimator.areAnimatorsEnabled());
     }
 
     private static float dp(View v, float value) {

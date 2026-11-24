@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_theme_signature">Nexus Signature</string>
+    <string name="horizon_theme_horizon">Nexus Horizon</string>
+    <string name="horizon_theme_atmosphere">Nexus Atmosphere</string>
+    <string name="horizon_theme_cinema">Nexus Cinema</string>
+    <string name="horizon_theme_pure">Nexus Pure OLED</string>
+    <string name="horizon_theme_legacy">Nexus Legacy</string>
+    <string name="horizon_theme_titanium">Nexus Titanium</string>
+</resources>

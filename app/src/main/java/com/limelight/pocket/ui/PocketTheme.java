@@ -52,6 +52,7 @@ public final class PocketTheme {
     }
 
     public static final Preset[] THEMES = {
+            // Horizon presets are appended below to keep the legacy ordering stable.
             new Preset(R.string.pocket_theme_nexus, 0xFFFFFFFF, PocketPrefs.BACKDROP_AMBIENT, true, "aurora"),
             new Preset(R.string.pocket_theme_midnight, 0xFF9FD8FF, PocketPrefs.BACKDROP_BLACK, true, "crystal"),
             new Preset(R.string.pocket_theme_aurora, 0xFF86F0C8, PocketPrefs.BACKDROP_GLOW, true, "aurora"),
@@ -80,23 +81,56 @@ public final class PocketTheme {
             // Deck, as a Steam Deck: covers on a shelf, its blue
             new Preset(R.string.pocket_theme_deck, 0xFF1A9FFF, PocketPrefs.BACKDROP_AMBIENT, true, "soft", "covers",
                     PocketPrefs.FOCUS_RING_ZOOM),
+            // Horizon: complete, independently named looks using the existing rendering engine.
+            new Preset(R.string.horizon_theme_signature, 0xFFF2F2F2, PocketPrefs.BACKDROP_ART,
+                    false, "crisp", "tiles", PocketPrefs.FOCUS_RING_ZOOM),
+            new Preset(R.string.horizon_theme_horizon, 0xFFA8C8E8, PocketPrefs.BACKDROP_ART,
+                    true, "crystal", "portal", PocketPrefs.FOCUS_RING_ZOOM),
+            new Preset(R.string.horizon_theme_atmosphere, 0xFFE8EBF0, PocketPrefs.BACKDROP_ART,
+                    true, "glass", "wide", PocketPrefs.FOCUS_ZOOM),
+            new Preset(R.string.horizon_theme_cinema, 0xFFDCDDE1, PocketPrefs.BACKDROP_ART,
+                    false, "soft", "wide", PocketPrefs.FOCUS_RING),
+            new Preset(R.string.horizon_theme_pure, 0xFFFFFFFF, PocketPrefs.BACKDROP_BLACK,
+                    false, "crisp", "grid_tiles", PocketPrefs.FOCUS_RING),
+            new Preset(R.string.horizon_theme_legacy, 0xFFE0C98A, PocketPrefs.BACKDROP_BLACK,
+                    false, "retro", "grid_covers", PocketPrefs.FOCUS_RING),
+            new Preset(R.string.horizon_theme_titanium, 0xFFB8C4CE, PocketPrefs.BACKDROP_BLACK,
+                    true, "tactile", "list", PocketPrefs.FOCUS_RING),
     };
 
     /** Which theme the current settings match, or -1 when they've been mixed by hand. */
     public static int themeIndex(Context context) {
-        int accent = PocketPrefs.accentColor(context);
-        String backdrop = PocketPrefs.backdrop(context);
-        boolean frost = PocketPrefs.frost(context);
+        return matchingPreset(PocketPrefs.accentColor(context), PocketPrefs.backdrop(context),
+                PocketPrefs.frost(context),
+                PocketPrefs.prefs(context).getString(PocketPrefs.KEY_SOUND_STYLE, PocketPrefs.DEFAULT_SOUND_STYLE),
+                Layouts.home(context).id, PocketPrefs.focusStyle(context));
+    }
+
+    // Exact presets win over legacy presets whose layout/focus are intentionally unspecified.
+    // Pure OLED and Mono share their color/material/sound but not their layout and focus.
+    static int matchingPreset(int accent, String backdrop, boolean frost, String sound,
+                              String layout, String focus) {
+        int match = -1;
+        int best = -1;
         for (int i = 0; i < THEMES.length; i++) {
             Preset t = THEMES[i];
-            if (t.accent == accent && t.backdrop.equals(backdrop) && t.frost == frost) {
-                return i;
+            if (t.accent != accent || !t.backdrop.equals(backdrop) || t.frost != frost
+                    || !t.sounds.equals(sound)
+                    || (t.layout != null && !t.layout.equals(layout))
+                    || (t.focus != null && !t.focus.equals(focus))) {
+                continue;
+            }
+            int specificity = (t.layout != null ? 1 : 0) + (t.focus != null ? 1 : 0);
+            if (specificity > best) {
+                best = specificity;
+                match = i;
             }
         }
-        return -1;
+        return match;
     }
 
     public static void applyTheme(Context context, int index) {
+        if (index < 0 || index >= THEMES.length) { return; }
         Preset t = THEMES[index];
         PocketPrefs.prefs(context).edit()
                 .putInt(PocketPrefs.KEY_ACCENT, t.accent)
