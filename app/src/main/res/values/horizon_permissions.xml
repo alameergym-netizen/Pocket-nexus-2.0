@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_permissions_title">Permissions &amp; access</string>
+    <string name="horizon_permissions_storage_updates">Storage &amp; updates</string>
+    <string name="horizon_perm_buttons">Global controller access</string>
+    <string name="horizon_perm_buttons_desc">Optional accessibility service for controller shortcuts outside Nexus. Opens Android accessibility settings; enable only if needed.</string>
+    <string name="horizon_perm_brightness">System brightness</string>
+    <string name="horizon_perm_brightness_desc">Optional permission to change system brightness from Nexus Control.</string>
+    <string name="horizon_perm_files">Retro file access</string>
+    <string name="horizon_perm_files_desc">The current ROM scanner uses broad file access. Grant only if using local ROM libraries.</string>
+    <string name="horizon_perm_notifications">Notification access</string>
+    <string name="horizon_perm_notifications_desc">Optional access to notification content for the notification center and replies.</string>
+    <string name="horizon_perm_quiet">Do not disturb control</string>
+    <string name="horizon_perm_quiet_desc">Optional access for changing the Android interruption filter.</string>
+    <string name="horizon_perm_mic">Microphone access</string>
+    <string name="horizon_perm_mic_desc">Optional microphone permission for PC streaming voice. Opens the permission settings for this app.</string>
+    <string name="horizon_perm_granted">Granted</string>
+    <string name="horizon_perm_missing">Not granted</string>
+    <string name="horizon_perm_unavailable">Unavailable</string>
+</resources>
