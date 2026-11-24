@@ -46,6 +46,23 @@ public final class ResumeTicket {
     private static final long QUALITY_MAX_AGE_MS = 60 * 1000L;
 
     private static Bundle memoryExtras;
+    private static final com.limelight.pocket.core.HorizonResumeOwnership OWNERSHIP =
+            new com.limelight.pocket.core.HorizonResumeOwnership();
+
+    public static final class Taken {
+        public final Intent intent;
+        public final int reason;
+        private final com.limelight.pocket.core.HorizonResumeOwnership.Lease lease;
+        private Taken(Intent intent, int reason, com.limelight.pocket.core.HorizonResumeOwnership.Lease lease) {
+            this.intent = intent; this.reason = reason; this.lease = lease;
+        }
+    }
+    private static long epoch() {
+        return com.limelight.pocket.core.HorizonLaunchRequests.shared().generation();
+    }
+    private static long maxAge(int reason) {
+        return reason == REASON_SUSPEND ? SUSPEND_MAX_AGE_MS : QUALITY_MAX_AGE_MS;
+    }
     private static final com.limelight.pocket.core.HorizonShutdownBarrier SHUTDOWN =
             new com.limelight.pocket.core.HorizonShutdownBarrier();
 
@@ -54,7 +71,8 @@ public final class ResumeTicket {
     }
 
     /** A stream started: remember how to start it again and forget any older ticket. */
-    public static void remember(Context context, Intent gameIntent) {
+    public static synchronized void remember(Context context, Intent gameIntent) {
+        OWNERSHIP.invalidate();
         try {
             Bundle extras = gameIntent.getExtras() != null ? new Bundle(gameIntent.getExtras()) : new Bundle();
             extras.remove(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
@@ -76,7 +94,8 @@ public final class ResumeTicket {
     }
 
     /** recoverAttempt >= 0 marks a reconnect after a drop; -1 clears the count. */
-    public static void arm(Context context, int reason, int bitrateKbps, int fps, int adaptiveSteps, int recoverAttempt) {
+    public static synchronized void arm(Context context, int reason, int bitrateKbps, int fps, int adaptiveSteps, int recoverAttempt) {
+        OWNERSHIP.invalidate();
         try {
             Bundle extras = memoryExtras != null ? new Bundle(memoryExtras) : decode(prefs(context).getString(KEY_EXTRAS, null));
             if (extras == null) {
@@ -113,46 +132,59 @@ public final class ResumeTicket {
         }
     }
 
-    public static void disarm(Context context) {
+    public static synchronized void disarm(Context context) {
+        OWNERSHIP.invalidate();
         prefs(context).edit().putLong(KEY_ARMED_AT, 0).apply();
     }
 
-    public static boolean isArmed(Context context) {
-        long armedAt = prefs(context).getLong(KEY_ARMED_AT, 0);
-        if (armedAt == 0) {
-            return false;
-        }
-        long age = System.currentTimeMillis() - armedAt;
-        long max = prefs(context).getInt(KEY_REASON, REASON_SUSPEND) == REASON_SUSPEND
-                ? SUSPEND_MAX_AGE_MS : QUALITY_MAX_AGE_MS;
-        return age >= 0 && age < max;
+    public static synchronized boolean isArmed(Context context) {
+        return com.limelight.pocket.core.HorizonResumeOwnership.validAge(
+                prefs(context).getLong(KEY_ARMED_AT, 0), maxAge(reason(context)), System.currentTimeMillis());
     }
 
     public static int reason(Context context) {
         return prefs(context).getInt(KEY_REASON, REASON_SUSPEND);
     }
 
-    /** The armed stream, ready to start, or null. Taking it disarms it. */
-    public static Intent take(Context context) {
-        if (!isArmed(context)) {
-            return null;
-        }
+    /** Take and disarm atomically. Restore is allowed only for this exact record and epoch. */
+    public static synchronized Taken takeOwned(Context context) {
+        long armedAt = prefs(context).getLong(KEY_ARMED_AT, 0);
+        int reason = reason(context);
+        com.limelight.pocket.core.HorizonResumeOwnership.Lease lease =
+                OWNERSHIP.take(armedAt, maxAge(reason), epoch(), System.currentTimeMillis());
+        if (lease == null) return null;
         Bundle extras = memoryExtras != null ? new Bundle(memoryExtras) : decode(prefs(context).getString(KEY_EXTRAS, null));
-        disarm(context);
+        prefs(context).edit().putLong(KEY_ARMED_AT, 0).apply();
         if (extras == null || extras.getString(Game.EXTRA_HOST) == null) {
+            OWNERSHIP.discard(lease);
             return null;
         }
+        extras.remove(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
         Intent intent = new Intent(context, Game.class);
         intent.putExtras(extras);
-        return intent;
+        return new Taken(intent, reason, lease);
     }
 
-    /** Puts a taken ticket back (the screen went away before it was used). */
-    public static void putBack(Context context, int reason) {
-        prefs(context).edit()
-                .putLong(KEY_ARMED_AT, System.currentTimeMillis())
-                .putInt(KEY_REASON, reason)
-                .apply();
+    public static synchronized boolean current(Taken taken) {
+        return taken != null && OWNERSHIP.current(taken.lease, epoch(), System.currentTimeMillis());
+    }
+
+    public static synchronized boolean consume(Taken taken) {
+        return taken != null && OWNERSHIP.consume(taken.lease, epoch(), System.currentTimeMillis());
+    }
+
+    public static synchronized void discard(Taken taken) {
+        if (taken != null) OWNERSHIP.discard(taken.lease);
+    }
+
+    /** Restore original age, never rearm a superseded, expired or already consumed record. */
+    public static synchronized void restore(Context context, Taken taken) {
+        if (taken != null && prefs(context).getLong(KEY_ARMED_AT, 0) == 0 && consume(taken)) {
+            prefs(context).edit().putLong(KEY_ARMED_AT, taken.lease.armedAt)
+                    .putInt(KEY_REASON, taken.reason).apply();
+        } else {
+            discard(taken);
+        }
     }
 
     public static String appName(Intent intent) {
