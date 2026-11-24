@@ -8,6 +8,7 @@ param(
     [string]$OutputDirectory = "$env:LOCALAPPDATA\PocketNexusRelease"
 )
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "NexusReleaseLedger.ps1")
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $key = [IO.Path]::GetFullPath($KeyStore)
 $out = [IO.Path]::GetFullPath($OutputDirectory)
@@ -43,13 +44,14 @@ $signer = Join-Path $buildTools.FullName "apksigner.bat"
 $aapt = Join-Path $buildTools.FullName "aapt.exe"
 if (-not (Test-Path -LiteralPath $aapt)) { throw "aapt.exe missing." }
 $destination = Join-Path $out ("PocketNexus-" + $VersionCode + ".apk")
-if (Test-Path -LiteralPath $destination) { throw "Output already exists. Never silently replace a release." }
-$names = @("NEXUS_KEYSTORE","NEXUS_KEY_ALIAS","NEXUS_STORE_PASSWORD","NEXUS_KEY_PASSWORD","NEXUS_VERSION_CODE","GITHUB_SHA")
+if ((Test-Path -LiteralPath $destination) -or (Test-Path -LiteralPath ($destination + ".json"))) { throw "Output already exists. Never silently replace a release." }
+$names = @("NEXUS_KEYSTORE","NEXUS_KEY_ALIAS","NEXUS_STORE_PASSWORD","NEXUS_KEY_PASSWORD","NEXUS_VERSION_CODE","GITHUB_SHA","SOURCE_DATE_EPOCH")
 $old = @{}
 foreach ($n in $names) { $old[$n] = [Environment]::GetEnvironmentVariable($n, "Process") }
 $secret = Read-Host "Keystore password (local only)" -AsSecureString
 $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
 $cert = Join-Path ([IO.Path]::GetTempPath()) ("nexus-cert-" + [guid]::NewGuid() + ".der")
+$ledgerLock = $null
 Push-Location $root
 try {
     $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
@@ -62,9 +64,15 @@ try {
     if ($LASTEXITCODE -ne 0 -or $sha -notmatch '^[a-f0-9]{40}$') { throw "Git revision unavailable." }
     if (@(& git status --porcelain --untracked-files=normal).Count -ne 0) { throw "Build from a clean checked-out source tree." }
     $env:GITHUB_SHA = $sha
+    $epoch = (& git show -s --format=%ct HEAD | Select-Object -First 1)
+    if ($LASTEXITCODE -ne 0 -or $epoch -notmatch "^[0-9]+$") { throw "Git commit time unavailable." }
+    $env:SOURCE_DATE_EPOCH = $epoch
     & keytool.exe -exportcert -alias $Alias -keystore $key -storepass:env NEXUS_STORE_PASSWORD -file $cert
     if ($LASTEXITCODE -ne 0) { throw "Could not verify owner certificate." }
     $expected = (Get-FileHash -Algorithm SHA256 -LiteralPath $cert).Hash.ToLowerInvariant()
+    $ledgerPath = $key + ".release-ledger.json"
+    $ledgerLock = Open-NexusReleaseLock $ledgerPath
+    Assert-NexusReleaseVersion $ledgerPath $expected $VersionCode
     & .\gradlew.bat --no-daemon -PpocketAbis=arm64-v8a :app:assembleNonRoot_gameRelease
     if ($LASTEXITCODE -ne 0) { throw "Release build failed." }
     $apks = @(Get-ChildItem "app\build\outputs\apk\nonRoot_game\release" -Filter *.apk -File)
@@ -81,7 +89,9 @@ try {
         throw "APK identity/version verification failed."
     }
     New-Item -ItemType Directory -Path $out -Force | Out-Null
-    Copy-Item -LiteralPath $apk -Destination $destination
+    # Reserve this version before exposing the APK. An interrupted delivery consumes the code safely.
+    Save-NexusReleaseVersion $ledgerPath $expected $VersionCode
+    [IO.File]::Copy($apk, $destination, $false)
     $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $destination).Hash.ToLowerInvariant()
     [ordered]@{ package="com.pocketnexus.console"; versionCode=$VersionCode; commit=$sha;
         certificateSha256=$expected; apkSha256=$hash; abi="arm64-v8a" } |
@@ -89,6 +99,7 @@ try {
     Write-Host "Verified owner-signed APK: $destination"
     Write-Host "Nothing installed or uploaded. For upgrades, use Test-NexusUpgrade.ps1 first."
 } finally {
+    if ($null -ne $ledgerLock) { $ledgerLock.Dispose() }
     foreach ($n in $names) { [Environment]::SetEnvironmentVariable($n, $old[$n], "Process") }
     $password = $null
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)

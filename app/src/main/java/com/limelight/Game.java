@@ -313,6 +313,19 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private String pocketMenuHotkey;
     private String pocketM2Hotkey;
     private boolean pocketGuideDown;
+    // Activity visibility, not focus: a stream dialog may temporarily own the window.
+    private boolean horizonInputVisible;
+    public static boolean ownsVisibleStreamInput() {
+        Game owner = instance;
+        return owner != null && owner.horizonInputVisible && !owner.isDestroyed();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        horizonInputVisible = true;
+        com.limelight.pocket.global.GlobalButtonEngine.streamTookInput();
+    }
     private ButtonGestures[] pocketGestures;
     private RadialMenuView radialMenu;
     private TextView pocketActionToast;
@@ -1884,11 +1897,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        horizonInputVisible = false;
         HorizonStreamObserver.instance().ended(horizonStreamTicket);
         super.onDestroy();
         com.limelight.pocket.apps.HomeScreen.streaming = false;
 
-        instance = null;
+        if (instance == this) instance = null;
         timerHandler.removeCallbacksAndMessages(null);
         if (streamMenu != null) {
             streamMenu.hide();
@@ -1953,6 +1967,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        horizonInputVisible = false;
         HorizonStreamObserver.instance().ended(horizonStreamTicket);
         super.onStop();
 

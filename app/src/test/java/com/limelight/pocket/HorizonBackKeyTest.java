@@ -59,6 +59,12 @@ public class HorizonBackKeyTest {
         p.accept(back(0,158,0));
         assertTrue(p.accept(back(1,158,0)));
     }
+    @Test public void physicalVirtualFlaggedHomeStillMapsToGuide() {
+        KeyEvent home = key(0, KeyEvent.KEYCODE_HOME,172,KeyEvent.FLAG_VIRTUAL_HARD_KEY,InputDevice.SOURCE_KEYBOARD,100);
+        assertTrue(PocketPrefs.matchesHome("auto", home));
+        assertTrue(PocketPrefs.matchesHome("k:3", home));
+        assertFalse(PocketPrefs.matchesHome("auto", key(0,3,172,KeyEvent.FLAG_FALLBACK,InputDevice.SOURCE_KEYBOARD,100)));
+    }
     @Test public void matchingPressOnlyOpensOnRelease() {
         HorizonBackKey.Press p = new HorizonBackKey.Press();
         assertFalse(p.accept(back(1,158,0)));
