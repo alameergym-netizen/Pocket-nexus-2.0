@@ -689,6 +689,7 @@ public class ControlCenterActivity extends Activity {
             state.setEllipsize(TextUtils.TruncateAt.END);
             addView(state, new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             paint(false);
+            paintSurface(this, bg, false, false, d);
             setOnFocusChangeListener((v, has) -> {
                 if (has) {
                     PocketSounds.play(getContext(), PocketSounds.NAV);
@@ -771,6 +772,7 @@ public class ControlCenterActivity extends Activity {
             vl.setMarginStart(Math.round(6 * d));
             addView(value, vl);
             paint(false);
+            paintSurface(this, bg, false, false, d);
             setOnFocusChangeListener((v, has) -> {
                 if (has) {
                     PocketSounds.play(getContext(), PocketSounds.NAV);
@@ -818,9 +820,13 @@ public class ControlCenterActivity extends Activity {
             float target;
             float shown = -1f;
             boolean focused;
+            private final boolean motion;
+            private final int fill;
 
             Track(Context c) {
                 super(c);
+                motion = PocketPrefs.animationsEnabled(c);
+                fill = HorizonControls.focusColor(accent(c));
             }
 
             @Override
@@ -828,7 +834,7 @@ public class ControlCenterActivity extends Activity {
                 if (shown < 0) {
                     shown = target;
                 }
-                shown = PocketPrefs.animationsEnabled(getContext()) ? shown + (target - shown) * 0.35f : target;
+                shown = motion ? shown + (target - shown) * 0.35f : target;
                 if (Math.abs(target - shown) > 0.002f) {
                     postInvalidateOnAnimation();
                 }
@@ -842,7 +848,7 @@ public class ControlCenterActivity extends Activity {
                 c.drawRoundRect(r, h / 2f, h / 2f, paint);
                 if (shown > 0f) {
                     r.right = getWidth() * shown;
-                    paint.setColor(focused ? INK : HorizonControls.focusColor(accent(getContext())));
+                    paint.setColor(focused ? INK : fill);
                     c.drawRoundRect(r, h / 2f, h / 2f, paint);
                 }
             }
