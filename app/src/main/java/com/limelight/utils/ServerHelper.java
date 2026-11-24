@@ -157,12 +157,13 @@ public class ServerHelper {
             ComputerManagerService.ComputerManagerBinder managerBinder,
             boolean withVDisplay
     ) {
+        if (parent == null || parent.isFinishing() || parent.isDestroyed()
+                || computer == null || app == null || managerBinder == null) return;
         if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null) {
             Toast.makeText(parent, parent.getString(R.string.pair_pc_offline), Toast.LENGTH_SHORT).show();
             return;
         }
 
-        final Intent intent = createStartIntent(parent, app, computer, managerBinder, withVDisplay);
         if (parent instanceof com.limelight.pocket.ConsoleActivity) {
             final com.limelight.pocket.ConsoleActivity console = (com.limelight.pocket.ConsoleActivity) parent;
             // Pocket Nexus: the press answers at once (the game's card grows into the
@@ -170,34 +171,34 @@ public class ServerHelper {
             // screen (that can leave this device's virtual display switched off)
             // The sign-in check runs while the card grows (not after it: no wait on a black screen);
             // the stream starts once both are done
-            final boolean[] ready = {false, false};
-            final Runnable startNow = () -> {
-                if (!ready[0] || !ready[1]) {
-                    return;
-                }
-                ready[0] = false; // once
+            final long ticket = console.beginStreamDispatch();
+            if (ticket == 0) return;
+            final Intent intent;
+            try {
+                intent = createStartIntent(parent, app, computer, managerBinder, withVDisplay);
+            } catch (RuntimeException e) {
+                console.cancelStreamDispatch(ticket);
+                throw e;
+            }
+            final java.util.function.Consumer<com.limelight.pocket.core.HorizonStreamDispatch.Stage> ready = stage -> {
+                if (!console.arriveStreamDispatch(ticket, stage)) return;
                 parent.startActivity(intent);
                 if (com.limelight.pocket.PocketPrefs.animationsEnabled(parent)) {
                     parent.overridePendingTransition(R.anim.pocket_launch_in, R.anim.pocket_hold);
                 }
             };
-            console.runWhenSignedIn(intent, () -> {
-                ready[1] = true;
-                startNow.run();
-            }, null);
+            console.runWhenSignedIn(intent,
+                    () -> ready.accept(com.limelight.pocket.core.HorizonStreamDispatch.Stage.SIGN_IN),
+                    () -> console.cancelStreamDispatch(ticket));
             if (com.limelight.pocket.PocketPrefs.animationsEnabled(parent)) {
-                console.playLaunchZoom(() -> {
-                    ready[0] = true;
-                    startNow.run();
-                });
+                console.playLaunchZoom(() -> ready.accept(com.limelight.pocket.core.HorizonStreamDispatch.Stage.ANIMATION));
             }
             else {
-                ready[0] = true;
-                startNow.run();
+                ready.accept(com.limelight.pocket.core.HorizonStreamDispatch.Stage.ANIMATION);
             }
             return;
         }
-        parent.startActivity(intent);
+        parent.startActivity(createStartIntent(parent, app, computer, managerBinder, withVDisplay));
         if (com.limelight.pocket.PocketPrefs.animationsEnabled(parent)) {
             parent.overridePendingTransition(R.anim.pocket_launch_in, R.anim.pocket_launch_out);
         }
