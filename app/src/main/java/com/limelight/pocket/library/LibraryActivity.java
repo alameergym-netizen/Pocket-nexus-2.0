@@ -650,7 +650,7 @@ public class LibraryActivity extends ConsoleActivity {
         if (g == null) {
             return false;
         }
-        play(g.best());
+        playGame(g);
         return true;
     }
 
@@ -686,6 +686,11 @@ public class LibraryActivity extends ConsoleActivity {
         focusAt(pick, 0);
     }
 
+    private void playGame(UniversalLibrary.Game game) {
+        if (game.requiresPcChoice()) options(game);
+        else play(game.best());
+    }
+
     private void play(UniversalLibrary.Way way) {
         if (way == null) {
             return;
@@ -717,9 +722,13 @@ public class LibraryActivity extends ConsoleActivity {
     private void options(final UniversalLibrary.Game g) {
         List<StreamMenuView.Item> items = new ArrayList<>();
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_ul_play_on)));
+        boolean choose = g.requiresPcChoice();
+        if (choose) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_pc_choice)));
         UniversalLibrary.Way best = g.best();
         for (final UniversalLibrary.Way w : g.ways) {
-            items.add(StreamMenuView.Item.action((w == best ? "▶  " : "") + w.label, () -> {
+            String label = choose && HomeItem.PC.equals(w.item.kind)
+                    ? getString(R.string.horizon_library_pc_app, w.label, w.item.n) : w.label;
+            items.add(StreamMenuView.Item.action((!choose && w == best ? "▶  " : "") + label, () -> {
                 hideConsolePanel();
                 play(w);
             }).withIcon(w.platform == UniversalLibrary.PLATFORM_PC ? "DESKTOP"
@@ -880,7 +889,7 @@ public class LibraryActivity extends ConsoleActivity {
                 int p = h.getBindingAdapterPosition();
                 if (p != RecyclerView.NO_POSITION && p < shown.size()) {
                     FocusGlow.press(card);
-                    play(shown.get(p).best());
+                    playGame(shown.get(p));
                 }
             });
             card.setOnKeyListener((v, code, e) -> {
@@ -894,7 +903,7 @@ public class LibraryActivity extends ConsoleActivity {
                     if (e.getAction() == KeyEvent.ACTION_UP) {
                         if (confirm) {
                             FocusGlow.press(card);
-                            play(shown.get(p).best());
+                            playGame(shown.get(p));
                         }
                         else {
                             options(shown.get(p));
