@@ -90,6 +90,7 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
     private int status = -1;
     private String statusDetail = "";
     private boolean loaded;
+    private boolean showingCachedLibrary;
     private boolean loading;
     private boolean resumed;
     private int artVersion = com.limelight.pocket.PocketArt.version();
@@ -186,7 +187,9 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
 
         List<PcGame> cached = PcLibrary.cached(uuid);
         if (cached != null) {
-            status = PcLibrary.OK;
+            // A cached list is not proof that the companion is reachable or paired.
+            status = PcLibrary.NO_HELPER;
+            showingCachedLibrary = true;
             show(cached);
         }
         else {
@@ -264,8 +267,13 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
             loaded = true;
             status = result.status;
             statusDetail = result.detail != null ? result.detail : "";
-            show(result.games);
-            if (first && result.status != PcLibrary.OK && result.games.isEmpty()) {
+            List<PcGame> lastComplete = result.status == PcLibrary.NO_HELPER ? PcLibrary.cached(uuid) : null;
+            showingCachedLibrary = lastComplete != null;
+            // Never replace the visible complete library with a partial response on transport failure.
+            // Do not fall back to the old list after an explicit auth or compatibility error.
+            List<PcGame> visible = showingCachedLibrary ? lastComplete : result.games;
+            show(visible);
+            if (first && result.status != PcLibrary.OK && visible.isEmpty()) {
                 explainHelper();
             }
             handler.removeCallbacks(poll);
@@ -387,6 +395,9 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
             return;
         }
         String label = getString(filterLabel(filter)) + "  ·  " + adapter.getCount();
+        if (showingCachedLibrary) {
+            label += "  ·  " + getString(R.string.horizon_library_cached);
+        }
         if (!label.contentEquals(section.getText())) {
             section.setText(label);
         }
