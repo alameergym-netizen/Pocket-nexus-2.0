@@ -2497,13 +2497,6 @@ function Invoke-SelfTest {
     $writer.WriteLine("STEAM INSTALL abc"); Check ($reader.ReadLine() -eq "ERR id") "STEAM INSTALL checks the id"
     $writer.WriteLine("STEAM INSTALL abc PICK"); Check ($reader.ReadLine() -eq "ERR id") "STEAM INSTALL PICK checks the id"
     $writer.WriteLine("PCLIB"); $pl = $reader.ReadLine(); Check ($pl -like "PCLIB*") ("PCLIB: " + $pl)
-    $catalog = New-Object IO.MemoryStream
-    try {
-        [PcGames]::WriteSecureLibrary($catalog)
-        $safeRows = [Text.Encoding]::UTF8.GetString($catalog.ToArray()).Trim().Split([char]10)
-        Check ($safeRows.Length -gt 1 -and $safeRows[-1] -match '^END [0-9]+$') "secure library writes a counted fixture response"
-        Check (@($safeRows[0..($safeRows.Length - 2)] | Where-Object { $_ -notmatch '^S\t[^\t]+\t[^\t]*\t[01]$' }).Count -eq 0) "secure library only emits name, source and installed flag"
-    } finally { $catalog.Dispose() }
     $writer.WriteLine("APOLLOLOG")
     $n = 0
     while ($true) { $line = $reader.ReadLine(); if ($line -eq $null -or $line.StartsWith("END") -or $line.StartsWith("ERR")) { break }; $n++ }
@@ -2565,6 +2558,13 @@ function Invoke-SelfTest {
         Check ($info.Count -eq 5 -and $info[[uint32]400][0] -eq "Some SDK" -and $info[[uint32]400][1] -eq "tool") "appinfo.vdf v28"
         $info27 = [PcGames]::ReadAppInfo([IO.File]::ReadAllBytes("$fx\appinfo_v27.vdf"), $null)
         Check ($info27.Count -eq 5 -and $info27[[uint32]200][0] -eq "Owned Not Installed") "appinfo.vdf v27"
+        $catalog = New-Object IO.MemoryStream
+        try {
+            [PcGames]::WriteSecureLibrary($catalog)
+            $safeRows = [Text.Encoding]::UTF8.GetString($catalog.ToArray()).Trim().Split([char]10)
+            Check ($safeRows.Length -gt 1 -and $safeRows[-1] -eq ("END " + ($safeRows.Length - 1))) "secure library writes a counted fixture response"
+            Check (@($safeRows[0..($safeRows.Length - 2)] | Where-Object { $_ -notmatch '^S\t[^\t]+\t[^\t]*\t[01]$' }).Count -eq 0) "secure library only emits name, source and installed flag"
+        } finally { $catalog.Dispose() }
         [PcGames]::SteamRootOverride = $null
     } else {
         Check $false "test fixtures missing (run tests\make_fixtures.py)"

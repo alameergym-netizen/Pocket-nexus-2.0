@@ -51,6 +51,15 @@ namespace PocketNexus
             }
             finally { host.Stop(); }
 
+            // An older status-only device record contained just a name and a digest.
+            string[] savedDevices = File.ReadAllLines(credentialFile);
+            for (int i = 0; i < savedDevices.Length; i++)
+            {
+                if (savedDevices[i].StartsWith("Other handheld\t", StringComparison.Ordinal))
+                    savedDevices[i] = savedDevices[i].Substring(0, savedDevices[i].LastIndexOf('\t'));
+            }
+            File.WriteAllLines(credentialFile, savedDevices);
+
             host = Start(certificate, credentialFile);
             try
             {
