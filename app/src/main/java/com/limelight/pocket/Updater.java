@@ -36,11 +36,11 @@ import java.util.regex.Pattern;
  */
 public final class Updater {
 
-    private static final String REPO = "alameergym-netizen/artemis-pocket";
+    private static final String REPO = "alameergym-netizen/Pocket-nexus-2.0";
     private static final String KEY_LAST_CHECK = "pocket_update_checked";
     private static final String KEY_AVAILABLE = "pocket_update_available";
     private static final long EVERY_MS = 6 * 60 * 60 * 1000L;
-    private static final Pattern APK = Pattern.compile("PocketNexus-([0-9a-f]{7})\\.apk");
+    private static final Pattern APK = Pattern.compile("PocketNexus2-([0-9a-f]{7})\\.apk");
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile boolean downloading;
@@ -95,6 +95,10 @@ public final class Updater {
 
     public static void check(Context context, final Checked done) {
         final Context c = context.getApplicationContext();
+        if (BuildConfig.DEBUG) {
+            MAIN.post(() -> done.onChecked(null, "Updates are disabled in development builds"));
+            return;
+        }
         IO.execute(() -> {
             Release r = null;
             String error = null;
@@ -168,7 +172,7 @@ public final class Updater {
                         f.delete();
                     }
                 }
-                out = new File(dir, "PocketNexus-" + r.sha + ".apk");
+                out = new File(dir, "PocketNexus2-" + r.sha + ".apk");
                 HttpURLConnection con = open(r.url);
                 long total = con.getContentLengthLong() > 0 ? con.getContentLengthLong() : r.size;
                 long got = 0;
@@ -205,6 +209,17 @@ public final class Updater {
 
     /** Hands the downloaded build to Android's installer (asking for the permission first if needed). */
     public static void install(Activity a, File apk) {
+        // Never hand an unrelated or older package to the installer.
+        if (BuildConfig.DEBUG || apk == null || !apk.isFile()) { return; }
+        android.content.pm.PackageManager pm = a.getPackageManager();
+        try {
+            android.content.pm.PackageInfo candidate = pm.getPackageArchiveInfo(apk.getAbsolutePath(), 0);
+            android.content.pm.PackageInfo current = pm.getPackageInfo(a.getPackageName(), 0);
+            if (candidate == null || !a.getPackageName().equals(candidate.packageName)) { return; }
+            long nextCode = Build.VERSION.SDK_INT >= 28 ? candidate.getLongVersionCode() : candidate.versionCode;
+            long currentCode = Build.VERSION.SDK_INT >= 28 ? current.getLongVersionCode() : current.versionCode;
+            if (nextCode <= currentCode) { return; }
+        } catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException e) { return; }
         if (Build.VERSION.SDK_INT >= 26 && !a.getPackageManager().canRequestPackageInstalls()) {
             // Android asks once: "allow Pocket Nexus to install apps"
             a.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,

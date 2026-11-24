@@ -14,9 +14,9 @@ android {
         // Pocket Nexus is English only (the controller keyboard still types Arabic)
         resourceConfigurations += ["en"]
 
-        versionName "1.0.0-pocket"
+        versionName "2.0.0-alpha.1"
         // Each CI build counts up (so the in-app updater's installs are always newer)
-        versionCode = 100 + (System.getenv('GITHUB_RUN_NUMBER') ?: '0').toInteger()
+        versionCode = 20000 + (System.getenv('GITHUB_RUN_NUMBER') ?: '0').toInteger()
         // The build's commit, for the in-app updater to compare with the newest release
         buildConfigField "String", "GIT_SHA", "\"${(System.getenv('GITHUB_SHA') ?: 'dev').take(7)}\""
 
@@ -46,9 +46,9 @@ android {
 
             resValue "string",
                     "obtainium_app_url",
-                    "https://github.com/alameergym-netizen/artemis-pocket/releases"
+                    "https://github.com/alameergym-netizen/Pocket-nexus-2.0/releases"
 
-            applicationId "com.artemispocket"
+            applicationId "com.pocketnexus.console"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "false"
         }
@@ -67,14 +67,21 @@ android {
         abortOnError false
     }
 
+    // Release signing is independent of the legacy Pocket Nexus key.
+    def horizonSigning = ['NEXUS_KEYSTORE', 'NEXUS_STORE_PASSWORD',
+                          'NEXUS_KEY_ALIAS', 'NEXUS_KEY_PASSWORD']
+    def hasHorizonSigning = horizonSigning.every { System.getenv(it) }
+    if (!hasHorizonSigning && horizonSigning.any { System.getenv(it) }) {
+        throw new GradleException('Incomplete Nexus release signing configuration')
+    }
     signingConfigs {
-        // A fixed key committed with the project so every CI build can update the previous one
-        // in place (a fresh debug key per build would force an uninstall each time).
-        pocket {
-            storeFile rootProject.file('keystore/artemis-pocket.jks')
-            storePassword 'artemispocket'
-            keyAlias 'artemispocket'
-            keyPassword 'artemispocket'
+        if (hasHorizonSigning) {
+            horizon {
+                storeFile rootProject.file(System.getenv('NEXUS_KEYSTORE'))
+                storePassword System.getenv('NEXUS_STORE_PASSWORD')
+                keyAlias System.getenv('NEXUS_KEY_ALIAS')
+                keyPassword System.getenv('NEXUS_KEY_PASSWORD')
+            }
         }
     }
 
@@ -101,10 +108,10 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
-            resValue "string", "app_label", "Pocket Nexus (Debug)"
-            resValue "string", "app_label_root", "Pocket Nexus (Debug)"
-            resValue "string", "app_label_game", "Pocket Nexus (Debug)"
-            signingConfig signingConfigs.pocket
+            resValue "string", "app_label", "Pocket Nexus 2.0 (Dev)"
+            resValue "string", "app_label_root", "Pocket Nexus 2.0 (Dev)"
+            resValue "string", "app_label_game", "Pocket Nexus 2.0 (Dev)"
+            signingConfig signingConfigs.debug
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -140,12 +147,11 @@ android {
             // is to please change the applicationId before you publish.
             //
             // TL;DR: Leave the following line alone!
-            // Artemis Pocket uses its own application ID (com.artemispocket), so it installs
-            // next to the official Artemis instead of replacing it.
-            resValue "string", "app_label", "Pocket Nexus"
-            resValue "string", "app_label_root", "Pocket Nexus"
-            resValue "string", "app_label_game", "Pocket Nexus"
-            signingConfig signingConfigs.pocket
+            // Horizon uses its own application ID, independent of Pocket Nexus 1.0.
+            resValue "string", "app_label", "Pocket Nexus 2.0"
+            resValue "string", "app_label_root", "Pocket Nexus 2.0"
+            resValue "string", "app_label_game", "Pocket Nexus 2.0"
+            if (hasHorizonSigning) { signingConfig signingConfigs.horizon }
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

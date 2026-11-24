@@ -49,3 +49,11 @@ app/.externalNativeBuild/
 AGENTS.md
 # Made by pc-setup/tests/make_fixtures.py in CI
 pc-setup/tests/fixtures/
+
+# Horizon local signing material and private exports
+*.jks
+*.keystore
+*.p12
+*.pfx
+.env
+local-exports/

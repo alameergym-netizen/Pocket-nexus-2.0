@@ -102,7 +102,7 @@ public final class UniversalLibrary {
         Context app = context.getApplicationContext();
         Map<String, Game> games = new LinkedHashMap<>();
         Map<String, Way> seenWays = new HashMap<>();
-        wayOwner.clear();
+        Map<String, Game> wayOwner = new HashMap<>();
 
         // The PCs, and each one's games
         List<ComputerDetails> pcs = new ArrayList<>();
@@ -130,7 +130,7 @@ public final class UniversalLibrary {
                 if (notAGame(name)) {
                     continue;
                 }
-                add(games, seenWays, new HomeItem(HomeItem.PC, name, pc.uuid, "", "", g.app.getAppId()),
+                add(games, seenWays, wayOwner, new HomeItem(HomeItem.PC, name, pc.uuid, "", "", g.app.getAppId()),
                         pc.name != null ? pc.name : "PC", "PC", g.lastPlayed, PLATFORM_PC);
             }
         }
@@ -152,7 +152,7 @@ public final class UniversalLibrary {
             androidGames.add(a.packageName);
             long used = com.limelight.pocket.PocketPrefs.prefs(app).getLong("pocket_apps_used_" + a.packageName, 0);
             String name = com.limelight.pocket.PocketPrefs.customName(app, AndroidLibrary.UUID, id, a.label);
-            add(games, seenWays, new HomeItem(HomeItem.ANDROID, name, a.packageName, "", "", 0),
+            add(games, seenWays, wayOwner, new HomeItem(HomeItem.ANDROID, name, a.packageName, "", "", 0),
                     app.getString(R.string.pocket_ul_android), "Android", used, PLATFORM_ANDROID);
         }
 
@@ -165,7 +165,7 @@ public final class UniversalLibrary {
                 for (RomScanner.Rom r : roms) {
                     EsdeConfig.SystemDef s = cfg.system(r.system);
                     String where = s != null && s.fullName != null ? s.fullName : r.system.toUpperCase(Locale.ROOT);
-                    add(games, seenWays, new HomeItem(HomeItem.RETRO, RomScanner.searchName(r.name), r.system, r.relPath, "", 0),
+                    add(games, seenWays, wayOwner, new HomeItem(HomeItem.RETRO, RomScanner.searchName(r.name), r.system, r.relPath, "", 0),
                             where, r.system.toUpperCase(Locale.ROOT), 0, PLATFORM_RETRO);
                 }
             }
@@ -178,31 +178,31 @@ public final class UniversalLibrary {
                 HomeItem i = e.item;
                 switch (i.kind) {
                     case HomeItem.PC:
-                        add(games, seenWays, i, e.pcName.isEmpty() ? "PC" : e.pcName, "PC", e.lastUsed, PLATFORM_PC);
+                        add(games, seenWays, wayOwner, i, e.pcName.isEmpty() ? "PC" : e.pcName, "PC", e.lastUsed, PLATFORM_PC);
                         break;
                     case HomeItem.PC_LIBRARY_GAME:
-                        add(games, seenWays, i, i.c.isEmpty() ? "PC" : i.c, "PC", e.lastUsed, PLATFORM_PC);
+                        add(games, seenWays, wayOwner, i, i.c.isEmpty() ? "PC" : i.c, "PC", e.lastUsed, PLATFORM_PC);
                         break;
                     case HomeItem.CLOUD: {
                         if (i.b.isEmpty()) {
                             break; // the service itself, not a game
                         }
                         CloudService s = CloudService.byId(i.a);
-                        add(games, seenWays, i, s != null ? app.getString(s.name) : i.a,
+                        add(games, seenWays, wayOwner, i, s != null ? app.getString(s.name) : i.a,
                                 app.getString(R.string.pocket_ul_badge_cloud), e.lastUsed, PLATFORM_CLOUD);
                         break;
                     }
                     case HomeItem.NATIVE:
-                        add(games, seenWays, i, app.getString(R.string.pocket_ul_on_handheld), "PC", e.lastUsed, PLATFORM_ANDROID);
+                        add(games, seenWays, wayOwner, i, app.getString(R.string.pocket_ul_on_handheld), "PC", e.lastUsed, PLATFORM_ANDROID);
                         break;
                     case HomeItem.ANDROID:
                         if (androidGames.contains(i.a)) {
-                            add(games, seenWays, i, app.getString(R.string.pocket_ul_android), "Android", e.lastUsed,
+                            add(games, seenWays, wayOwner, i, app.getString(R.string.pocket_ul_android), "Android", e.lastUsed,
                                     PLATFORM_ANDROID);
                         }
                         break;
                     case HomeItem.RETRO:
-                        add(games, seenWays, i, i.a.toUpperCase(Locale.ROOT), i.a.toUpperCase(Locale.ROOT), e.lastUsed,
+                        add(games, seenWays, wayOwner, i, i.a.toUpperCase(Locale.ROOT), i.a.toUpperCase(Locale.ROOT), e.lastUsed,
                                 PLATFORM_RETRO);
                         break;
                     default:
@@ -224,7 +224,7 @@ public final class UniversalLibrary {
         return out;
     }
 
-    private static void add(Map<String, Game> games, Map<String, Way> seenWays, HomeItem item, String label,
+    private static void add(Map<String, Game> games, Map<String, Way> seenWays, Map<String, Game> wayOwner, HomeItem item, String label,
                             String badge, long last, int platform) {
         Way known = seenWays.get(item.key());
         if (known != null) {
@@ -259,9 +259,6 @@ public final class UniversalLibrary {
         wayOwner.put(item.key(), g);
         g.last = Math.max(g.last, last);
     }
-
-    /** Which game each way belongs to (filled by a gathering; it runs on one thread at a time). */
-    private static final Map<String, Game> wayOwner = new HashMap<>();
 
     private static boolean notAGame(String name) {
         if (name == null) {

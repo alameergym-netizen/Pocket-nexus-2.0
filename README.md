@@ -1,4 +1,6 @@
-# Pocket Nexus
+# Pocket Nexus 2.0 — Project Horizon
+
+**Development branch — foundation only.** No stable release yet. This independent fork preserves the original GPL notices and streaming engine. The development APK uses its own package ID with a `.debug` suffix. Do not overwrite the original installation. See [Horizon development notes](docs/HORIZON.md).
 
 *(formerly Artemis Pocket)*
 
