@@ -96,6 +96,25 @@ public class HorizonLaunchRequestsTest {
         assertFalse(q.current(request,101));
         assertTrue(q.beginPc(HorizonLaunchTarget.pc("pc",1),102)>request);
     }
+    @Test public void numericShortcutSharesOrdinaryPcTarget() {
+        assertEquals(HorizonLaunchTarget.pc("pc", 17),
+                HorizonLaunchTarget.pcShortcut("pc", null, 17, "renamed"));
+    }
+    @Test public void uuidOnlyShortcutsAndHostAreDistinct() {
+        HorizonLaunchTarget a = HorizonLaunchTarget.pcShortcut("pc", "a", -1, null);
+        HorizonLaunchTarget b = HorizonLaunchTarget.pcShortcut("pc", "b", -1, null);
+        assertNotEquals(a, b);
+        assertNotEquals(a, HorizonLaunchTarget.pcShortcut("pc", null, 0, null));
+        assertNotEquals(a, HorizonLaunchTarget.pc("pc", -1));
+    }
+    @Test public void shortcutCannotDispatchAfterNewSelectionOrPause() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long old = q.beginPc(HorizonLaunchTarget.pcShortcut("pc", "a", -1, null), 100);
+        long next = q.beginPc(HorizonLaunchTarget.pc("pc", 17), 200);
+        assertFalse(q.claim(old, 201));
+        q.cancel(next);
+        assertFalse(q.claim(next, 202));
+    }
     @Test public void toolsAreNotDebounced() {
         HorizonLaunchRequests q = new HorizonLaunchRequests();
         HorizonLaunchTarget t = item(HomeItem.NEXUS,"music","","",0);
