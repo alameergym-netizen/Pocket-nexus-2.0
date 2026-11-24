@@ -1588,7 +1588,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         }
         EsdeConfig.SystemDef s = cfg.system(e.rom.system);
         GamePageActivity.open(this, card, RetroLibrary.UUID, e.rom.id(), RomScanner.searchName(e.rom.name),
-                s != null ? s.fullName : getString(R.string.pocket_retro_title), false, false, cover);
+                s != null ? s.fullName : getString(R.string.pocket_retro_title), false, false, cover,homeItem(e.rom));
     }
 
     @Override
@@ -1613,20 +1613,17 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         if (requestCode == GamePageActivity.REQUEST && data != null
                 && GamePageActivity.ACTION_PLAY.equals(data.getStringExtra(GamePageActivity.RESULT_ACTION))) {
             int id = data.getIntExtra(GamePageActivity.RESULT_APP_ID, 0);
-            // The surprise game first (it may be in a system not open here)
-            if (surprise != null && surprise.id() == id) {
-                RomScanner.Rom r = surprise;
-                surprise = null;
-                play(r, null);
-                return;
-            }
-            for (int i = 0; i < adapter.getCount(); i++) {
-                Entry e = adapter.getItem(i);
-                if (e.kind == KIND_GAME && e.rom.id() == id) {
-                    play(e.rom, null);
+            com.limelight.pocket.home.HomeItem item = HorizonRetroPageIdentity.read(
+                    data.getStringExtra(GamePageActivity.RESULT_RETRO_ITEM),id);
+            surprise = null;
+            if (item != null && lib != null && HorizonRetroPageIdentity.matchesRoot(item,lib.root)) {
+                RomScanner.Rom rom = lib.find(item.a + "/" + item.b);
+                if (rom != null) {
+                    play(rom,null);
                     return;
                 }
             }
+            Toast.makeText(this,R.string.horizon_retro_source_changed,Toast.LENGTH_LONG).show();
         }
     }
 
@@ -1793,7 +1790,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         surprise = r;
         EsdeConfig.SystemDef s = cfg.system(r.system);
         GamePageActivity.open(this, null, RetroLibrary.UUID, r.id(), RomScanner.searchName(r.name),
-                s != null ? s.fullName : getString(R.string.pocket_retro_title), false, false, null);
+                s != null ? s.fullName : getString(R.string.pocket_retro_title), false, false, null,homeItem(r));
     }
 
     /** The ROM folder's settings (in every options menu here). */

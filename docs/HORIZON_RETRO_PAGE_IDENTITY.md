@@ -1,0 +1,3 @@
+# Source-aware Retro game pages
+
+Pass the originating HomeItem across the page activity boundary for RetroActivity and HomeActivity rather than reconstructing it from a collision-prone legacy integer ID. Return the same item for play; the Retro screen resolves the relative key only against its matching root, and Home launches through its existing source guard. Other callers without explicit source context cannot pin from that page; no guessed source binding. Four unit tests. Existing art, achievements, favorites and emulator preferences still use legacy IDs, so they are not migrated or claimed isolated. Physical UI verification required.
