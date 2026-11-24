@@ -43,6 +43,15 @@ public final class HomeLauncher {
     /** Starts it (true when it went; a message says why not otherwise). */
     public static void launch(final Activity a, final HomeItem item) {
         if (a == null || item == null || item.kind == null || a.isFinishing() || a.isDestroyed()) return;
+        // Cloud owns its request at the shared dispatch boundary, including direct Cloud screens.
+        if (HomeItem.CLOUD.equals(item.kind)) {
+            CloudService service = CloudService.byId(item.a);
+            if (service != null && CloudClients.play(a, service, item.b.isEmpty() ? null : item.b).dispatched()) {
+                HomeStore.record(a, item);
+                PocketSounds.play(a, PocketSounds.SELECT);
+            }
+            return;
+        }
         com.limelight.pocket.core.HorizonLaunchTarget target =
                 com.limelight.pocket.core.HorizonLaunchTarget.from(item);
         long request = REQUESTS.begin(target, android.os.SystemClock.elapsedRealtime());
@@ -54,17 +63,6 @@ public final class HomeLauncher {
             case HomeItem.PC_LIBRARY_GAME:
                 startPcLibraryGame(a, item);
                 return;
-            case HomeItem.CLOUD: {
-                CloudService s = CloudService.byId(item.a);
-                if (s == null) {
-                    return;
-                }
-                HomeStore.record(a, item);
-                PocketSounds.play(a, PocketSounds.SELECT);
-                // A game of it starts straight in it (its own link), in the client picked
-                CloudClients.play(a, s, item.b.isEmpty() ? null : item.b);
-                return;
-            }
             case HomeItem.RETRO:
                 startRetro(a, item, request);
                 return;

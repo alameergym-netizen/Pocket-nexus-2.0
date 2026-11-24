@@ -291,13 +291,12 @@ public class CloudGamesActivity extends Activity {
     // ---- Playing and pinning --------------------------------------------------------------------
 
     private void play(XcloudCatalog.Game g, CloudClients.Client with) {
-        PocketSounds.play(this, PocketSounds.SELECT);
-        HomeStore.record(this, item(g));
-        if (with != null) {
-            CloudClients.play(this, CloudService.XCLOUD, with, g.launchUrl());
-        }
-        else {
-            CloudClients.play(this, CloudService.XCLOUD, g.launchUrl());
+        HorizonCloudDispatch.Result result = with != null
+                ? CloudClients.play(this, CloudService.XCLOUD, with, g.launchUrl())
+                : CloudClients.play(this, CloudService.XCLOUD, g.launchUrl());
+        if (result.dispatched()) {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            HomeStore.record(this, item(g));
         }
     }
 
