@@ -15,3 +15,6 @@ Read docs/HORIZON_SYSTEM_BLUEPRINT.md, HORIZON.md and HORIZON_FOUNDATION_GATE.md
 
 ## Release gates
 0/14 fully accepted. G01 software work substantially advanced; physical/owner verification outstanding. This is not 0% development effort. Windows and Android equal release requirements.
+
+## Latest batch
+#33 merged at 3aa49d24c65513558ff55ab114f319136c9541f9 after combined Android 204 tests (45466382903), Windows 49 checks and verified ZIP (45466383121). #34 actual release signing CI first debug run failed downloading Gradle, rerun requested; release guard passed and actual release tests still running at this checkpoint. #35 new responsive Control workspace (split/stack, scroll, controller escape paths and touch adjustment) plus Android 13 UI screenshot/focus workflow. Reconciled onto #33 baseline; CI required. This is structural Shell work but not completed visual redesign. G01 remains 0/14 pending owner key and physical RP6 migration. Continue Shell and Core, plus secure Windows Host, while waiting for physical verification.

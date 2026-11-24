@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_control_actions">Quick actions</string>
+    <string name="horizon_control_device">Device status</string>
+    <string name="horizon_control_adjust">Display &amp; sound</string>
+</resources>

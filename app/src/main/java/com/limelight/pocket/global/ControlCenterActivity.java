@@ -31,6 +31,7 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -48,8 +49,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Nexus Control: the handheld's controls in one glass panel that slides in from the right, as
- * Apple TV's Control Center does. Tiles (sleep, Wi-Fi, Bluetooth, a screenshot, do not disturb,
+ * Nexus Control: responsive action and device workspaces with a fixed header and footer. Tiles (sleep, Wi-Fi, Bluetooth, a screenshot, do not disturb,
  * the maker's performance tool) light up white when they have the focus; brightness and volume
  * are bars moved with left / right; the battery, its temperature and the screen's refresh rate
  * sit at the bottom. B (or Guide) closes it. Opens over anything: a game, another app, Home.
@@ -115,6 +115,21 @@ public class ControlCenterActivity extends Activity {
     }
 
     @Override
+    public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        if (closing || root == null) return;
+        if (panel != null) panel.animate().cancel();
+        root.animate().cancel();
+        root.setAlpha(1f);
+        d = getResources().getDisplayMetrics().density;
+        root.removeAllViews();
+        build();
+        refresh();
+        Intent current = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if (current != null) battery.onReceive(this, current);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         refresh();
@@ -152,125 +167,162 @@ public class ControlCenterActivity extends Activity {
         panel.setClickable(true);
         panel.setFocusable(false);
         root.setFocusable(false);
-        int pad = dp(20);
-        panel.setPadding(pad, dp(18), pad, dp(18));
+        float screenWidthDp = getResources().getDisplayMetrics().widthPixels / d;
+        float screenHeightDp = getResources().getDisplayMetrics().heightPixels / d;
+        HorizonControlLayout spec = HorizonControlLayout.forWindow(screenWidthDp, screenHeightDp);
+        int pad = dp(spec.padding);
+        panel.setPadding(pad, dp(12), pad, dp(12));
+        panel.setClipChildren(false);
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xEB26262E, 0xF0141418});
-        bg.setCornerRadius(dp(28));
-        bg.setStroke(Math.max(1, dp(1)), 0x22FFFFFF);
+                new int[]{0xFA191D26, 0xFC10141B});
+        bg.setCornerRadius(dp(18));
+        bg.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
         panel.setBackground(bg);
-        panel.setElevation(dp(24));
-        // A floating card at the top right, as Apple TV's Control Center (its height: what it holds)
-        float screenDp = getResources().getDisplayMetrics().heightPixels / d;
-        int tileH = dp(Math.max(72f, Math.min(96f, (screenDp - 262f) / 2f)));
-        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(Math.min(dp(440),
-                Math.round(getResources().getDisplayMetrics().widthPixels * 0.5f)),
-                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP);
-        plp.setMarginEnd(dp(14));
-        plp.topMargin = dp(14);
+        panel.setElevation(dp(20));
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(dp(spec.width), dp(spec.height),
+                Gravity.END | Gravity.CENTER_VERTICAL);
+        plp.setMarginEnd(dp(spec.margin));
         root.addView(panel, plp);
 
-        // The heading: the name and the time; the battery, its warmth and the screen's rate
+        // Workspace header stays visible while the contents scroll.
         LinearLayout head = new LinearLayout(this);
-        head.setOrientation(LinearLayout.HORIZONTAL);
-        head.setGravity(Gravity.BOTTOM);
+        head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
-        TextView name = text(getString(R.string.pocket_nc_title).toUpperCase(Locale.ROOT), 10f, 0x8CFFFFFF, PocketFonts.bold());
-        name.setLetterSpacing(0.16f);
-        name.setTextColor(HorizonControls.focusColor(accent(this)));
+        TextView brand = text("PROJECT HORIZON", 9f, HorizonControls.focusColor(accent(this)), PocketFonts.bold());
+        brand.setLetterSpacing(0.16f);
+        titles.addView(brand, wrap());
+        TextView name = text(getString(R.string.pocket_nc_title), 23f, 0xFFFFFFFF, PocketFonts.display());
+        name.setIncludeFontPadding(false);
         titles.addView(name, wrap());
-        clock = text("", 24f, 0xFFFFFFFF, PocketFonts.display());
+        head.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        clock = text("", 20f, 0xFFFFFFFF, PocketFonts.semibold());
         clock.setIncludeFontPadding(false);
-        LinearLayout.LayoutParams cl = wrap();
-        cl.topMargin = dp(3);
-        titles.addView(clock, cl);
-        head.addView(titles, wrap());
-        head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-        batteryBig = stat(head, getString(R.string.pocket_nc_battery));
-        batterySub = (TextView) ((ViewGroup) batteryBig.getParent()).getChildAt(1);
-        tempBig = stat(head, getString(R.string.pocket_nc_temperature));
-        hzBig = stat(head, getString(R.string.pocket_nc_display));
+        clock.setText(DateFormat.getTimeFormat(this).format(new Date()));
+        head.addView(clock, wrap());
         panel.addView(head, matchWrap());
 
-        // Six tiles, three by two
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFocusable(false);
+        scroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        scroll.setFillViewport(false);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setClipToPadding(false);
+        scroll.setPadding(dp(4), dp(8), dp(4), dp(8));
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        scrollLp.topMargin = dp(6);
+        panel.addView(scroll, scrollLp);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(spec.split ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        body.setClipChildren(false);
+        scroll.addView(body, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // Device telemetry and adjustments are one workspace; action tiles are another.
+        LinearLayout tools = new LinearLayout(this);
+        tools.setOrientation(LinearLayout.VERTICAL);
+        tools.setClipChildren(false);
+        LinearLayout device = new LinearLayout(this);
+        device.setOrientation(LinearLayout.VERTICAL);
+        device.setClipChildren(false);
+        if (spec.split) {
+            body.addView(tools, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            LinearLayout.LayoutParams side = new LinearLayout.LayoutParams(dp(292), ViewGroup.LayoutParams.WRAP_CONTENT);
+            side.setMarginStart(dp(16));
+            body.addView(device, side);
+        } else {
+            body.addView(tools, matchWrap());
+            LinearLayout.LayoutParams side = matchWrap();
+            side.topMargin = dp(12);
+            body.addView(device, side);
+        }
+        tools.addView(section(R.string.horizon_control_actions), matchWrap());
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams gl = matchWrap();
-        gl.topMargin = dp(14);
-        panel.addView(grid, gl);
-        LinearLayout row1 = row(grid, 0);
-        LinearLayout row2 = row(grid, dp(10));
-
-        Tile sleep = tile(row1, "MOON", getString(R.string.pocket_nc_sleep), true, tileH);
-        sleep.setOnClickListener(v -> sleep());
-        first = sleep;
-        wifi = tile(row1, "WIFI", getString(R.string.pocket_nc_wifi), true, tileH);
-        wifi.setOnClickListener(v -> openWifi());
-        bluetooth = tile(row1, "SWAP", getString(R.string.pocket_nc_bluetooth), false, tileH);
-        bluetooth.setOnClickListener(v -> openSystem(Settings.ACTION_BLUETOOTH_SETTINGS));
-        Tile shot = tile(row2, "SCREENSHOT", getString(R.string.pocket_nc_screenshot), true, tileH);
-        shot.setOnClickListener(v -> screenshot());
-        quiet = tile(row2, "BELL", getString(R.string.pocket_nc_quiet), true, tileH);
-        quiet.setOnClickListener(v -> toggleQuiet());
+        grid.setClipChildren(false);
+        tools.addView(grid, matchWrap());
         final String[] tool = performanceTool();
-        Tile perf = tile(row2, "SPEED", getString(tool != null ? R.string.pocket_nc_performance : R.string.pocket_nc_settings),
-                false, tileH);
+        Tile sleep = new Tile(this, "MOON", getString(R.string.pocket_nc_sleep));
+        sleep.setOnClickListener(v -> sleep());
+        wifi = new Tile(this, "WIFI", getString(R.string.pocket_nc_wifi));
+        wifi.setOnClickListener(v -> openWifi());
+        bluetooth = new Tile(this, "SWAP", getString(R.string.pocket_nc_bluetooth));
+        bluetooth.setOnClickListener(v -> openSystem(Settings.ACTION_BLUETOOTH_SETTINGS));
+        Tile shot = new Tile(this, "SCREENSHOT", getString(R.string.pocket_nc_screenshot));
+        shot.setOnClickListener(v -> screenshot());
+        quiet = new Tile(this, "BELL", getString(R.string.pocket_nc_quiet));
+        quiet.setOnClickListener(v -> toggleQuiet());
+        Tile perf = new Tile(this, "SPEED", getString(tool != null ? R.string.pocket_nc_performance : R.string.pocket_nc_settings));
         perf.setState(tool != null ? tool[2] : getString(R.string.pocket_nc_android));
         perf.setOnClickListener(v -> {
-            if (tool != null) {
-                openComponent(tool[0], tool[1]);
-            }
-            else {
-                openSystem(Settings.ACTION_SETTINGS);
-            }
+            if (tool != null) openComponent(tool[0], tool[1]);
+            else openSystem(Settings.ACTION_SETTINGS);
         });
-
-        // Reorder existing tiles without changing their actions or removing essential controls.
         Tile[] tiles = {sleep, wifi, bluetooth, shot, quiet, perf};
         int[] order = HorizonControls.order(PocketPrefs.prefs(this).getInt(HorizonControls.KEY_LAYOUT, 0));
-        row1.removeAllViews();
-        row2.removeAllViews();
+        LinearLayout tileRow = null;
         for (int i = 0; i < order.length; i++) {
+            if (i % spec.columns == 0) {
+                tileRow = row(grid, i == 0 ? dp(6) : dp(8));
+                tileRow.setClipChildren(false);
+            }
             Tile t = tiles[order[i]];
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, tileH, 1f);
-            if (i % 3 != 2) { lp.setMarginEnd(dp(10)); }
-            (i < 3 ? row1 : row2).addView(t, lp);
+            t.setId(View.generateViewId());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(86), 1f);
+            if (i % spec.columns != spec.columns - 1) lp.setMarginEnd(dp(8));
+            tileRow.addView(t, lp);
         }
         first = tiles[order[0]];
 
-        // Brightness and volume
+        device.addView(section(R.string.horizon_control_device), matchWrap());
+        LinearLayout stats = new LinearLayout(this);
+        stats.setGravity(Gravity.CENTER_VERTICAL);
+        stats.setPadding(0, dp(8), 0, dp(10));
+        batteryBig = stat(stats, getString(R.string.pocket_nc_battery));
+        batterySub = (TextView) ((ViewGroup) batteryBig.getParent()).getChildAt(1);
+        tempBig = stat(stats, getString(R.string.pocket_nc_temperature));
+        hzBig = stat(stats, getString(R.string.pocket_nc_display));
+        device.addView(stats, matchWrap());
+
+        device.addView(section(R.string.horizon_control_adjust), matchWrap());
         brightness = bar("SUN", getString(R.string.pocket_nc_brightness));
+        brightness.setId(View.generateViewId());
         LinearLayout.LayoutParams bl = matchWrap();
-        bl.topMargin = dp(12);
-        panel.addView(brightness, bl);
+        bl.topMargin = dp(6);
+        device.addView(brightness, bl);
         volume = bar("VOLUME_UP", getString(R.string.pocket_nc_volume));
+        volume.setId(View.generateViewId());
         LinearLayout.LayoutParams vl = matchWrap();
         vl.topMargin = dp(8);
-        panel.addView(volume, vl);
+        device.addView(volume, vl);
         brightness.stepper = this::stepBrightness;
         volume.stepper = this::stepVolume;
-
-        TextView tagline = text(getString(R.string.pocket_nc_tagline), 9.5f, 0x59FFFFFF, PocketFonts.medium());
-        tagline.setGravity(Gravity.CENTER_HORIZONTAL);
-        LinearLayout.LayoutParams tg = matchWrap();
-        tg.topMargin = dp(12);
-        if (screenDp >= 500) {
-            panel.addView(tagline, tg); // (a short screen keeps the room for the hints under it)
+        // Touch users can tap the left/right half to adjust; gamepad left/right stays unchanged.
+        brightness.setOnClickListener(v -> brightness.step(1));
+        volume.setOnClickListener(v -> volume.step(1));
+        brightness.setOnTouchListener((v, event) -> adjustTouch(brightness, event));
+        volume.setOnTouchListener((v, event) -> adjustTouch(volume, event));
+        if (spec.split) {
+            // Up/down provides an escape from sliders whose left/right keys adjust values.
+            Tile topEdge = tiles[order[spec.columns - 1]];
+            Tile bottomEdge = tiles[order[order.length - 1]];
+            topEdge.setNextFocusRightId(brightness.getId());
+            bottomEdge.setNextFocusRightId(volume.getId());
+            brightness.setNextFocusUpId(topEdge.getId());
+            brightness.setNextFocusDownId(volume.getId());
+            volume.setNextFocusUpId(brightness.getId());
+            volume.setNextFocusDownId(bottomEdge.getId());
         }
 
-        // What the buttons do: at the bottom of the screen, as everywhere else
+        // Footer belongs to the workspace, never overlaps scrollable actions.
         LinearLayout hints = com.limelight.pocket.ui.ConsoleScreen.hintBar(this);
         ConsoleActivity.fillHintBar(this, hints,
                 ConsoleActivity.hintA(this, R.string.pocket_nc_hint_select),
                 new ConsoleActivity.Hint("\u25C0\u25B6", 0xFFFFFFFF, getString(R.string.pocket_nc_hint_adjust)),
                 ConsoleActivity.hintB(this, R.string.pocket_hint_close));
         noFocus(hints);
-        FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.END);
-        hl.setMarginEnd(dp(18));
-        hl.bottomMargin = dp(9);
-        root.addView(hints, hl);
+        panel.addView(hints, matchWrap());
 
         // With the controller the focus starts on the first tile (also when the screen was
         // last touched: in touch mode a plain request would be refused)
@@ -279,6 +331,32 @@ public class ControlCenterActivity extends Activity {
                 first.requestFocusFromTouch();
             }
         });
+    }
+
+    private TextView section(int label) {
+        TextView title = text(getString(label).toUpperCase(Locale.ROOT), 10f,
+                0xB8FFFFFF, PocketFonts.bold());
+        title.setLetterSpacing(0.10f);
+        return title;
+    }
+
+    private boolean adjustTouch(Bar bar, android.view.MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case android.view.MotionEvent.ACTION_DOWN:
+                return true;
+            case android.view.MotionEvent.ACTION_UP:
+                if (event.getX() >= 0 && event.getX() < bar.getWidth()
+                        && event.getY() >= 0 && event.getY() < bar.getHeight()) {
+                    bar.requestFocusFromTouch();
+                    if (event.getX() < bar.getWidth() / 2f) bar.step(-1);
+                    else bar.performClick();
+                }
+                return true;
+            case android.view.MotionEvent.ACTION_CANCEL:
+                return true;
+            default:
+                return true;
+        }
     }
 
     private Tile first;
@@ -326,9 +404,8 @@ public class ControlCenterActivity extends Activity {
         TextView small = text(label, 9f, 0x80FFFFFF, PocketFonts.medium());
         small.setLetterSpacing(0.04f);
         cell.addView(small, wrap());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMarginStart(dp(12));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         stats.addView(cell, lp);
         return big;
     }
@@ -679,7 +756,7 @@ public class ControlCenterActivity extends Activity {
             label.setSingleLine(true);
             label.setEllipsize(TextUtils.TruncateAt.END);
             LayoutParams ll = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            ll.topMargin = Math.round(7 * d);
+            ll.topMargin = Math.round(5 * d);
             addView(label, ll);
             state = new TextView(c);
             state.setIncludeFontPadding(false);
@@ -757,7 +834,8 @@ public class ControlCenterActivity extends Activity {
             label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
             label.setTypeface(PocketFonts.semibold());
             label.setSingleLine(true);
-            LayoutParams ll = new LayoutParams(Math.round(84 * d), ViewGroup.LayoutParams.WRAP_CONTENT);
+            LayoutParams ll = new LayoutParams(Math.round(74 * d), ViewGroup.LayoutParams.WRAP_CONTENT);
+            label.setEllipsize(TextUtils.TruncateAt.END);
             ll.setMarginStart(Math.round(10 * d));
             addView(label, ll);
             track = new Track(c);
