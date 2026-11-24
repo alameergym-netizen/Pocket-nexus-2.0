@@ -62,6 +62,7 @@ public class ComputerManagerService extends Service {
     private final com.limelight.pocket.core.HorizonPollingOwner<ComputerManagerListener> pollingOwner =
             new com.limelight.pocket.core.HorizonPollingOwner<>();
     private final Object legacyPollingOwner = new Object();
+    private final Object pollingLifecycleLock = new Object();
     private final AtomicInteger activePolls = new AtomicInteger(0);
     private volatile boolean pollingActive = false;
     private final Lock defaultNetworkLock = new ReentrantLock();
@@ -207,28 +208,27 @@ public class ComputerManagerService extends Service {
 
         /** One foreground polling owner. A stale screen may not stop its successor. */
         public void startPolling(Object owner, ComputerManagerListener listener) {
-            synchronized (pollingTuples) {
+            synchronized (pollingLifecycleLock) {
                 DiscoveryService.DiscoveryBinder discovery = discoveryBinder;
                 if (discovery == null || owner == null || listener == null) return;
+                // Discovery agents can hold their own locks during callbacks. Never call
+                // their lifecycle methods while holding the computer tuple lock.
                 if (!pollingActive) discovery.startDiscovery(MDNS_QUERY_PERIOD_MS);
-                pollingOwner.acquire(owner, listener);
-                pollingActive = true;
-                for (PollingTuple tuple : pollingTuples) {
-                    // Enforce the poll data TTL
-                    if (SystemClock.elapsedRealtime() - tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
-                        LimeLog.info("Timing out polled state for "+tuple.computer.name);
-                        tuple.computer.state = ComputerDetails.State.UNKNOWN;
-                    }
-
-                    // Report this computer initially
-                    if (!pollingOwner.owns(owner)) break;
-                    listener.notifyComputerUpdated(tuple.computer);
-                    if (!pollingOwner.owns(owner)) break;
-
-                    // This polling thread might already be there
-                    if (tuple.thread == null) {
-                        tuple.thread = createPollingThread(tuple);
-                        tuple.thread.start();
+                synchronized (pollingTuples) {
+                    pollingOwner.acquire(owner, listener);
+                    pollingActive = true;
+                    for (PollingTuple tuple : pollingTuples) {
+                        if (SystemClock.elapsedRealtime() - tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
+                            LimeLog.info("Timing out polled state for "+tuple.computer.name);
+                            tuple.computer.state = ComputerDetails.State.UNKNOWN;
+                        }
+                        if (!pollingOwner.owns(owner)) break;
+                        listener.notifyComputerUpdated(tuple.computer);
+                        if (!pollingOwner.owns(owner)) break;
+                        if (tuple.thread == null) {
+                            tuple.thread = createPollingThread(tuple);
+                            tuple.thread.start();
+                        }
                     }
                 }
             }
@@ -281,7 +281,7 @@ public class ComputerManagerService extends Service {
 
         /** True only if this caller actually owned and stopped the shared poll. */
         public boolean stopPolling(Object owner) {
-            synchronized (pollingTuples) {
+            synchronized (pollingLifecycleLock) {
                 if (!pollingOwner.release(owner)) return false;
                 stopPollingLocked();
                 return true;
@@ -323,22 +323,24 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    /** Called under pollingTuples; real last-client unbind clears any owner. */
+    /** Called under pollingLifecycleLock; never call discovery while holding tuple lock. */
     private void stopPollingLocked() {
-        pollingActive = false;
-        DiscoveryService.DiscoveryBinder discovery = discoveryBinder;
-        if (discovery != null) discovery.stopDiscovery();
-        for (PollingTuple tuple : pollingTuples) {
-            if (tuple.thread != null) {
-                tuple.thread.interrupt();
-                tuple.thread = null;
+        synchronized (pollingTuples) {
+            pollingActive = false;
+            for (PollingTuple tuple : pollingTuples) {
+                if (tuple.thread != null) {
+                    tuple.thread.interrupt();
+                    tuple.thread = null;
+                }
             }
         }
+        DiscoveryService.DiscoveryBinder discovery = discoveryBinder;
+        if (discovery != null) discovery.stopDiscovery();
     }
 
     @Override
     public boolean onUnbind(Intent intent) {
-        synchronized (pollingTuples) {
+        synchronized (pollingLifecycleLock) {
             pollingOwner.clear();
             stopPollingLocked();
         }
