@@ -16,7 +16,14 @@ android {
 
         versionName "2.0.0-alpha.1"
         // Each CI build counts up (so the in-app updater's installs are always newer)
-        versionCode = 20000 + (System.getenv('GITHUB_RUN_NUMBER') ?: '0').toInteger()
+        // Release codes are explicitly assigned by the owner; CI may set a synthetic test code.
+        def explicitVersion = System.getenv('NEXUS_VERSION_CODE')
+        if (explicitVersion && (!(explicitVersion ==~ /[0-9]{1,10}/)
+                || explicitVersion.toLong() < 20000 || explicitVersion.toLong() > 2100000000L)) {
+            throw new GradleException('Invalid NEXUS_VERSION_CODE (expected 20000..2100000000)')
+        }
+        versionCode = explicitVersion ? explicitVersion.toInteger()
+                : 20000 + (System.getenv('GITHUB_RUN_NUMBER') ?: '0').toInteger()
         // The build's commit, for the in-app updater to compare with the newest release
         buildConfigField "String", "GIT_SHA", "\"${(System.getenv('GITHUB_SHA') ?: 'dev').take(7)}\""
 
@@ -170,6 +177,16 @@ android {
         // Use the canonical Maven Central endpoint; retain all unit tests.
         unitTests.all {
             systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
+    }
+}
+
+// Fail closed for release packaging, without requiring secrets for development or unit tests.
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.project == project && (it.name ==~ /(?i)(assemble|package|bundle).*Release/) }) {
+        if (!['NEXUS_KEYSTORE', 'NEXUS_STORE_PASSWORD', 'NEXUS_KEY_ALIAS',
+               'NEXUS_KEY_PASSWORD', 'NEXUS_VERSION_CODE'].every { System.getenv(it) }) {
+            throw new GradleException('Release packaging requires private Nexus signing configuration and explicit version code')
         }
     }
 }
