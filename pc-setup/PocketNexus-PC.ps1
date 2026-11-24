@@ -286,6 +286,9 @@ public static class PocketCompanion {
     public static readonly ConcurrentQueue<string> Events = new ConcurrentQueue<string>();
     static TcpListener listener;
     static readonly object pinLock = new object();
+    // Bound concurrent helper connections; the separate stream tunnel is unchanged.
+    static readonly SemaphoreSlim clientSlots = new SemaphoreSlim(16, 16);
+    static readonly UTF8Encoding strictUtf8 = new UTF8Encoding(false, true);
     static int badPins = 0;
     static DateTime badPinStart = DateTime.MinValue;
 
@@ -315,10 +318,14 @@ public static class PocketCompanion {
     public static int WifiPort = 47110;
 
     public static void Start(int port, string token, string pin) {
+        Start(port, token, pin, false);
+    }
+
+    public static void Start(int port, string token, string pin, bool loopbackOnly) {
         Token = token;
         Pin = pin;
         WifiPort = port;
-        listener = new TcpListener(IPAddress.Any, port);
+        listener = new TcpListener(loopbackOnly ? IPAddress.Loopback : IPAddress.Any, port);
         listener.Start();
         Thread accept = new Thread(AcceptLoop);
         accept.IsBackground = true;
@@ -335,9 +342,20 @@ public static class PocketCompanion {
             TcpClient c;
             try { c = listener.AcceptTcpClient(); } catch { return; }
             TcpClient client = c;
-            Thread t = new Thread(delegate () { Serve(client); });
-            t.IsBackground = true;
-            t.Start();
+            if (!clientSlots.Wait(0)) {
+                try { client.Close(); } catch { }
+                continue;
+            }
+            try {
+                Thread t = new Thread(delegate () {
+                    try { Serve(client); } finally { clientSlots.Release(); }
+                });
+                t.IsBackground = true;
+                t.Start();
+            } catch {
+                try { client.Close(); } catch { }
+                clientSlots.Release();
+            }
         }
     }
 
@@ -349,9 +367,10 @@ public static class PocketCompanion {
             IPEndPoint remote = (IPEndPoint)client.Client.RemoteEndPoint;
             bool trusted = IPAddress.IsLoopback(remote.Address);
             string hello = ReadLine(s);
-            if (hello == null || !hello.StartsWith("APC1")) { return; }
+            if (hello == null) { return; }
             string[] hp = hello.Split(' ');
-            bool authed = trusted || (hp.Length > 1 && SameSecret(hp[1], Token));
+            if (hp.Length != 2 || hp[0] != "APC1" || hp[1].Length == 0) { return; }
+            bool authed = trusted || SameSecret(hp[1], Token);
             WriteLine(s, "OK " + (authed ? "1" : "0") + " " + Environment.MachineName);
             while (true) {
                 string line = ReadLine(s);
@@ -486,14 +505,32 @@ public static class PocketCompanion {
     }
 
     public static string ReadLine(NetworkStream s) {
+        // One complete UTF-8 command, at most 1023 payload bytes plus optional CRLF.
+        // A whole-line deadline also bounds clients that send one byte at a time.
         List<byte> bytes = new List<byte>();
-        while (bytes.Count < 1024) {
-            int b = s.ReadByte();
-            if (b < 0) { return bytes.Count > 0 ? Encoding.UTF8.GetString(bytes.ToArray()) : null; }
-            if (b == 10) { break; }
-            if (b != 13) { bytes.Add((byte)b); }
+        Stopwatch timer = Stopwatch.StartNew();
+        int previousTimeout = s.ReadTimeout;
+        int budget = previousTimeout > 0 ? Math.Min(previousTimeout, 15000) : 15000;
+        bool cr = false;
+        try {
+            while (true) {
+                long remaining = budget - timer.ElapsedMilliseconds;
+                if (remaining <= 0) { throw new System.IO.IOException("Command deadline exceeded"); }
+                s.ReadTimeout = (int)remaining;
+                int b = s.ReadByte();
+                if (b < 0) {
+                    if (bytes.Count == 0 && !cr) { return null; }
+                    throw new System.IO.IOException("Incomplete command");
+                }
+                if (b == 10) { return strictUtf8.GetString(bytes.ToArray()); }
+                if (cr || b == 0) { throw new System.IO.IOException("Invalid command framing"); }
+                if (b == 13) { cr = true; continue; }
+                if (bytes.Count >= 1023) { throw new System.IO.IOException("Command too long"); }
+                bytes.Add((byte)b);
+            }
+        } finally {
+            s.ReadTimeout = previousTimeout;
         }
-        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     public static void WriteLine(NetworkStream s, string line) {
@@ -1929,7 +1966,7 @@ function Invoke-SelfTest {
     foreach ($er in $script:pcLibraryErrors) { Write-Host ("        " + $er) }
 
     # The protocol, over the loopback (trusted like the cable)
-    [PocketCompanion]::Start($CompanionPort, ("ab" * 16), "123456")
+    [PocketCompanion]::Start($CompanionPort, ("ab" * 16), "123456", $true)
     $client = New-Object System.Net.Sockets.TcpClient
     $client.Connect("127.0.0.1", $CompanionPort)
     $stream = $client.GetStream()
@@ -1963,6 +2000,34 @@ function Invoke-SelfTest {
     Check ($line -like "END *") ("APOLLOLOG answered (" + $n + " lines): " + $line)
     $writer.WriteLine("QUIT")
     $client.Close()
+
+    # Reject malformed wire frames before they can be interpreted as commands.
+    function Check-RejectedHandshake([byte[]]$payload, [string]$label) {
+        $bad = New-Object System.Net.Sockets.TcpClient
+        $rejected = $false
+        try {
+            $bad.Connect("127.0.0.1", $CompanionPort)
+            $wire = $bad.GetStream()
+            $wire.ReadTimeout = 3000
+            $wire.Write($payload, 0, $payload.Length)
+            $wire.Flush()
+            $bad.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
+            try { $rejected = ($wire.ReadByte() -eq -1) }
+            catch [System.IO.IOException] {
+                $cause = $_.Exception.InnerException
+                if ($cause -is [System.Net.Sockets.SocketException]) {
+                    $rejected = ($cause.SocketErrorCode -eq [System.Net.Sockets.SocketError]::ConnectionReset)
+                }
+            }
+        } catch { $rejected = $false }
+        finally { $bad.Close() }
+        Check $rejected $label
+    }
+    Check-RejectedHandshake ([Text.Encoding]::UTF8.GetBytes("APC1X -`n")) "rejects invalid handshake prefix"
+    Check-RejectedHandshake ([Text.Encoding]::UTF8.GetBytes("APC1 -")) "rejects partial EOF"
+    Check-RejectedHandshake ([Text.Encoding]::UTF8.GetBytes(("APC1 " + ("a" * 1020) + "`n"))) "rejects oversized line"
+    Check-RejectedHandshake ([Text.Encoding]::UTF8.GetBytes("AP`rC1 -`n")) "rejects embedded CR"
+    Check-RejectedHandshake ([byte[]](65,80,67,49,32,255,10)) "rejects invalid UTF-8"
 
     # The Steam files, from a made-up Steam folder (tests\make_fixtures.py)
     $fx = Join-Path $here "tests\fixtures"

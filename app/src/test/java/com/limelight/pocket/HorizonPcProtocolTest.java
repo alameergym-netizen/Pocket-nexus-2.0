@@ -39,4 +39,29 @@ public class HorizonPcProtocolTest {
         Arrays.fill(data, 'a');
         PcCompanion.encodeCommand(new String(data));
     }
+    @Test public void requiresExactHandshake() {
+        assertTrue(PcCompanion.validHello("OK 1 PC"));
+        assertTrue(PcCompanion.validHello("OK 0 PC"));
+        assertFalse(PcCompanion.validHello("OK 2 PC"));
+        assertFalse(PcCompanion.validHello("OK 1"));
+        assertFalse(PcCompanion.validHello("OK 1 "));
+        assertFalse(PcCompanion.validHello(null));
+    }
+    @Test public void acceptsOnlyExpectedTokenReplies() {
+        String token="TOKEN 0123456789abcdef0123456789abcdef";
+        assertTrue(PcCompanion.validTokenReply("TOKEN",token));
+        assertTrue(PcCompanion.validTokenReply("PAIR 123456",token));
+        assertFalse(PcCompanion.validTokenReply("PING",token));
+        assertFalse(PcCompanion.validTokenReply("PAIRX 123456",token));
+        assertFalse(PcCompanion.validTokenReply("PAIR 123456","TOKEN bad"));
+    }
+    @Test(expected=IOException.class) public void rejectsEmbeddedCr() throws Exception {
+        PcCompanion.readLine(input("PO\rNG\n"));
+    }
+    @Test(expected=IOException.class) public void rejectsNul() throws Exception {
+        PcCompanion.readLine(input("PONG\u0000\n"));
+    }
+    @Test(expected=IOException.class) public void rejectsMalformedUtf8() throws Exception {
+        PcCompanion.readLine(new ByteArrayInputStream(new byte[]{(byte)255,10}));
+    }
 }
