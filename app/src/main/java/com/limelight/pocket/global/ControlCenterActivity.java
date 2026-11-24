@@ -138,64 +138,72 @@ public class ControlCenterActivity extends Activity {
     private void build() {
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setClickable(true); // a press on the panel isn't a press outside it
-        int pad = dp(22);
-        panel.setPadding(pad, dp(20), pad, dp(16));
+        // A press on the panel isn't a press outside it; neither is a place for the focus
+        panel.setClickable(true);
+        panel.setFocusable(false);
+        root.setFocusable(false);
+        int pad = dp(20);
+        panel.setPadding(pad, dp(18), pad, dp(18));
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0xEB26262E, 0xF0141418});
-        bg.setCornerRadius(dp(30));
+        bg.setCornerRadius(dp(28));
         bg.setStroke(Math.max(1, dp(1)), 0x22FFFFFF);
         panel.setBackground(bg);
         panel.setElevation(dp(24));
-        int screenH = getResources().getDisplayMetrics().heightPixels;
-        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(Math.min(dp(430),
-                Math.round(getResources().getDisplayMetrics().widthPixels * 0.48f)),
-                Math.min(screenH - dp(28), dp(560)), Gravity.END | Gravity.CENTER_VERTICAL);
+        // A floating card at the top right, as Apple TV's Control Center (its height: what it holds)
+        float screenDp = getResources().getDisplayMetrics().heightPixels / d;
+        int tileH = dp(Math.max(64f, Math.min(96f, (screenDp - 292f) / 2f)));
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(Math.min(dp(440),
+                Math.round(getResources().getDisplayMetrics().widthPixels * 0.5f)),
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP);
         plp.setMarginEnd(dp(14));
+        plp.topMargin = dp(14);
         root.addView(panel, plp);
 
-        // The heading: the name, the time, the battery
+        // The heading: the name and the time; the battery, its warmth and the screen's rate
         LinearLayout head = new LinearLayout(this);
         head.setOrientation(LinearLayout.HORIZONTAL);
-        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setGravity(Gravity.BOTTOM);
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
-        TextView name = text(getString(R.string.pocket_nc_title).toUpperCase(Locale.ROOT), 10.5f, 0x8CFFFFFF, PocketFonts.bold());
+        TextView name = text(getString(R.string.pocket_nc_title).toUpperCase(Locale.ROOT), 10f, 0x8CFFFFFF, PocketFonts.bold());
         name.setLetterSpacing(0.22f);
         titles.addView(name, wrap());
-        clock = text("", 30f, 0xFFFFFFFF, PocketFonts.display());
+        clock = text("", 26f, 0xFFFFFFFF, PocketFonts.display());
         clock.setIncludeFontPadding(false);
         LinearLayout.LayoutParams cl = wrap();
-        cl.topMargin = dp(2);
+        cl.topMargin = dp(3);
         titles.addView(clock, cl);
         head.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView brand = text(getString(R.string.pocket_nc_tagline), 10f, 0x66FFFFFF, PocketFonts.medium());
-        brand.setGravity(Gravity.END);
-        brand.setMaxWidth(dp(150));
-        head.addView(brand, wrap());
+        batteryBig = stat(head, getString(R.string.pocket_nc_battery));
+        batterySub = (TextView) ((ViewGroup) batteryBig.getParent()).getChildAt(1);
+        tempBig = stat(head, getString(R.string.pocket_nc_temperature));
+        hzBig = stat(head, getString(R.string.pocket_nc_display));
         panel.addView(head, matchWrap());
 
         // Six tiles, three by two
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams gl = matchWrap();
-        gl.topMargin = dp(16);
+        gl.topMargin = dp(14);
         panel.addView(grid, gl);
         LinearLayout row1 = row(grid, 0);
         LinearLayout row2 = row(grid, dp(10));
 
-        Tile sleep = tile(row1, "MOON", getString(R.string.pocket_nc_sleep), true);
+        Tile sleep = tile(row1, "MOON", getString(R.string.pocket_nc_sleep), true, tileH);
         sleep.setOnClickListener(v -> sleep());
-        wifi = tile(row1, "WIFI", getString(R.string.pocket_nc_wifi), true);
+        first = sleep;
+        wifi = tile(row1, "WIFI", getString(R.string.pocket_nc_wifi), true, tileH);
         wifi.setOnClickListener(v -> openWifi());
-        bluetooth = tile(row1, "SWAP", getString(R.string.pocket_nc_bluetooth), false);
+        bluetooth = tile(row1, "SWAP", getString(R.string.pocket_nc_bluetooth), false, tileH);
         bluetooth.setOnClickListener(v -> openSystem(Settings.ACTION_BLUETOOTH_SETTINGS));
-        Tile shot = tile(row2, "SCREENSHOT", getString(R.string.pocket_nc_screenshot), true);
+        Tile shot = tile(row2, "SCREENSHOT", getString(R.string.pocket_nc_screenshot), true, tileH);
         shot.setOnClickListener(v -> screenshot());
-        quiet = tile(row2, "BELL", getString(R.string.pocket_nc_quiet), true);
+        quiet = tile(row2, "BELL", getString(R.string.pocket_nc_quiet), true, tileH);
         quiet.setOnClickListener(v -> toggleQuiet());
         final String[] tool = performanceTool();
-        Tile perf = tile(row2, "SPEED", getString(tool != null ? R.string.pocket_nc_performance : R.string.pocket_nc_settings), false);
+        Tile perf = tile(row2, "SPEED", getString(tool != null ? R.string.pocket_nc_performance : R.string.pocket_nc_settings),
+                false, tileH);
         perf.setState(tool != null ? tool[2] : getString(R.string.pocket_nc_android));
         perf.setOnClickListener(v -> {
             if (tool != null) {
@@ -209,7 +217,7 @@ public class ControlCenterActivity extends Activity {
         // Brightness and volume
         brightness = bar("SUN", getString(R.string.pocket_nc_brightness));
         LinearLayout.LayoutParams bl = matchWrap();
-        bl.topMargin = dp(14);
+        bl.topMargin = dp(12);
         panel.addView(brightness, bl);
         volume = bar("VOLUME_UP", getString(R.string.pocket_nc_volume));
         LinearLayout.LayoutParams vl = matchWrap();
@@ -218,36 +226,45 @@ public class ControlCenterActivity extends Activity {
         brightness.stepper = this::stepBrightness;
         volume.stepper = this::stepVolume;
 
-        // Room, then the stats along the bottom
-        panel.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
-        LinearLayout stats = new LinearLayout(this);
-        stats.setOrientation(LinearLayout.HORIZONTAL);
-        GradientDrawable sb = new GradientDrawable();
-        sb.setCornerRadius(dp(18));
-        sb.setColor(0x14FFFFFF);
-        stats.setBackground(sb);
-        stats.setPadding(dp(6), dp(10), dp(6), dp(10));
-        batteryBig = stat(stats, getString(R.string.pocket_nc_battery));
-        batterySub = (TextView) ((ViewGroup) batteryBig.getParent()).getChildAt(1);
-        tempBig = stat(stats, getString(R.string.pocket_nc_temperature));
-        hzBig = stat(stats, getString(R.string.pocket_nc_display));
-        LinearLayout.LayoutParams sl = matchWrap();
-        sl.topMargin = dp(12);
-        panel.addView(stats, sl);
+        TextView tagline = text(getString(R.string.pocket_nc_tagline), 9.5f, 0x59FFFFFF, PocketFonts.medium());
+        tagline.setGravity(Gravity.CENTER_HORIZONTAL);
+        LinearLayout.LayoutParams tg = matchWrap();
+        tg.topMargin = dp(12);
+        panel.addView(tagline, tg);
 
-        // What the buttons do
+        // What the buttons do: at the bottom of the screen, as everywhere else
         LinearLayout hints = com.limelight.pocket.ui.ConsoleScreen.hintBar(this);
         ConsoleActivity.fillHintBar(this, hints,
                 ConsoleActivity.hintA(this, R.string.pocket_nc_hint_select),
-                new ConsoleActivity.Hint("◀▶", 0xFFFFFFFF, getString(R.string.pocket_nc_hint_adjust)),
+                new ConsoleActivity.Hint("\u25C0\u25B6", 0xFFFFFFFF, getString(R.string.pocket_nc_hint_adjust)),
                 ConsoleActivity.hintB(this, R.string.pocket_hint_close));
-        LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        hl.gravity = Gravity.END;
-        hl.topMargin = dp(10);
-        panel.addView(hints, hl);
+        noFocus(hints);
+        FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.END);
+        hl.setMarginEnd(dp(18));
+        hl.bottomMargin = dp(9);
+        root.addView(hints, hl);
 
-        sleep.requestFocus();
+        // With the controller the focus starts on the first tile (also when the screen was
+        // last touched: in touch mode a plain request would be refused)
+        root.post(() -> {
+            if (getCurrentFocus() == null || !(getCurrentFocus() instanceof Tile || getCurrentFocus() instanceof Bar)) {
+                first.requestFocusFromTouch();
+            }
+        });
+    }
+
+    private Tile first;
+
+    /** Hints (and anything else that isn't a control) never take the focus. */
+    private static void noFocus(View v) {
+        v.setFocusable(false);
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                noFocus(g.getChildAt(i));
+            }
+        }
     }
 
     private LinearLayout row(LinearLayout grid, int top) {
@@ -259,9 +276,9 @@ public class ControlCenterActivity extends Activity {
         return r;
     }
 
-    private Tile tile(LinearLayout row, String icon, String label, boolean gapAfter) {
+    private Tile tile(LinearLayout row, String icon, String label, boolean gapAfter, int height) {
         Tile t = new Tile(this, icon, label);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(92), 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, height, 1f);
         if (gapAfter) {
             lp.setMarginEnd(dp(10));
         }
@@ -474,6 +491,14 @@ public class ControlCenterActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent e) {
         int code = e.getKeyCode();
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        View focus = getCurrentFocus();
+        if (down && first != null && !(focus instanceof Tile) && !(focus instanceof Bar)
+                && code != KeyEvent.KEYCODE_BUTTON_B && code != KeyEvent.KEYCODE_BACK
+                && code != KeyEvent.KEYCODE_BUTTON_MODE && code != KeyEvent.KEYCODE_ESCAPE) {
+            // Nothing of the panel has the focus yet: the first key puts it on the first tile
+            first.requestFocusFromTouch();
+            return true;
+        }
         switch (code) {
             case KeyEvent.KEYCODE_BUTTON_B:
             case KeyEvent.KEYCODE_BACK:

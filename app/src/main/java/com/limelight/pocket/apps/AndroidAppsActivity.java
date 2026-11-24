@@ -477,6 +477,11 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             shown.add(new Entry("drawer", getString(R.string.pocket_drawer_title), TYPE_SETTING, null, DRAWER,
                     R.drawable.ic_pocket_all_apps));
         }
+        if (filter == FILTER_MEDIA && shown.isEmpty()) {
+            // No music or video app yet: every app on the handheld, to open one (or the store)
+            shown.add(new Entry("drawer", getString(R.string.pocket_drawer_title), TYPE_SETTING, null, DRAWER,
+                    R.drawable.ic_pocket_all_apps));
+        }
         String keep = heroKey;
         adapter.set(shown);
         updateSection();

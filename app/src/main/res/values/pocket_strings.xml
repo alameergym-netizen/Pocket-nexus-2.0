@@ -794,7 +794,7 @@
     <string name="pocket_set_switch_no_ask_sub">Starting a game while another runs closes the other one right away</string>
     <string name="pocket_apps_title">Android apps</string>
     <string name="pocket_apps_open">Open</string>
-    <string name="pocket_apps_empty">Nothing here. L1 / R1 change the filter</string>
+    <string name="pocket_apps_empty">Nothing here. L2 / R2 change the filter</string>
     <string name="pocket_apps_cant_open">This app can\'t be opened</string>
     <string name="pocket_apps_info">App info</string>
     <string name="pocket_apps_hide">Hide from this list</string>
@@ -1793,8 +1793,8 @@
     <string name="pocket_bx_fetch_failed">Couldn\'t get Better xCloud (no connection?). Xbox Cloud Gaming opens without it this time.</string>
     <string name="pocket_bx_updated">Better xCloud %1$s is ready (used from the next start)</string>
     <string name="pocket_bx_next_start">Takes effect the next time Xbox Cloud Gaming starts (close it from this menu first)</string>
-    <string name="pocket_bx_note">Better xCloud %1$s, by redphx (MIT license), fetched from its official GitHub releases and kept up to date by itself. It runs in the built-in player; its own settings (resolution, codec, bit rate, sharpness, stats, controller) are behind its button at the top of xCloud\'s page.</string>
-    <string name="pocket_cloud_with_builtin_bx">Pocket Nexus player + Better xCloud</string>
+    <string name="pocket_bx_note">Better xCloud%1$s by redphx (MIT license), fetched from its official GitHub releases and kept up to date by itself. It runs in the built-in player; its own settings (resolution, codec, bit rate, sharpness, stats, controller) are behind its button at the top of xCloud\'s page.</string>
+    <string name="pocket_cloud_with_builtin_bx">Built in + Better xCloud</string>
     <string name="pocket_apps_filter_media">Media</string>
     <string name="pocket_apps_media_card">Media · %1$d apps</string>
     <string name="pocket_nc_title">Nexus Control</string>

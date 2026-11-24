@@ -192,6 +192,46 @@ public final class KeyArtStage {
         motionImage = null;
     }
 
+    private static final java.util.WeakHashMap<Bitmap, Float> DIM = new java.util.WeakHashMap<>();
+
+    /**
+     * How much to dim this art (1: not at all) so the left part, where the hero's words are,
+     * isn't brighter than about mid-grey on average.
+     */
+    private static float textAreaDim(Bitmap b) {
+        synchronized (DIM) {
+            Float hit = DIM.get(b);
+            if (hit != null) {
+                return hit;
+            }
+        }
+        float k = 1f;
+        try {
+            int w = b.getWidth();
+            int h = b.getHeight();
+            float sum = 0;
+            int n = 0;
+            for (int y = Math.round(h * 0.18f); y < h * 0.78f; y += Math.max(1, h / 24)) {
+                for (int x = 0; x < w * 0.55f; x += Math.max(1, w / 32)) {
+                    int p = b.getPixel(x, y);
+                    sum += (0.2126f * android.graphics.Color.red(p) + 0.7152f * android.graphics.Color.green(p)
+                            + 0.0722f * android.graphics.Color.blue(p)) / 255f;
+                    n++;
+                }
+            }
+            float l = n > 0 ? sum / n : 0f;
+            if (l > 0.46f) {
+                k = Math.max(0.6f, 0.46f / l);
+            }
+        } catch (RuntimeException e) {
+            k = 1f;
+        }
+        synchronized (DIM) {
+            DIM.put(b, k);
+        }
+        return k;
+    }
+
     /** Shows this key art (null: none, the blurred art and lights show again). */
     public void show(Bitmap bitmap) {
         // Key art is made to be seen: every style shows it, except pure black
@@ -224,13 +264,22 @@ public final class KeyArtStage {
         KeyArtView outgoing = onA ? a : b;
         onA = !onA;
         incoming.setImageBitmap(bitmap);
-        if (PocketPrefs.colorBackgroundArt(activity)) {
+        // An adaptive scrim: art that's bright where the name and the buttons sit (snow, a white
+        // sky) is taken down until white words read on it; dark art is left as it is
+        float k = textAreaDim(bitmap);
+        boolean color = PocketPrefs.colorBackgroundArt(activity);
+        if (color && k >= 0.999f) {
             incoming.clearColorFilter();
         }
         else {
-            ColorMatrix mono = new ColorMatrix();
-            mono.setSaturation(0f);
-            incoming.setColorFilter(new ColorMatrixColorFilter(mono));
+            ColorMatrix m = new ColorMatrix();
+            m.setScale(k, k, k, 1f);
+            if (!color) {
+                ColorMatrix mono = new ColorMatrix();
+                mono.setSaturation(0f);
+                m.postConcat(mono);
+            }
+            incoming.setColorFilter(new ColorMatrixColorFilter(m));
         }
         // Background layers: no entrance runs on them, so taking them over completely is fine
         incoming.animate().cancel();

@@ -292,7 +292,7 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
                     : getString(R.string.pocket_bx_fetch_failed), Toast.LENGTH_LONG).show());
         }));
         String v = BetterXcloud.version(this);
-        items.add(StreamMenuView.Item.note(getString(R.string.pocket_bx_note, v != null ? v : "\u2014")));
+        items.add(StreamMenuView.Item.note(getString(R.string.pocket_bx_note, v != null ? " " + v + "," : ",")));
     }
 
     private String onOff(boolean on) {
