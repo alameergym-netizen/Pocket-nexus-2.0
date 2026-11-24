@@ -616,6 +616,12 @@ public class StreamMenuView extends FrameLayout {
         render(1);
     }
 
+    /** Update a page in place so Back still returns to the page that opened it. */
+    public void replacePageItems(List<Item> items) {
+        stack.set(stack.size() - 1, new Page(page().title, items));
+        render(0);
+    }
+
     private boolean pop() {
         if (stack.size() <= 1) {
             return false;
