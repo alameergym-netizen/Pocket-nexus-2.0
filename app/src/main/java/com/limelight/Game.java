@@ -503,18 +503,18 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         horizonProfileOwner = ResumeTicket.consumeProfileOwner(getIntent(), pocketTicketProfile);
         pocketProfileApp = horizonProfileOwner.profileId;
         if (horizonProfileOwner.valid()) {
-            int profileFps = com.limelight.pocket.GameProfile.fps(this, pocketProfileUuid, pocketProfileApp);
-            if (profileFps > 0) {
-                prefConfig.fps = profileFps;
+            com.limelight.pocket.GameProfile.Snapshot profile =
+                    com.limelight.pocket.GameProfile.snapshot(this, pocketProfileUuid, pocketProfileApp);
+            if (profile.fps > 0) {
+                prefConfig.fps = profile.fps;
             }
-            int[] profileRes = com.limelight.pocket.GameProfile.parseResolution(
-                    com.limelight.pocket.GameProfile.resolution(this, pocketProfileUuid, pocketProfileApp));
+            int[] profileRes = com.limelight.pocket.GameProfile.parseResolution(profile.resolution);
             if (profileRes != null) {
                 prefConfig.width = profileRes[0];
                 prefConfig.height = profileRes[1];
             }
-            pocketProfileBitrate = com.limelight.pocket.GameProfile.bitrateKbps(this, pocketProfileUuid, pocketProfileApp);
-            pocketProfileFrameGen = com.limelight.pocket.GameProfile.frameGen(this, pocketProfileUuid, pocketProfileApp);
+            pocketProfileBitrate = profile.bitrateKbps;
+            pocketProfileFrameGen = profile.frameGen;
         }
         // Artemis Pocket: a quality switch comes back with its own frame rate
         int pocketFpsOverride = getIntent().getIntExtra(ResumeTicket.EXTRA_FPS, 0);

@@ -29,20 +29,66 @@ public final class GameProfile {
         return pcUuid + "_" + appId + "_" + field;
     }
 
+    private static int nonnegative(Object value) {
+        return value instanceof Integer && (Integer) value >= 0 ? (Integer) value : 0;
+    }
+
+    private static int validFrameGen(Object value) {
+        int mode = nonnegative(value);
+        return mode < FRAME_GEN_MODES ? mode : FRAME_GEN_DEFAULT;
+    }
+
+    private static String validResolution(Object value) {
+        if (!(value instanceof String)) return "";
+        String res = (String) value;
+        return parseResolution(res) != null ? res : "";
+    }
+
+    /** All settings for one launch are read from the same preference snapshot. */
+    public static final class Snapshot {
+        public final int bitrateKbps, fps, frameGen;
+        public final String resolution;
+        private Snapshot(Object bitrate, Object fps, Object resolution, Object frameGen) {
+            this.bitrateKbps = nonnegative(bitrate);
+            this.fps = nonnegative(fps);
+            this.resolution = validResolution(resolution);
+            this.frameGen = validFrameGen(frameGen);
+        }
+        public boolean hasAny() {
+            return bitrateKbps > 0 || fps > 0 || !resolution.isEmpty() || frameGen != FRAME_GEN_DEFAULT;
+        }
+    }
+
+    public static Snapshot snapshot(Context c, String pcUuid, int appId) {
+        if (pcUuid == null || pcUuid.trim().isEmpty() || appId == 0) return new Snapshot(null, null, null, null);
+        java.util.Map<String, ?> values = prefs(c).getAll();
+        return new Snapshot(values.get(key(pcUuid, appId, "bitrate")),
+                values.get(key(pcUuid, appId, "fps")), values.get(key(pcUuid, appId, "res")),
+                values.get(key(pcUuid, appId, "framegen")));
+    }
+
+    private static int readInt(Context c, String pcUuid, int appId, String field) {
+        if (pcUuid == null || pcUuid.trim().isEmpty() || appId == 0) return 0;
+        try { return nonnegative(prefs(c).getInt(key(pcUuid, appId, field), 0)); }
+        catch (ClassCastException e) { return 0; }
+    }
+
     public static int bitrateKbps(Context c, String pcUuid, int appId) {
-        return prefs(c).getInt(key(pcUuid, appId, "bitrate"), 0);
+        return readInt(c, pcUuid, appId, "bitrate");
     }
 
     public static int fps(Context c, String pcUuid, int appId) {
-        return prefs(c).getInt(key(pcUuid, appId, "fps"), 0);
+        return readInt(c, pcUuid, appId, "fps");
     }
 
     public static String resolution(Context c, String pcUuid, int appId) {
-        return prefs(c).getString(key(pcUuid, appId, "res"), "");
+        if (pcUuid == null || pcUuid.trim().isEmpty() || appId == 0) return "";
+        try { return validResolution(prefs(c).getString(key(pcUuid, appId, "res"), "")); }
+        catch (ClassCastException e) { return ""; }
     }
 
     public static int frameGen(Context c, String pcUuid, int appId) {
-        return prefs(c).getInt(key(pcUuid, appId, "framegen"), FRAME_GEN_DEFAULT);
+        return validFrameGen(readInt(c, pcUuid, appId, "framegen"));
     }
 
     public static void setBitrateKbps(Context c, String pcUuid, int appId, int kbps) {
@@ -85,8 +131,7 @@ public final class GameProfile {
     }
 
     public static boolean hasAny(Context c, String pcUuid, int appId) {
-        return bitrateKbps(c, pcUuid, appId) > 0 || fps(c, pcUuid, appId) > 0
-                || !resolution(c, pcUuid, appId).isEmpty() || frameGen(c, pcUuid, appId) != FRAME_GEN_DEFAULT;
+        return snapshot(c, pcUuid, appId).hasAny();
     }
 
     /** Width and height of a "1920x1080" value, or null. */
@@ -94,7 +139,7 @@ public final class GameProfile {
         if (res == null) {
             return null;
         }
-        String[] parts = res.split("x");
+        String[] parts = res.split("x", -1);
         if (parts.length != 2) {
             return null;
         }
@@ -110,25 +155,26 @@ public final class GameProfile {
     /** "1080p · 90 FPS · 60 Mbps" style summary of what is customised, or "". */
     public static String summary(Context c, String pcUuid, int appId) {
         StringBuilder sb = new StringBuilder();
-        int[] res = parseResolution(resolution(c, pcUuid, appId));
+        Snapshot profile = snapshot(c, pcUuid, appId);
+        int[] res = parseResolution(profile.resolution);
         if (res != null) {
             sb.append(res[1]).append('p');
         }
-        int fps = fps(c, pcUuid, appId);
+        int fps = profile.fps;
         if (fps > 0) {
             if (sb.length() > 0) {
                 sb.append("  ·  ");
             }
             sb.append(fps).append(" FPS");
         }
-        int kbps = bitrateKbps(c, pcUuid, appId);
+        int kbps = profile.bitrateKbps;
         if (kbps > 0) {
             if (sb.length() > 0) {
                 sb.append("  ·  ");
             }
             sb.append(kbps / 1000).append(" Mbps");
         }
-        int fg = frameGen(c, pcUuid, appId);
+        int fg = profile.frameGen;
         if (fg != FRAME_GEN_DEFAULT) {
             if (sb.length() > 0) {
                 sb.append("  ·  ");

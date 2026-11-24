@@ -26,9 +26,9 @@ public final class GameSettingsPage {
         if (ctx instanceof ConsoleActivity && uuid != null && !uuid.trim().isEmpty() && appId != 0) {
             ConsoleActivity console = (ConsoleActivity) ctx;
             String title = ctx.getString(R.string.horizon_game_presets);
+            GameProfile.Snapshot profile = GameProfile.snapshot(ctx, uuid, appId);
             HorizonGamePreset current = HorizonGamePreset.match(
-                    GameProfile.resolution(ctx, uuid, appId), GameProfile.fps(ctx, uuid, appId),
-                    GameProfile.bitrateKbps(ctx, uuid, appId));
+                    profile.resolution, profile.fps, profile.bitrateKbps);
             page.add(StreamMenuView.Item.submenu(title, () -> {
                 List<StreamMenuView.Item> choices = new ArrayList<>();
                 choices.add(StreamMenuView.Item.note(ctx.getString(R.string.horizon_game_presets_note)));
