@@ -1375,6 +1375,7 @@
     <string name="pocket_files_copied">Copied: %1$d. Start in the folder they go to pastes them</string>
     <string name="pocket_files_working">Working on it…</string>
     <string name="pocket_files_pasted">Done: %1$d</string>
+    <string name="horizon_file_transfer_partial">%1$d completed · %2$d failed · %3$d copied with source items retained</string>
     <string name="pocket_files_deleted">Deleted: %1$d</string>
     <string name="pocket_files_cant_rename">That name can\'t be used here</string>
     <string name="pocket_files_items">%1$d items</string>
