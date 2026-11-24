@@ -1584,6 +1584,15 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private String updateStatus;
 
     private void buildSystemTab() {
+        // Optional permissions are visible together; never request them merely by opening settings.
+        addHeader(R.string.horizon_permissions_title);
+        for (com.limelight.pocket.device.HorizonPermissions.Capability capability
+                : com.limelight.pocket.device.HorizonPermissions.Capability.values()) {
+            addAction(getString(capability.title), getString(capability.description),
+                    () -> getString(com.limelight.pocket.device.HorizonPermissions.status(this, capability)),
+                    () -> com.limelight.pocket.device.HorizonPermissions.open(this, capability));
+        }
+        addHeader(R.string.horizon_permissions_storage_updates);
         addAction(getString(R.string.pocket_store_title), getString(R.string.pocket_store_sub), null, this::storage);
         addAction(getString(R.string.horizon_storage_title), getString(R.string.horizon_storage_sub), null,
                 () -> com.limelight.pocket.device.HorizonStorage.show(this));

@@ -94,6 +94,8 @@ public class LibraryActivity extends ConsoleActivity {
     private int sort;
     private int heroPos = -1;
     private int heroToken;
+    private int focusGeneration;
+    private boolean loading = true;
 
     private ImageView heroArt;
     private TextView kicker;
@@ -110,7 +112,7 @@ public class LibraryActivity extends ConsoleActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         d = getResources().getDisplayMetrics().density;
-        sort = PocketPrefs.prefs(this).getInt(KEY_SORT, SORT_RECENT);
+        sort = Math.max(SORT_RECENT, Math.min(SORT_PLAYED, PocketPrefs.prefs(this).getInt(KEY_SORT, SORT_RECENT)));
         setContentView(build());
         setHints(hintA(this, R.string.pocket_hero_play),
                 hintY(this, R.string.pocket_ul_hint_options),
@@ -125,6 +127,9 @@ public class LibraryActivity extends ConsoleActivity {
     @Override
     protected void onDestroy() {
         heroToken++;
+        focusGeneration++;
+        if (heroArt != null) heroArt.animate().cancel();
+        if (title != null) title.animate().cancel();
         io.shutdownNow();
         super.onDestroy();
     }
@@ -156,50 +161,23 @@ public class LibraryActivity extends ConsoleActivity {
         root.setBackground(ConsoleScreen.backdrop(this));
         int w = getResources().getDisplayMetrics().widthPixels;
         int h = getResources().getDisplayMetrics().heightPixels;
-
-        // The top shelf: the game's wide art, fading into the screen at the bottom and the left
-        heroArt = new ImageView(this);
-        heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        root.addView(heroArt, new FrameLayout.LayoutParams(-1, Math.round(h * 0.62f)));
-        View fadeDown = new View(this);
-        fadeDown.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x33000000, 0x66000000, 0xF2000000}));
-        root.addView(fadeDown, new FrameLayout.LayoutParams(-1, Math.round(h * 0.62f)));
-        View fadeLeft = new View(this);
-        fadeLeft.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xCC000000, 0x55000000, 0x00000000}));
-        root.addView(fadeLeft, new FrameLayout.LayoutParams(Math.round(w * 0.7f), Math.round(h * 0.62f)));
-        View under = new View(this);
-        under.setBackgroundColor(0xF2000000);
-        FrameLayout.LayoutParams ul = new FrameLayout.LayoutParams(-1, -1);
-        ul.topMargin = Math.round(h * 0.62f);
-        root.addView(under, ul);
-
+        HorizonLibraryLayout spec = HorizonLibraryLayout.forWindow(w / d, h / d);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setClipChildren(false);
-        column.setClipToPadding(false);
-        column.setPadding(dp(32), dp(20), dp(32), 0);
+        column.setPadding(dp(spec.padding), dp(12), dp(spec.padding), dp(8));
         root.addView(column, new FrameLayout.LayoutParams(-1, -1));
 
-        kicker = text(10f, PocketFonts.bold(), 0xA6FFFFFF);
-        kicker.setLetterSpacing(0.2f);
-        column.addView(kicker);
-        title = text(28f, PocketFonts.bold(), 0xFFFFFFFF);
-        title.setLetterSpacing(-0.02f);
-        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(Math.round(w * 0.6f), -2);
-        tl.topMargin = dp(Math.max(18, (h / d) * 0.12f));
-        column.addView(title, tl);
-        meta = text(12.5f, PocketFonts.medium(), 0xD9FFFFFF);
-        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(Math.round(w * 0.6f), -2);
-        ml.topMargin = dp(8);
-        column.addView(meta, ml);
-        ways = text(11.5f, PocketFonts.medium(), 0x99FFFFFF);
-        LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(Math.round(w * 0.6f), -2);
-        wl.topMargin = dp(5);
-        column.addView(ways, wl);
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView heading = text(24f, PocketFonts.display(), 0xFFFFFFFF);
+        heading.setText(R.string.horizon_library_workspace_title);
+        header.addView(heading, new LinearLayout.LayoutParams(0, -2, 1f));
+        kicker = text(10f, PocketFonts.bold(), 0xCCFFFFFF);
+        kicker.setLetterSpacing(0.06f);
+        header.addView(kicker, new LinearLayout.LayoutParams(-2, -2));
+        column.addView(header, new LinearLayout.LayoutParams(-1, -2));
 
-        // What's shown: tabs as on Apple TV (the current one a white pill)
         tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);
         tabScroll.setFocusable(false);
@@ -207,48 +185,87 @@ public class LibraryActivity extends ConsoleActivity {
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         tabScroll.addView(tabs);
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, -2);
-        sl.topMargin = dp(14);
+        sl.topMargin = dp(10);
         column.addView(tabScroll, sl);
+
+        LinearLayout workspace = new LinearLayout(this);
+        workspace.setOrientation(spec.split ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        workspace.setClipChildren(false);
+        LinearLayout.LayoutParams workLp = new LinearLayout.LayoutParams(-1, 0, 1f);
+        workLp.topMargin = dp(8);
+        column.addView(workspace, workLp);
+
+        // Independent selected-game detail surface; artwork no longer covers the entire library.
+        LinearLayout detail = new LinearLayout(this);
+        detail.setOrientation(LinearLayout.VERTICAL);
+        detail.setPadding(dp(12), dp(12), dp(12), dp(10));
+        GradientDrawable detailBg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xF0222935, 0xF0141820});
+        detailBg.setCornerRadius(dp(14));
+        detailBg.setStroke(dp(1), 0x33FFFFFF);
+        detail.setBackground(detailBg);
+        heroArt = new ImageView(this);
+        heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        if (spec.split) {
+            detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(spec.artHeight)));
+        }
+        title = text(spec.split ? 22f : 17f, PocketFonts.bold(), 0xFFFFFFFF);
+        title.setMaxLines(spec.split ? 2 : 1);
+        if (spec.split) title.setSingleLine(false);
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2);
+        tl.topMargin = dp(spec.split ? 10 : 0);
+        detail.addView(title, tl);
+        meta = text(12f, PocketFonts.medium(), 0xDEFFFFFF);
+        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, -2);
+        ml.topMargin = dp(5);
+        detail.addView(meta, ml);
+        ways = text(11f, PocketFonts.medium(), 0xB3FFFFFF);
+        LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(-1, -2);
+        wl.topMargin = dp(4);
+        detail.addView(ways, wl);
+        if (spec.split) {
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(spec.detailWidth), -1);
+            dl.setMarginEnd(dp(12));
+            workspace.addView(detail, dl);
+        } else {
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-1, -2);
+            dl.bottomMargin = dp(8);
+            workspace.addView(detail, dl);
+        }
 
         FrameLayout body = new FrameLayout(this);
         body.setClipChildren(false);
         body.setClipToPadding(false);
-        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(-1, 0, 1f);
-        bl.topMargin = dp(6);
-        column.addView(body, bl);
+        workspace.addView(body, spec.split
+                ? new LinearLayout.LayoutParams(0, -1, 1f)
+                : new LinearLayout.LayoutParams(-1, 0, 1f));
         grid = new RecyclerView(this);
-        int cardW = dp(112);
-        int columns = Math.max(4, (w - dp(64)) / (cardW + dp(14)));
-        grid.setLayoutManager(new GridLayoutManager(this, columns));
+        grid.setLayoutManager(new GridLayoutManager(this, spec.columns));
         grid.setItemAnimator(null);
         grid.setClipToPadding(false);
         grid.setClipChildren(false);
-        grid.setPadding(dp(4), dp(12), dp(4), dp(60));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            grid.setDefaultFocusHighlightEnabled(false);
-        }
+        grid.setPadding(dp(3), dp(4), dp(3), dp(6));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) grid.setDefaultFocusHighlightEnabled(false);
         grid.setAdapter(cards);
         body.addView(grid, new FrameLayout.LayoutParams(-1, -1));
-        empty = text(13f, PocketFonts.medium(), 0x99FFFFFF);
+        empty = text(13f, PocketFonts.medium(), 0xCCFFFFFF);
         empty.setSingleLine(false);
         empty.setGravity(Gravity.CENTER);
+        empty.setPadding(dp(12), dp(8), dp(12), dp(8));
         empty.setVisibility(View.GONE);
-        body.addView(empty, new FrameLayout.LayoutParams(dp(440), -2, Gravity.CENTER));
-
-        // A shade along the bottom: the hints stay readable over bright covers
-        View foot = new View(this);
-        foot.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x00000000, 0xCC000000, 0xF2000000}));
-        root.addView(foot, new FrameLayout.LayoutParams(-1, dp(72), Gravity.BOTTOM));
+        body.addView(empty, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
 
         LinearLayout hints = new LinearLayout(this);
         hints.setId(R.id.pocketHintBar);
         hints.setOrientation(LinearLayout.HORIZONTAL);
-        hints.setGravity(Gravity.CENTER_VERTICAL);
-        FrameLayout.LayoutParams hlp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END);
-        hlp.setMarginEnd(dp(18));
-        hlp.bottomMargin = dp(9);
-        root.addView(hints, hlp);
+        hints.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        HorizontalScrollView footer = new HorizontalScrollView(this);
+        footer.setHorizontalScrollBarEnabled(false);
+        footer.setFocusable(false);
+        footer.addView(hints, new FrameLayout.LayoutParams(-2, -2));
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(-1, -2);
+        hlp.topMargin = dp(6);
+        column.addView(footer, hlp);
         return root;
     }
 
@@ -257,9 +274,10 @@ public class LibraryActivity extends ConsoleActivity {
         io.execute(() -> {
             final List<UniversalLibrary.Game> got = UniversalLibrary.gather(app);
             main.post(() -> {
-                if (isFinishing()) {
+                if (isFinishing() || isDestroyed()) {
                     return;
                 }
+                loading = false;
                 all = got;
                 show(true);
             });
@@ -322,6 +340,16 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     private void show(boolean first) {
+        focusGeneration++;
+        heroToken++;
+        heroArt.animate().cancel();
+        heroArt.setAlpha(1f);
+        heroArt.setScaleX(1f);
+        heroArt.setScaleY(1f);
+        heroArt.setImageDrawable(null);
+        title.animate().cancel();
+        title.setAlpha(1f);
+        title.setTranslationX(0f);
         if (filter >= filterCount()) {
             filter = F_ALL;
         }
@@ -346,8 +374,7 @@ public class LibraryActivity extends ConsoleActivity {
         });
         buildTabs();
         cards.notifyDataSetChanged();
-        kicker.setText(getString(R.string.pocket_ul_kicker, all.size(), getString(sortLabel(sort)))
-                .toUpperCase(java.util.Locale.getDefault()));
+        kicker.setText(getString(R.string.horizon_library_workspace_count, shown.size(), all.size(), getString(sortLabel(sort))));
         if (shown.isEmpty()) {
             empty.setVisibility(View.VISIBLE);
             empty.setText(all.isEmpty() ? R.string.pocket_ul_empty_all : R.string.pocket_ul_empty);
@@ -366,6 +393,7 @@ public class LibraryActivity extends ConsoleActivity {
             }
         }
         heroPos = -1;
+        updateHero(target);
         focusAt(target, 0);
         if (first) {
             grid.setAlpha(0f);
@@ -382,6 +410,18 @@ public class LibraryActivity extends ConsoleActivity {
         for (int f = 0; f < n; f++) {
             TextView t = text(12f, PocketFonts.semibold(), f == filter ? 0xFF111114 : 0xB3FFFFFF);
             t.setText(filterLabel(f));
+            final int target = f;
+            t.setClickable(true);
+            t.setFocusable(false); // shoulder controls remain the controller filter path
+            t.setOnClickListener(v -> {
+                if (loading || target == filter) return;
+                filter = target;
+                heroPos = -1;
+                PocketSounds.play(this, PocketSounds.NAV);
+                show(false);
+            });
+            t.setContentDescription(filterLabel(f));
+            t.setSelected(f == filter);
             t.setPadding(dp(14), dp(7), dp(14), dp(7));
             if (f == filter) {
                 GradientDrawable pill = new GradientDrawable();
@@ -421,11 +461,16 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     private void focusAt(final int position, final int attempt) {
+        focusAt(position, attempt, ++focusGeneration);
+    }
+
+    private void focusAt(final int position, final int attempt, final int generation) {
+        if (generation != focusGeneration || loading || isFinishing() || isDestroyed()) return;
         if (attempt == 0) {
             grid.scrollToPosition(position);
         }
         grid.post(() -> {
-            if (isFinishing() || position >= shown.size()) {
+            if (generation != focusGeneration || isFinishing() || isDestroyed() || position < 0 || position >= shown.size()) {
                 return;
             }
             RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(position);
@@ -433,7 +478,7 @@ public class LibraryActivity extends ConsoleActivity {
                 return;
             }
             if (attempt < 6) {
-                grid.postDelayed(() -> focusAt(position, attempt + 1), attempt < 2 ? 16 : 120);
+                grid.postDelayed(() -> focusAt(position, attempt + 1, generation), attempt < 2 ? 16 : 120);
             }
             if (heroPos != position) {
                 updateHero(position);
@@ -449,10 +494,17 @@ public class LibraryActivity extends ConsoleActivity {
         }
         final UniversalLibrary.Game g = shown.get(position);
         boolean moved = position != heroPos;
-        int dir = heroPos < 0 ? 0 : Integer.signum(position - heroPos);
         heroPos = position;
         if (moved) {
-            PocketMotion.swapText(title, g.title, dir);
+            title.animate().cancel();
+            title.setAlpha(1f);
+            title.setTranslationX(0f);
+            title.setText(g.title);
+            heroArt.animate().cancel();
+            heroArt.setAlpha(1f);
+            heroArt.setScaleX(1f);
+            heroArt.setScaleY(1f);
+            heroArt.setImageDrawable(null);
         }
         StringBuilder m = new StringBuilder();
         int status = GameShelf.status(this, g.key);
@@ -479,7 +531,7 @@ public class LibraryActivity extends ConsoleActivity {
             w.append(w.length() > 0 ? "  ·  " : "").append(way.label);
         }
         ways.setText(g.ways.size() > 1 ? getString(R.string.pocket_ul_plays_on_many, w) : w);
-        if (!moved) {
+        if (!moved || heroArt.getParent() == null) {
             return;
         }
         // Its wide art (else its cover, stretched dim), a moment after the focus rests
@@ -493,7 +545,7 @@ public class LibraryActivity extends ConsoleActivity {
             }
             Bitmap cached = PocketArt.cached(this, uuid, id, PocketArt.HERO);
             if (cached != null) {
-                setHero(cached);
+                setHero(cached, token);
                 return;
             }
             PocketArt.load(this, uuid, id, PocketArt.HERO, b -> {
@@ -501,25 +553,27 @@ public class LibraryActivity extends ConsoleActivity {
                     return;
                 }
                 if (b != null) {
-                    setHero(b);
+                    setHero(b, token);
                     return;
                 }
                 PocketArt.load(this, uuid, id, PocketArt.COVER, c -> {
                     if (token == heroToken && !isFinishing()) {
-                        setHero(c);
+                        setHero(c, token);
                     }
                 });
             });
         }, heroPos < 0 ? 0 : 140);
     }
 
-    private void setHero(Bitmap b) {
+    private void setHero(Bitmap b, int token) {
+        if (token != heroToken || isFinishing() || isDestroyed()) return;
         if (!PocketPrefs.animationsEnabled(this)) {
             heroArt.setImageBitmap(b);
             return;
         }
         heroArt.animate().cancel();
         heroArt.animate().alpha(0.35f).setDuration(110).withEndAction(() -> {
+            if (token != heroToken || isFinishing() || isDestroyed()) return;
             heroArt.setImageBitmap(b);
             heroArt.setScaleX(1.04f);
             heroArt.setScaleY(1.04f);
@@ -532,6 +586,7 @@ public class LibraryActivity extends ConsoleActivity {
 
     @Override
     protected boolean onShoulder(int direction) {
+        if (loading) return true;
         int n = filterCount();
         filter = (filter + direction + n) % n;
         PocketSounds.play(this, PocketSounds.NAV);
@@ -542,6 +597,7 @@ public class LibraryActivity extends ConsoleActivity {
 
     @Override
     protected boolean onTrigger(int direction) {
+        if (loading) return true;
         sort = (sort + direction + 3) % 3;
         PocketPrefs.prefs(this).edit().putInt(KEY_SORT, sort).apply();
         PocketSounds.play(this, PocketSounds.NAV);

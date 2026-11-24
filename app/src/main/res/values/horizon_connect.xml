@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_connect_title">Connect to PC</string>
+    <string name="horizon_connect_counts">Paired online: %1$d · Pairing needed: %2$d · Offline: %3$d · Unknown: %4$d</string>
+    <string name="horizon_connect_add">Add PC manually</string>
+    <string name="horizon_connect_usb">USB setup</string>
+</resources>

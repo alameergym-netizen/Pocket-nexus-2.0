@@ -1,0 +1,5 @@
+# Horizon Connect and Host status candidate
+
+PC discovery screen now includes separate observed host counts (online and paired, needs pairing, offline, unknown), reduces the previous oversized title region and puts explicit Add PC / USB setup actions in the empty state. Uses existing discovery adapter, launch/pairing logic, USB overlay, host preferences and button mappings; no new network probes, credentials, or automatic pairing. Counts describe streaming pairing, not companion authentication or connection quality. Four policy tests. Windows port change now updates the existing firewall rule rather than deleting it, checks the elevated command exit code, preserves private/domain scope, and indicates unconfirmed changes. Two pure Windows policy tests; actual firewall modification is not run by self-test. APC1 remains plaintext; no claim of secure transport or verified real firewall changes. UI screenshot and RP6/Windows physical validation remain outstanding.
+
+Based on merged #35. #34 signing, #36 permissions and #37 library are independent candidates; integrate only after fresh combined CI.

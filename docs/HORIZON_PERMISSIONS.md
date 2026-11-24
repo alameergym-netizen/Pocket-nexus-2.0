@@ -1,0 +1,5 @@
+# Horizon permissions center
+
+Physical RP6 smoke test showed separate brightness, accessibility and Retro file access prompts. Settings > System now starts with a single Permissions & access section. Six optional capabilities display live read-only status and feature-specific explanations. Selecting a row opens Android settings or the existing ROM/notification permission helper. Merely opening the tab never requests a grant. Return from settings refreshes existing status rows via QuickSettingsActivity.onResume. Microphone uses the application's permission settings rather than an automatic request. The existing broad ROM file access remains a limitation, not scoped storage support. Existing feature-specific prompts remain as fallback and all controller bindings are unchanged. No new manifest permissions, root, automatic grants or app changes. Four tests cover catalog, intent routes and read-only status. Real-device permission grant/revoke, focus and UI validation remain required.
+
+Candidate based on merged #35; #34 signing/physical evidence branch remains independent. Do not mark release gates complete from this candidate.

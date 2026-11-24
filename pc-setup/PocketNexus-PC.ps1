@@ -1883,13 +1883,21 @@ function Get-StatusText {
 }
 
 # The firewall rule follows the port (only when there is one: it was allowed at setup)
+function Get-FirewallPortCommand([int]$port) {
+    if ($port -lt 1024 -or $port -gt 65535) { throw "Invalid control port" }
+    return "Set-NetFirewallRule -DisplayName 'Pocket Nexus PC' -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow -Profile Private,Domain -ErrorAction Stop"
+}
 function Update-FirewallPort([int]$port) {
     $rule = Get-NetFirewallRule -DisplayName "Pocket Nexus PC" -ErrorAction SilentlyContinue
     if (-not $rule) { return $false }
-    $cmd = "Remove-NetFirewallRule -DisplayName 'Pocket Nexus PC' -ErrorAction SilentlyContinue; " +
-        "New-NetFirewallRule -DisplayName 'Pocket Nexus PC' -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow -Profile Private,Domain"
     try {
-        Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "-NoProfile -Command $cmd"
+        $cmd = Get-FirewallPortCommand $port
+        $escaped = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes("try { $cmd; exit 0 } catch { exit 1 }"))
+        $process = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList "-NoProfile -EncodedCommand $escaped"
+        if ($process.ExitCode -ne 0) {
+            Write-Log "Firewall port update failed (elevated command returned nonzero)"
+            return $false
+        }
         return $true
     } catch {
         Write-Log ("Firewall rule not changed: " + $_.Exception.Message)
@@ -1918,7 +1926,7 @@ function Edit-WifiPort {
     Set-Content -Path $PortFile -Value $new -NoNewline
     Write-Log "Wi-Fi port changed to $new"
     $fw = Update-FirewallPort $new
-    $msg = "The Wi-Fi port is now $new" + $(if ($fw) { " (firewall rule updated)" } else { "" }) + "." +
+    $msg = "The Wi-Fi port is now $new" + $(if ($fw) { " (firewall rule updated)" } else { " (firewall update not confirmed; check private network rules if needed)" }) + "." +
         "`r`n`r`nOn the handheld: the PC's options > Pocket Nexus PC Wi-Fi port > $new." +
         "`r`n`r`nPocket Nexus PC starts again now."
     [void][System.Windows.Forms.MessageBox]::Show($msg, "Pocket Nexus PC")
@@ -2097,6 +2105,11 @@ function Invoke-SelfTest {
     function Check($ok, $what) {
         if ($ok) { Write-Host ("  ok    " + $what) } else { Write-Host ("  FAIL  " + $what); $failed.Add($what) }
     }
+    $fwCommand = Get-FirewallPortCommand 47119
+    Check ($fwCommand -match 'Set-NetFirewallRule' -and $fwCommand -notmatch 'Remove-NetFirewallRule' -and $fwCommand -match '-LocalPort 47119' -and $fwCommand -match 'Private,Domain') "firewall updates existing rule without removing it"
+    $invalidPort = $false
+    try { Get-FirewallPortCommand 0 | Out-Null } catch { $invalidPort = $true }
+    Check $invalidPort "firewall rejects invalid port"
     Check ((Get-HostUsbLabel $false $true "device") -eq "Bridge port unavailable") "dashboard bridge failure has priority"
     Check ((Get-HostUsbLabel $true $false "") -eq "ADB unavailable") "dashboard missing ADB"
     Check ((Get-HostUsbLabel $true $true "device") -eq "Handheld detected by ADB") "dashboard ADB device"
