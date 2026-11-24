@@ -191,6 +191,8 @@ dependencies {
     implementation 'androidx.browser:browser:1.8.0'
     // Better xCloud runs from the very start of xbox.com's pages (a document-start script)
     implementation 'androidx.webkit:webkit:1.11.0'
+    // Lossless Scaling frame generation, built in (Android 10+, on the user's own Lossless.dll)
+    implementation project(':framegen')
 
     // Unit test dependencies
     testImplementation 'junit:junit:4.13.2'
