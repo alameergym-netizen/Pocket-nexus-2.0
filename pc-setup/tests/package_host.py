@@ -13,6 +13,8 @@ FILES = (
     "pc-setup/NexusVibepollo.cs",
     "pc-setup/README.txt",
     "pc-setup/Test-NexusUpgrade.ps1",
+    "pc-setup/playnite/extension.yaml",
+    "pc-setup/playnite/PocketNexusCatalog.psm1",
     "pc-setup/other-handhelds/ArtemisPocket-USB-Setup.bat",
     "pc-setup/other-handhelds/ArtemisPocket-USB-Setup.ps1",
     "LICENSE.txt",

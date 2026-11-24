@@ -1,0 +1,6 @@
+Id: PocketNexus_Playnite_548d86e5-7e01-4a4b-9014-6013fc8b35f5
+Name: Pocket Nexus catalog
+Author: Pocket Nexus
+Version: 1.0
+Module: PocketNexusCatalog.psm1
+Type: Script
