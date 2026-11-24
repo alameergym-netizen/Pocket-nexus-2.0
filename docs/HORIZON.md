@@ -67,3 +67,6 @@ The validation candidate passed its Android build and all 100 recorded unit test
 
 ## Alpha 2 UI candidate
 Independent Home card density and corner preferences preserve existing presets; compact and large sizes apply to shelves and grids, with a short-screen guard. Animated key art is optional, and Home releases motion resources on pause. Full physical-device layout and focus checks remain required. Alpha 1 baseline is retained until this candidate passes CI.
+
+## Theme Studio candidate
+Three local versioned custom-look slots save/restore accent, material, backdrop, sound set, Home layout, focus, card density/corners and artwork motion/color/live-glass preferences. Confirm before applying, replacing or deleting. No UI scale, volume, streaming, credentials or controller settings are included. A separate candidate branch preserves the Alpha 2 CI run; integration and device tests remain required.
