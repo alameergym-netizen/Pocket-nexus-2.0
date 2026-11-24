@@ -230,6 +230,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void start() {
+        HorizonAudioRoute.register(track);
         if (enableAudioFx && track != null && openedEffectSession < 0) {
             int session = track.getAudioSessionId();
             if (session <= 0) { return; }
@@ -248,6 +249,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void stop() {
+        HorizonAudioRoute.clear(track);
         closeEffectSession();
     }
 
@@ -270,6 +272,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
         closeEffectSession();
         // Immediately drop pending data, even if setup did not finish.
         AudioTrack closing = track;
+        HorizonAudioRoute.clear(closing);
         track = null;
         dsp = null;
         dspBuffer = null;
