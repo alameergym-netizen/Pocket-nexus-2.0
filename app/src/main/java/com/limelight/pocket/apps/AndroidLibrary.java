@@ -34,6 +34,8 @@ public final class AndroidLibrary {
         public final int type;
         /** Music, video, streaming or chat (the Apps section's Media shelf). */
         public final boolean media;
+        /** Came with the handheld (Camera, Settings...), not installed since. */
+        public boolean system;
 
         InstalledApp(String packageName, String label, int type, boolean media) {
             this.packageName = packageName;
@@ -96,8 +98,11 @@ public final class AndroidLibrary {
             CharSequence label = ri.loadLabel(pm);
             ApplicationInfo ai = ri.activityInfo.applicationInfo;
             int type = AndroidAppsActivity.typeOf(pkg, label, ai);
-            out.add(new InstalledApp(pkg, label != null ? label.toString() : pkg, type,
-                    AndroidAppsActivity.isMedia(pkg, label, ai, type)));
+            InstalledApp ia = new InstalledApp(pkg, label != null ? label.toString() : pkg, type,
+                    AndroidAppsActivity.isMedia(pkg, label, ai, type));
+            ia.system = ai != null && (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0
+                    && (ai.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0;
+            out.add(ia);
         }
         return out;
     }

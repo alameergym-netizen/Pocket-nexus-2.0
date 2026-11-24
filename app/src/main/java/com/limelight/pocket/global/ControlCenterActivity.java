@@ -152,7 +152,7 @@ public class ControlCenterActivity extends Activity {
         panel.setElevation(dp(24));
         // A floating card at the top right, as Apple TV's Control Center (its height: what it holds)
         float screenDp = getResources().getDisplayMetrics().heightPixels / d;
-        int tileH = dp(Math.max(64f, Math.min(96f, (screenDp - 292f) / 2f)));
+        int tileH = dp(Math.max(72f, Math.min(96f, (screenDp - 262f) / 2f)));
         FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(Math.min(dp(440),
                 Math.round(getResources().getDisplayMetrics().widthPixels * 0.5f)),
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP);
@@ -169,12 +169,13 @@ public class ControlCenterActivity extends Activity {
         TextView name = text(getString(R.string.pocket_nc_title).toUpperCase(Locale.ROOT), 10f, 0x8CFFFFFF, PocketFonts.bold());
         name.setLetterSpacing(0.22f);
         titles.addView(name, wrap());
-        clock = text("", 26f, 0xFFFFFFFF, PocketFonts.display());
+        clock = text("", 24f, 0xFFFFFFFF, PocketFonts.display());
         clock.setIncludeFontPadding(false);
         LinearLayout.LayoutParams cl = wrap();
         cl.topMargin = dp(3);
         titles.addView(clock, cl);
-        head.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        head.addView(titles, wrap());
+        head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         batteryBig = stat(head, getString(R.string.pocket_nc_battery));
         batterySub = (TextView) ((ViewGroup) batteryBig.getParent()).getChildAt(1);
         tempBig = stat(head, getString(R.string.pocket_nc_temperature));
@@ -230,7 +231,9 @@ public class ControlCenterActivity extends Activity {
         tagline.setGravity(Gravity.CENTER_HORIZONTAL);
         LinearLayout.LayoutParams tg = matchWrap();
         tg.topMargin = dp(12);
-        panel.addView(tagline, tg);
+        if (screenDp >= 500) {
+            panel.addView(tagline, tg); // (a short screen keeps the room for the hints under it)
+        }
 
         // What the buttons do: at the bottom of the screen, as everywhere else
         LinearLayout hints = com.limelight.pocket.ui.ConsoleScreen.hintBar(this);
@@ -294,12 +297,15 @@ public class ControlCenterActivity extends Activity {
         LinearLayout cell = new LinearLayout(this);
         cell.setOrientation(LinearLayout.VERTICAL);
         cell.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView big = text("—", 19f, 0xFFFFFFFF, PocketFonts.semibold());
+        TextView big = text("—", 15f, 0xFFFFFFFF, PocketFonts.semibold());
         cell.addView(big, wrap());
-        TextView small = text(label, 10f, 0x80FFFFFF, PocketFonts.medium());
+        TextView small = text(label, 9f, 0x80FFFFFF, PocketFonts.medium());
         small.setLetterSpacing(0.04f);
         cell.addView(small, wrap());
-        stats.addView(cell, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMarginStart(dp(12));
+        stats.addView(cell, lp);
         return big;
     }
 
@@ -631,8 +637,8 @@ public class ControlCenterActivity extends Activity {
             d = c.getResources().getDisplayMetrics().density;
             setOrientation(VERTICAL);
             setGravity(Gravity.CENTER_VERTICAL);
-            int p = Math.round(12 * d);
-            setPadding(p, p, p, p);
+            int p = Math.round(11 * d);
+            setPadding(Math.round(12 * d), p, p, p);
             bg.setCornerRadius(18 * d);
             bg.setColor(0x1FFFFFFF);
             setBackground(bg);
@@ -642,17 +648,19 @@ public class ControlCenterActivity extends Activity {
                 setDefaultFocusHighlightEnabled(false);
             }
             icon = new ImageView(c);
-            addView(icon, new LayoutParams(Math.round(24 * d), Math.round(24 * d)));
+            addView(icon, new LayoutParams(Math.round(22 * d), Math.round(22 * d)));
             label = new TextView(c);
             label.setText(name);
+            label.setIncludeFontPadding(false);
             label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
             label.setTypeface(PocketFonts.semibold());
             label.setSingleLine(true);
             label.setEllipsize(TextUtils.TruncateAt.END);
             LayoutParams ll = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            ll.topMargin = Math.round(8 * d);
+            ll.topMargin = Math.round(7 * d);
             addView(label, ll);
             state = new TextView(c);
+            state.setIncludeFontPadding(false);
             state.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
             state.setTypeface(PocketFonts.medium());
             state.setSingleLine(true);

@@ -102,6 +102,7 @@ public final class UniversalLibrary {
         Context app = context.getApplicationContext();
         Map<String, Game> games = new LinkedHashMap<>();
         Map<String, Way> seenWays = new HashMap<>();
+        wayOwner.clear();
 
         // The PCs, and each one's games
         List<ComputerDetails> pcs = new ArrayList<>();
@@ -138,14 +139,20 @@ public final class UniversalLibrary {
         Set<String> picked = AndroidLibrary.packages(app);
         Set<String> androidGames = new java.util.HashSet<>();
         for (AndroidLibrary.InstalledApp a : AndroidLibrary.installed(app)) {
+            int id = AndroidLibrary.idFor(a.packageName);
+            // A game by its own say, or one picked for the Android section that isn't a music or
+            // video app, nor one the handheld came with (Camera...) unless it was given a cover
             boolean game = a.type == AndroidAppsActivity.TYPE_GAME
-                    || (picked.contains(a.packageName) && a.type == AndroidAppsActivity.TYPE_APP && !a.media);
+                    || (picked.contains(a.packageName) && a.type == AndroidAppsActivity.TYPE_APP && !a.media
+                    && (!a.system || com.limelight.pocket.PocketArt.has(app, AndroidLibrary.UUID, id,
+                    com.limelight.pocket.PocketArt.COVER)));
             if (!game) {
                 continue;
             }
             androidGames.add(a.packageName);
             long used = com.limelight.pocket.PocketPrefs.prefs(app).getLong("pocket_apps_used_" + a.packageName, 0);
-            add(games, seenWays, new HomeItem(HomeItem.ANDROID, a.label, a.packageName, "", "", 0),
+            String name = com.limelight.pocket.PocketPrefs.customName(app, AndroidLibrary.UUID, id, a.label);
+            add(games, seenWays, new HomeItem(HomeItem.ANDROID, name, a.packageName, "", "", 0),
                     app.getString(R.string.pocket_ul_android), "Android", used, PLATFORM_ANDROID);
         }
 
@@ -219,23 +226,25 @@ public final class UniversalLibrary {
 
     private static void add(Map<String, Game> games, Map<String, Way> seenWays, HomeItem item, String label,
                             String badge, long last, int platform) {
+        Way known = seenWays.get(item.key());
+        if (known != null) {
+            // This very way is known already (maybe under another name, e.g. a pin renamed on
+            // Home): only a newer "last played" for the game it belongs to
+            Game owner = wayOwner.get(item.key());
+            if (owner != null && last > known.last) {
+                owner.ways.remove(known);
+                Way w = new Way(known.item, known.label, known.badge, last, known.platform);
+                owner.ways.add(w);
+                seenWays.put(item.key(), w);
+                owner.last = Math.max(owner.last, last);
+            }
+            return;
+        }
         String key = GameShelf.key(item.name);
         if (key.isEmpty()) {
             return;
         }
-        Way known = seenWays.get(item.key());
         Game g = games.get(key);
-        if (known != null && g != null) {
-            // Already there: only a newer "last played"
-            if (last > known.last) {
-                g.ways.remove(known);
-                Way w = new Way(known.item, known.label, known.badge, last, known.platform);
-                g.ways.add(w);
-                seenWays.put(item.key(), w);
-            }
-            g.last = Math.max(g.last, last);
-            return;
-        }
         if (g == null) {
             g = new Game(key, GameShelf.clean(item.name));
             games.put(key, g);
@@ -247,8 +256,12 @@ public final class UniversalLibrary {
         Way w = new Way(item, label, badge, last, platform);
         g.ways.add(w);
         seenWays.put(item.key(), w);
+        wayOwner.put(item.key(), g);
         g.last = Math.max(g.last, last);
     }
+
+    /** Which game each way belongs to (filled by a gathering; it runs on one thread at a time). */
+    private static final Map<String, Game> wayOwner = new HashMap<>();
 
     private static boolean notAGame(String name) {
         if (name == null) {
