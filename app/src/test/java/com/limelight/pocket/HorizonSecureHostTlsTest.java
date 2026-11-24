@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.KeyStore;
@@ -46,38 +47,43 @@ public class HorizonSecureHostTlsTest {
                 .createServerSocket(0, 2, InetAddress.getByName("127.0.0.1"))) {
             server.setEnabledProtocols(new String[]{"TLSv1.2"});
             server.setSoTimeout(8000);
-            Future<String> received = worker.submit(() -> {
+            Future<?> denied = worker.submit(() -> {
                 try (SSLSocket wrong = (SSLSocket) server.accept()) {
                     wrong.setSoTimeout(5000);
-                    try {
-                        wrong.startHandshake();
-                        if (wrong.getInputStream().read() != -1) {
-                            throw new AssertionError("Client sent credential data before verifying the certificate");
-                        }
-                    } catch (SSLException expected) {
-                        // A client with a wrong pin ends the handshake before credentials are sent.
-                    }
+                    wrong.startHandshake();
+                    assertEquals("Unexpected application data from client with a wrong pin",
+                            -1, wrong.getInputStream().read());
+                } catch (SSLException | SocketException expected) {
+                    // Depending on the Java TLS provider, the peer sends an alert or resets TCP.
                 }
-                try (SSLSocket pinned = (SSLSocket) server.accept()) {
-                    pinned.setSoTimeout(5000);
-                    BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(pinned.getInputStream(), StandardCharsets.US_ASCII));
-                    String command = reader.readLine();
-                    pinned.getOutputStream().write((STATUS + "\n").getBytes(StandardCharsets.US_ASCII));
-                    pinned.getOutputStream().flush();
-                    return command;
-                }
+                return null;
             });
-
             byte[] pinned = MessageDigest.getInstance("SHA-256").digest(keys.getCertificate("host").getEncoded());
             byte[] wrong = pinned.clone();
             wrong[0] ^= 1;
             String prefix = "NEXUS1:" + server.getLocalPort() + ":";
             HorizonSecureStatus.Pairing wrongPairing = HorizonSecureStatus.Pairing.parse(prefix + hex(wrong) + ":" + KEY);
+            SSLException rejected = assertThrows(SSLException.class,
+                    () -> HorizonSecureStatus.requestStatus("127.0.0.1", wrongPairing));
+            assertTrue(rejected.getMessage().contains("Host identity changed"));
+            denied.get(8, TimeUnit.SECONDS);
+
+            Future<String> received = worker.submit(() -> {
+                try (SSLSocket client = (SSLSocket) server.accept()) {
+                    client.setSoTimeout(5000);
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(client.getInputStream(), StandardCharsets.US_ASCII));
+                    String command = reader.readLine();
+                    client.getOutputStream().write((STATUS + "\n").getBytes(StandardCharsets.US_ASCII));
+                    client.getOutputStream().flush();
+                    return command;
+                }
+            });
+
             HorizonSecureStatus.Pairing correctPairing = HorizonSecureStatus.Pairing.parse(prefix + hex(pinned) + ":" + KEY);
-            assertThrows(SSLException.class, () -> HorizonSecureStatus.requestStatus("127.0.0.1", wrongPairing));
-            assertEquals(STATUS, HorizonSecureStatus.requestStatus("127.0.0.1", correctPairing));
+            String response = HorizonSecureStatus.requestStatus("127.0.0.1", correctPairing);
             assertEquals("NEXUS1 " + KEY, received.get(8, TimeUnit.SECONDS));
+            assertEquals(STATUS, response);
         } finally {
             worker.shutdownNow();
         }
