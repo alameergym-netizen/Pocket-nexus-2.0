@@ -1,0 +1,3 @@
+# Stream DSP candidate
+
+Optional stereo PCM16 EQ before AudioTrack, based on https://www.w3.org/TR/audio-eq-cookbook/ peaking filter equations. Attenuation-only presets and -2 dB headroom; saturating conversion is a numeric guard, not a true peak limiter. Default off; bypassed for external audio FX, unsupported formats or unexpected frame sizes. Separate channel history, reusable output buffer, no input mutation. No JamesDSP source, system-wide capture or Bluetooth vendor control. CPU cost, audio quality and latency require device measurements. Five unit tests in the existing com.limelight.pocket CI filter. Depends on horizon-audio-session; do not merge until that candidate and the integrated build pass.

@@ -19,6 +19,8 @@ public class AndroidAudioRenderer implements AudioRenderer {
     private final boolean enableAudioFx;
 
     private AudioTrack track;
+    private HorizonStreamDsp dsp;
+    private short[] dspBuffer;
     private int openedEffectSession = -1;
 
     public AndroidAudioRenderer(Context context, boolean enableAudioFx) {
@@ -67,6 +69,8 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public int setup(MoonBridge.AudioConfiguration audioConfiguration, int sampleRate, int samplesPerFrame) {
+        dsp = null;
+        dspBuffer = null;
         int channelConfig;
         int bytesPerFrame;
 
@@ -183,6 +187,13 @@ public class AndroidAudioRenderer implements AudioRenderer {
             return -2;
         }
 
+        // Software EQ is opt-in, stereo only and mutually exclusive with external DSP.
+        if (!enableAudioFx && samplesPerFrame > 0 && samplesPerFrame <= 8192) {
+            String mode = com.limelight.pocket.PocketPrefs.prefs(context)
+                    .getString(HorizonStreamDsp.KEY_PROFILE, "off");
+            dsp = HorizonStreamDsp.create(mode, sampleRate, audioConfiguration.channelCount);
+            if (dsp != null) { dspBuffer = new short[samplesPerFrame * 2]; }
+        }
         return 0;
     }
 
@@ -193,7 +204,16 @@ public class AndroidAudioRenderer implements AudioRenderer {
             // This will block until the write is completed. That can cause a backlog
             // of pending audio data, so we do the above check to be able to bound
             // latency at 40 ms in that situation.
-            track.write(audioData, 0, audioData.length);
+            AudioTrack output = track;
+            if (output == null || audioData == null) { return; }
+            short[] pcm = audioData;
+            HorizonStreamDsp eq = dsp;
+            short[] scratch = dspBuffer;
+            if (eq != null && scratch != null) {
+                if (eq.process(audioData,scratch)) { pcm = scratch; }
+                else { eq.reset(); } // Unexpected frame shape: bypass and clear filter history.
+            }
+            output.write(pcm, 0, audioData.length);
         }
         else {
             LimeLog.info("Too much pending audio data: " + MoonBridge.getPendingAudioDuration() +" ms");
@@ -243,6 +263,8 @@ public class AndroidAudioRenderer implements AudioRenderer {
         // Immediately drop pending data, even if setup did not finish.
         AudioTrack closing = track;
         track = null;
+        dsp = null;
+        dspBuffer = null;
         if (closing != null) {
             try {
                 closing.pause();
