@@ -46,6 +46,33 @@ public class HorizonLaunchRequestsTest {
         assertFalse(q.claim(t,99));
         assertFalse(q.claim(t,15101));
     }
+    @Test public void pcWakeHasBoundedLongerOwnership() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long ticket = q.beginPc(HorizonLaunchTarget.pc("pc",1),100);
+        assertTrue(q.current(ticket,75100));
+        assertTrue(q.claim(ticket,75100));
+        assertFalse(q.current(ticket,75101));
+        assertFalse(q.claim(ticket,75102));
+        long next = q.beginPc(HorizonLaunchTarget.pc("pc",2),80000);
+        assertFalse(q.current(next,200001));
+    }
+    @Test public void cancelAndSupersedeCannotLaunchOldRequest() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long old = q.beginPc(HorizonLaunchTarget.pc("pc",1),100);
+        long next = q.beginPc(HorizonLaunchTarget.pc("pc",2),200);
+        q.cancel(old);
+        assertTrue(q.current(next,300));
+        q.cancel(next);
+        assertFalse(q.claim(next,400));
+        assertTrue(q.beginPc(HorizonLaunchTarget.pc("pc",2),401)>next);
+    }
+    @Test public void longPcWindowDoesNotApplyToRetro() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        HorizonLaunchTarget retro = item(HomeItem.RETRO,"ps2","game.iso","sd",0);
+        assertEquals(0L,q.beginPc(retro,100));
+        long ticket = q.begin(retro,100);
+        assertFalse(q.current(ticket,15101));
+    }
     @Test public void toolsAreNotDebounced() {
         HorizonLaunchRequests q = new HorizonLaunchRequests();
         HorizonLaunchTarget t = item(HomeItem.NEXUS,"music","","",0);
