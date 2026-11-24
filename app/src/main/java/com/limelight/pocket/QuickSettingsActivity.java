@@ -414,6 +414,23 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 },
                 getString(R.string.pocket_preset_custom));
 
+        // Horizon connection profiles are opt-in and never alter codec, controls or FrameGen.
+        final com.limelight.pocket.streaming.HorizonStreamProfiles.Profile[] horizonProfiles =
+                com.limelight.pocket.streaming.HorizonStreamProfiles.Profile.values();
+        final String[] horizonLabels = new String[horizonProfiles.length];
+        for (int i = 0; i < horizonProfiles.length; i++) {
+            horizonLabels[i] = horizonProfiles[i].description();
+        }
+        addChoice(getString(R.string.horizon_stream_profiles), getString(R.string.horizon_stream_profiles_sub),
+                horizonLabels,
+                () -> com.limelight.pocket.streaming.HorizonStreamProfiles.current(prefs()),
+                index -> {
+                    if (index >= 0 && index < horizonProfiles.length) {
+                        horizonProfiles[index].apply(prefs());
+                        refreshRows();
+                    }
+                }, getString(R.string.pocket_value_custom));
+
         final String[] resValues = {"1280x720", "1920x1080", "2560x1440", "3840x2160"};
         final String[] resLabels = {"720p", "1080p", "1440p", "4K"};
         addChoice(getString(R.string.pocket_set_resolution), getString(R.string.pocket_set_resolution_sub), resLabels,

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_stream_profiles">Connection profiles</string>
+    <string name="horizon_stream_profiles_sub">Choose a starting resolution, FPS and bitrates for your connection. Applies to the next stream; test your link first. Other streaming settings stay unchanged.</string>
+</resources>

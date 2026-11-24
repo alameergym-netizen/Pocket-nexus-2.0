@@ -25,3 +25,6 @@ Seven Horizon presets are available alongside the fifteen legacy presets. Preset
 
 ## Search milestone
 Global search augments the existing Home, Android and ROM index with all launch paths from UniversalLibrary. Mixed platform/title searches are supported; name hits rank above source-only hits. Search callbacks avoid destroyed activities. This indexes cached sources, not a live query to every store.
+
+## Streaming milestone
+Six opt-in connection profiles apply only resolution, FPS and Wi-Fi/USB bitrates. Existing codec, frame generation and controller settings remain untouched. Settings reflect manual overrides as Custom. Values are unbenchmarked starting points, not network guarantees or CPU/GPU profiles.
