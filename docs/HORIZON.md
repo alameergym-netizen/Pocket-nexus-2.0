@@ -64,3 +64,6 @@ Development builds reject update downloads and installation. Release downloads a
 
 ## Alpha 1 CI baseline
 The validation candidate passed its Android build and all 100 recorded unit tests, and PR #1 was merged into the development branch. Physical device validation remains open. See [device test checklist](HORIZON_ALPHA1.md).
+
+## Alpha 2 UI candidate
+Independent Home card density and corner preferences preserve existing presets; compact and large sizes apply to shelves and grids, with a short-screen guard. Animated key art is optional, and Home releases motion resources on pause. Full physical-device layout and focus checks remain required. Alpha 1 baseline is retained until this candidate passes CI.

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_density_title">Home card density</string>
+    <string name="horizon_density_sub">Adjust shelf and grid cards. Large cards keep classic size on short shelves. Portal and list sizes are unchanged.</string>
+    <string name="horizon_density_classic">Classic</string>
+    <string name="horizon_density_compact">Compact</string>
+    <string name="horizon_density_large">Large</string>
+    <string name="horizon_corners_title">Home card corners</string>
+    <string name="horizon_corners_sub">Choose the shape of game cards and their focus rings.</string>
+    <string name="horizon_corners_sharp">Sharp</string>
+    <string name="horizon_corners_soft">Soft</string>
+    <string name="horizon_art_motion_title">Animated key art</string>
+    <string name="horizon_art_motion_sub">Allow slow background drift and animated or video artwork. Static art stays available when disabled.</string>
+</resources>

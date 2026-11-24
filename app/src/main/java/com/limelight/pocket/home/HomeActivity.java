@@ -118,6 +118,7 @@ public class HomeActivity extends ConsoleActivity {
     private int tileW;
     private int tileH;
     private float tileRadius;
+    private int horizonDensity, horizonCorners;
     private View heroView;
     private LinearLayout meta;
     private View glow;
@@ -355,6 +356,14 @@ public class HomeActivity extends ConsoleActivity {
             }
         });
         resumed = true;
+        if (layout != null && (horizonDensity != com.limelight.pocket.ui.HorizonAppearance.density(this)
+                || horizonCorners != com.limelight.pocket.ui.HorizonAppearance.corners(this)
+                || !layout.id.equals(com.limelight.pocket.ui.Layouts.home(this).id))) {
+            int keep = Math.max(0, heroPos);
+            applyLayout(true);
+            tiles.notifyDataSetChanged();
+            if (!entries.isEmpty()) { focusAt(Math.min(keep, entries.size() - 1), 0); }
+        }
         if (dock != null) {
             dock.refresh();
         }
@@ -376,6 +385,7 @@ public class HomeActivity extends ConsoleActivity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        if (keyArt != null) { keyArt.pauseMotion(); }
         main.removeCallbacks(startAmbient);
         if (ambient != null && ambient.showing()) {
             ambient.hide();
@@ -1353,9 +1363,17 @@ public class HomeActivity extends ConsoleActivity {
             w = portal ? 60 : (list ? 52 : (shelf ? 84 : 78));
             h = w;
         }
-        tileW = Math.round(w * d);
-        tileH = Math.round(h * d);
-        tileRadius = (com.limelight.pocket.ui.LibraryLayout.STYLE_ICON.equals(shape) ? (list ? 12 : (portal ? 12 : 16)) : 10) * d;
+        horizonDensity = com.limelight.pocket.ui.HorizonAppearance.density(this);
+        horizonCorners = com.limelight.pocket.ui.HorizonAppearance.corners(this);
+        // Keep the list and portal geometry unchanged; scale only shelves and grids.
+        float scale = list || portal ? 1f : com.limelight.pocket.ui.HorizonAppearance.cardScale(
+                horizonDensity, shelf, getResources().getDisplayMetrics().heightPixels / d);
+        tileW = Math.round(w * scale * d);
+        tileH = Math.round(h * scale * d);
+        float originalRadius = com.limelight.pocket.ui.LibraryLayout.STYLE_ICON.equals(shape)
+                ? (list ? 12 : (portal ? 12 : 16)) : 10;
+        tileRadius = com.limelight.pocket.ui.HorizonAppearance.radius(
+                horizonCorners, originalRadius, Math.min(w, h) * scale) * d;
         int screenW = getResources().getDisplayMetrics().widthPixels;
         FrameLayout.LayoutParams rlp = (FrameLayout.LayoutParams) row.getLayoutParams();
         FrameLayout.LayoutParams hlp = (FrameLayout.LayoutParams) heroView.getLayoutParams();
