@@ -21,6 +21,9 @@ public final class HorizonPcLaunchQueue {
                 || command.trim().isEmpty() || now < 0) return;
         pending = new Ticket(uuid, appId, command, name == null ? "" : name, profile, now);
     }
+    public synchronized void clearHost(String uuid) {
+        if (pending != null && pending.uuid.equals(uuid)) pending = null;
+    }
     private void expire(long now) {
         if (pending != null && (now < pending.at || now - pending.at > VALID_MS)) pending = null;
     }

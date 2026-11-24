@@ -251,6 +251,7 @@ public class ServerHelper {
                     if (httpConn.quitApp()) {
                         message = parent.getResources().getString(R.string.applist_quit_success) + " " + appName;
                     } else {
+                        failed = true;
                         message = parent.getResources().getString(R.string.applist_quit_fail) + " " + appName;
                     }
                 } catch (HostHttpResponseException e) {
