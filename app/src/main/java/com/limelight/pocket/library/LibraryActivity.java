@@ -616,7 +616,19 @@ public class LibraryActivity extends ConsoleActivity {
             return;
         }
         PocketSounds.play(this, PocketSounds.OPEN);
-        GamePageActivity.open(this, null, uuid, HomeActivity.artId(best.item), g.title, best.label, false, false, null);
+        GamePageActivity.open(this, null, uuid, HomeActivity.artId(best.item), g.title, best.label, false, false, null,
+                HomeItem.RETRO.equals(best.item.kind)?best.item:null);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode,int resultCode,Intent data) {
+        super.onActivityResult(requestCode,resultCode,data);
+        if (requestCode==GamePageActivity.REQUEST && resultCode==RESULT_OK && data!=null
+                && GamePageActivity.ACTION_PLAY.equals(data.getStringExtra(GamePageActivity.RESULT_ACTION))) {
+            HomeItem item=com.limelight.pocket.retro.HorizonRetroPageIdentity.read(
+                    data.getStringExtra(GamePageActivity.RESULT_RETRO_ITEM),data.getIntExtra(GamePageActivity.RESULT_APP_ID,0));
+            if (item!=null) { HomeLauncher.launch(this,item); }
+        }
     }
 
     /** Y: every way to play it, its status, its collections, its page. */

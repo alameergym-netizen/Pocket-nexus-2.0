@@ -259,10 +259,11 @@ public class SearchActivity extends Activity {
                 com.limelight.pocket.retro.EsdeConfig cfg = RetroLibrary.config(app);
                 for (List<RomScanner.Rom> roms : lib.games.values()) {
                     for (RomScanner.Rom r : roms) {
-                        HomeItem item = new HomeItem(HomeItem.RETRO, RomScanner.searchName(r.name), r.system, r.relPath, "", 0);
-                        if (seen.add(item.key())) {
+                        HomeItem item = com.limelight.pocket.retro.HorizonRetroCatalog.item(root.getAbsolutePath(),r);
+                        if (item != null && seen.add(item.key())) {
                             com.limelight.pocket.retro.EsdeConfig.SystemDef s = cfg.system(r.system);
-                            found.add(new Hit(r.name, s != null ? s.fullName : r.system, item, null));
+                            found.add(new Hit(r.name,com.limelight.pocket.retro.HorizonRetroCatalog.label(
+                                    s != null ? s.fullName : r.system,item.c),item,null));
                         }
                     }
                 }
@@ -405,7 +406,19 @@ public class SearchActivity extends Activity {
         }
         PocketSounds.play(this, PocketSounds.OPEN);
         GamePageActivity.open(this, null, uuid, HomeActivity.artId(h.item), RomScanner.searchName(h.name), h.where,
-                false, false, null);
+                false, false, null,HomeItem.RETRO.equals(h.item.kind)?h.item:null);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode,int resultCode,Intent data) {
+        super.onActivityResult(requestCode,resultCode,data);
+        if (requestCode==GamePageActivity.REQUEST && resultCode==RESULT_OK && data!=null
+                && GamePageActivity.ACTION_PLAY.equals(data.getStringExtra(GamePageActivity.RESULT_ACTION))) {
+            String retro=data.getStringExtra(GamePageActivity.RESULT_RETRO_ITEM);
+            HomeItem item=com.limelight.pocket.retro.HorizonRetroPageIdentity.read(retro,
+                    data.getIntExtra(GamePageActivity.RESULT_APP_ID,0));
+            if (item!=null) { HomeLauncher.launch(this,item); }
+        }
     }
 
     private Hit focusedHit() {

@@ -156,18 +156,33 @@ public final class UniversalLibrary {
                     app.getString(R.string.pocket_ul_android), "Android", used, PLATFORM_ANDROID);
         }
 
-        // The ROMs
-        File root = RetroLibrary.romRoot(app);
-        RetroLibrary.Library lib = root != null ? RetroLibrary.cached(app, root) : null;
-        if (lib != null) {
-            EsdeConfig cfg = RetroLibrary.config(app);
-            for (List<RomScanner.Rom> roms : lib.games.values()) {
-                for (RomScanner.Rom r : roms) {
-                    EsdeConfig.SystemDef s = cfg.system(r.system);
-                    String where = s != null && s.fullName != null ? s.fullName : r.system.toUpperCase(Locale.ROOT);
-                    add(games, seenWays, wayOwner, new HomeItem(HomeItem.RETRO, RomScanner.searchName(r.name), r.system, r.relPath, "", 0),
-                            where, r.system.toUpperCase(Locale.ROOT), 0, PLATFORM_RETRO);
+        // Every remembered, readable ROM source with an existing index (active first).
+        // Keep the catalog bounded and do not scan or automatically switch drives here.
+        int retroCount = 0;
+        EsdeConfig retroConfig = RetroLibrary.config(app);
+        sourceLoop:
+        for (String source : RetroLibrary.rememberedRoots(app)) {
+            if (Thread.currentThread().isInterrupted()) { break; }
+            try {
+                RetroLibrary.Library lib = RetroLibrary.cached(app,new File(source));
+                if (lib == null) { continue; }
+                for (List<RomScanner.Rom> roms : lib.games.values()) {
+                    for (RomScanner.Rom r : roms) {
+                        if (Thread.currentThread().isInterrupted() || retroCount >= com.limelight.pocket.retro.HorizonRetroCatalog.MAX_ROWS) {
+                            break sourceLoop;
+                        }
+                        HomeItem item = com.limelight.pocket.retro.HorizonRetroCatalog.item(source,r);
+                        if (item == null) { continue; }
+                        EsdeConfig.SystemDef s = retroConfig.system(r.system);
+                        String where = s != null && s.fullName != null ? s.fullName : r.system.toUpperCase(Locale.ROOT);
+                        add(games,seenWays,wayOwner,item,
+                                com.limelight.pocket.retro.HorizonRetroCatalog.label(where,source),
+                                r.system.toUpperCase(Locale.ROOT),0,PLATFORM_RETRO);
+                        retroCount++;
+                    }
                 }
+            } catch (RuntimeException ignored) {
+                // One unavailable source must not hide the others.
             }
         }
 
@@ -202,8 +217,9 @@ public final class UniversalLibrary {
                         }
                         break;
                     case HomeItem.RETRO:
-                        add(games, seenWays, wayOwner, i, i.a.toUpperCase(Locale.ROOT), i.a.toUpperCase(Locale.ROOT), e.lastUsed,
-                                PLATFORM_RETRO);
+                        add(games, seenWays, wayOwner, i,
+                                com.limelight.pocket.retro.HorizonRetroCatalog.label(i.a.toUpperCase(Locale.ROOT),i.c),
+                                i.a.toUpperCase(Locale.ROOT),e.lastUsed,PLATFORM_RETRO);
                         break;
                     default:
                         break;
