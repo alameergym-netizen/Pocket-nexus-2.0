@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_secure_status">Secure host status</string>
+    <string name="horizon_secure_code">Pairing code</string>
+    <string name="horizon_secure_pair_body">On the PC, open the Nexus Host tray menu, enable Secure status and copy a device pairing code. Paste the code here from a trusted private transfer.</string>
+    <string name="horizon_secure_saved">This handheld has a saved identity and key for the encrypted status listener.</string>
+    <string name="horizon_secure_pair">Verify and pair</string>
+    <string name="horizon_secure_check">Check status</string>
+    <string name="horizon_secure_replace">Replace code</string>
+    <string name="horizon_secure_forget">Forget</string>
+    <string name="horizon_secure_bad_code">Enter the complete Nexus Host pairing code.</string>
+    <string name="horizon_secure_no_address">Connect to the PC over the network to use secure host status.</string>
+    <string name="horizon_secure_rejected">The verified host rejected this device key. Issue a new pairing code in Nexus Host.</string>
+    <string name="horizon_secure_connect_failed">Secure status failed. Check the network, Windows listener and host certificate. If the certificate changed, get a new code directly from the PC.</string>
+    <string name="horizon_secure_result">Host identity verified\nCPU · %1$s\nMemory · %2$s\nUptime · %3$d min\nBattery · %4$s\nPower · %5$s</string>
+    <string name="horizon_secure_ac">Plugged in</string>
+    <string name="horizon_secure_battery">On battery</string>
+    <string name="horizon_secure_unknown">Unavailable</string>
+    <string name="horizon_secure_percent">%1$d%%</string>
+</resources>

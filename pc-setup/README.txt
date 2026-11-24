@@ -25,6 +25,19 @@ busy, or your network needs another), right-click its icon next to the clock > "
 or run  PocketNexus-PC.bat -WifiPort 47120 . On the handheld, set the same port in the PC's
 options > "Pocket Nexus PC Wi-Fi port" (or stream once over the USB cable: it picks it up).
 
+Secure host status (development)
+  - Keep NexusSecureHost.cs beside PocketNexus-PC.ps1. Open the Windows tray menu and choose
+    Secure status > Enable TLS status listener. This starts TCP 47111 on the PC.
+  - Use Copy device pairing code and give the handheld a name. Transfer the code privately
+    and paste it into the handheld's PC card options > Secure host status. Clear the clipboard
+    after pairing. A code includes a credential and authenticates the PC you copied it from.
+  - Revoke device in the Windows tray if a handheld or its key is lost. Replacing the key for
+    one device leaves other devices paired. The handheld's Forget action clears its local copy.
+  - Allow TCP 47111 only on the Windows private network and from the handheld or trusted subnet
+    if the Windows firewall blocks it. Setup does not open this port automatically.
+  - The encrypted listener carries read-only host status. Existing power, library, mic, USB,
+    and stream paths use their existing connections. Keep the plaintext control port private.
+
 If you used the old "ArtemisPocket-USB-Bridge" window: close it, this one replaces it.
 
 Handhelds that DO have USB tethering:

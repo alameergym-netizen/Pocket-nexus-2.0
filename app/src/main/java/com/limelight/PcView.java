@@ -1316,6 +1316,17 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
                     com.limelight.pocket.PcCompanion.askWifiPort(this, pocketCompanionHost(computer.details),
                             computer.details.uuid, computer.details.name);
                 }).withValue(String.valueOf(PocketPrefs.getCompanionPort(this, computer.details.uuid))));
+        extra.add(com.limelight.pocket.ui.StreamMenuView.Item.action(getString(R.string.horizon_secure_status),
+                () -> {
+                    hideConsolePanel();
+                    ComputerDetails pc = computer.details;
+                    ComputerDetails.AddressTuple address = pc.activeAddress;
+                    if (address == null || com.limelight.pocket.UsbBridge.HOST_IP.equals(address.address)) {
+                        address = pc.manualAddress != null ? pc.manualAddress : pc.localAddress;
+                    }
+                    com.limelight.pocket.HorizonSecureStatus.show(this,
+                            address != null ? address.address : null, pc.uuid);
+                }));
         // Where it's reached over Wi-Fi, and on which port (Sunshine / Apollo set to another one)
         extra.add(com.limelight.pocket.ui.StreamMenuView.Item.action(getString(R.string.pocket_pc_address),
                 () -> {
