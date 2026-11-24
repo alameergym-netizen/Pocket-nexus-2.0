@@ -389,6 +389,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private int pocketLastBatteryAlert = 101;
     // v2: adaptive stream, seamless resume, mic, playtime
     private int pocketStreamBitrate;
+    private com.limelight.pocket.streaming.HorizonAdaptiveMemory.Scope pocketAdaptiveScope;
     private final com.limelight.pocket.streaming.HorizonAdaptiveDecision pocketAdaptiveDecision =
             new com.limelight.pocket.streaming.HorizonAdaptiveDecision();
     private boolean pocketSwitching;
@@ -3009,6 +3010,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private int pocketChooseBitrate(boolean metered) {
         boolean usb = UsbLink.isUsbAddress(host);
+        pocketAdaptiveScope = usb || metered ? null : PocketAdaptive.activeScope(this, pocketPcUuid());
         int configured = pocketProfileBitrate > 0 ? pocketProfileBitrate
                 : (metered ? prefConfig.meteredBitrate : (usb ? PocketPrefs.usbBitrateKbps(this) : prefConfig.bitrate));
         int override = getIntent().getIntExtra(ResumeTicket.EXTRA_BITRATE, 0);
@@ -3018,7 +3020,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (metered || usb) {
             return configured;
         }
-        return PocketAdaptive.startBitrate(this, configured);
+        return PocketAdaptive.startBitrate(this, configured, pocketAdaptiveScope);
     }
 
     /** Ends this stream and brings it straight back with new settings; the game keeps running. */
@@ -3059,9 +3061,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         int current = pocketStreamBitrate > 0 ? pocketStreamBitrate : prefConfig.bitrate;
         int next = PocketAdaptive.stepDown(current);
         if (next >= current) return;
-        if (!UsbLink.isUsbAddress(host)) {
-            PocketPrefs.setAdaptiveCap(this, next);
-        }
+        PocketAdaptive.remember(this, pocketPcUuid(), pocketAdaptiveScope, next);
         pocketAdaptiveDecision.reset();
         pocketSwitchStream(ResumeTicket.REASON_ADAPTIVE, next, 0, steps + 1);
     }
@@ -3069,7 +3069,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private List<StreamMenuView.Item> pocketBitrateItems() {
         List<StreamMenuView.Item> page = new ArrayList<>();
         page.add(StreamMenuView.Item.action(getString(R.string.pocket_sm_bitrate_auto), () -> {
-            PocketPrefs.setAdaptiveCap(this, 0);
+            PocketAdaptive.clearLearnedCap(pocketAdaptiveScope);
             pocketSwitchStream(ResumeTicket.REASON_QUALITY, -1, 0, 0);
         }));
         int[] values = {120, 100, 80, 60, 50, 40, 30, 20, 15, 10};

@@ -369,8 +369,6 @@ public final class PocketPrefs {
     public static final String KEY_INTRO = "pocket_intro";
     public static final String KEY_STREAM_BRIGHTNESS = "pocket_stream_brightness";
     private static final String KEY_PLAYTIME_PREFIX = "pocket_playtime_";
-    private static final String KEY_ADAPTIVE_CAP = "pocket_adaptive_cap_kbps";
-    private static final String KEY_ADAPTIVE_CAP_UNTIL = "pocket_adaptive_cap_until";
     private static final String KEY_COMPANION_TOKEN_PREFIX = "pocket_companion_token_";
 
     public static final String FRAME_GEN_OFF = "off";
@@ -669,23 +667,6 @@ public final class PocketPrefs {
         p.edit().putLong(key, p.getLong(key, 0) + seconds).apply();
         // Streams count in the days' totals too (the play stats)
         com.limelight.pocket.home.PlayTime.addToToday(context, seconds);
-    }
-
-    // Adaptive stream memory: after the stream had to lower its quality, start the next one
-    // there too for a while instead of struggling again.
-    public static int adaptiveCapKbps(Context context) {
-        SharedPreferences p = prefs(context);
-        if (System.currentTimeMillis() > p.getLong(KEY_ADAPTIVE_CAP_UNTIL, 0)) {
-            return 0;
-        }
-        return p.getInt(KEY_ADAPTIVE_CAP, 0);
-    }
-
-    public static void setAdaptiveCap(Context context, int kbps) {
-        prefs(context).edit()
-                .putInt(KEY_ADAPTIVE_CAP, kbps)
-                .putLong(KEY_ADAPTIVE_CAP_UNTIL, kbps > 0 ? System.currentTimeMillis() + 2 * 60 * 60 * 1000L : 0)
-                .apply();
     }
 
     private static final String KEY_COMPANION_SEEN_PREFIX = "pocket_companion_seen_";

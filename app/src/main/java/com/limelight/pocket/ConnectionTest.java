@@ -165,7 +165,7 @@ public final class ConnectionTest {
             items.add(StreamMenuView.Item.action(context.getString(R.string.pocket_nettest_use, recommended / 1000), () -> {
                 PreferenceManager.getDefaultSharedPreferences(context).edit()
                         .putInt("seekbar_bitrate_kbps", recommended).apply();
-                PocketPrefs.setAdaptiveCap(context, 0);
+                PocketAdaptive.clearLearnedCaps();
                 Toast.makeText(context, context.getString(R.string.pocket_nettest_saved, recommended / 1000),
                         Toast.LENGTH_SHORT).show();
             }));
