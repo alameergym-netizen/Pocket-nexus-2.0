@@ -1066,7 +1066,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 decoderRenderer.setRenderTarget(streamContainer.getSurface());
 
                 // Starten Sie die NvConnection
-                horizonStreamTicket = HorizonStreamObserver.instance().beginAttempt();
+                horizonStreamTicket = HorizonStreamObserver.instance().beginAttempt(
+                        com.limelight.pocket.core.HorizonLaunchTarget.pc(pocketPcUuid(), appId));
                 conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx),
                         decoderRenderer, Game.this);
             }
