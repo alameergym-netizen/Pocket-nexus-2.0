@@ -24,6 +24,8 @@ import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
 import com.limelight.pocket.ResumeTicket;
 import com.limelight.pocket.core.HorizonStreamObserver;
+import com.limelight.pocket.core.HorizonDeferredTask;
+import com.limelight.pocket.core.HorizonLaunchRequests;
 import com.limelight.pocket.PocketAdaptive;
 import com.limelight.pocket.PcCompanion;
 import com.limelight.pocket.PocketMic;
@@ -207,6 +209,21 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
     private volatile long horizonStreamTicket;
+    private long horizonSelectionGeneration;
+    private HorizonDeferredTask horizonSignInTask, horizonFallbackTask;
+
+    private long currentLaunchGeneration() { return HorizonLaunchRequests.shared().generation(); }
+    private long elapsedNow() { return android.os.SystemClock.elapsedRealtime(); }
+    private boolean deferredCurrent(HorizonDeferredTask task) {
+        return task.current(HorizonStreamObserver.instance().snapshot().ticket, currentLaunchGeneration(), elapsedNow());
+    }
+    private boolean deferredUiOwner() {
+        return instance == this && !isFinishing() && !isDestroyed() && !pocketSwitching;
+    }
+    private void cancelDeferredTasks() {
+        if (horizonSignInTask != null) horizonSignInTask.cancel();
+        if (horizonFallbackTask != null) horizonFallbackTask.cancel();
+    }
     private long horizonStopOwner;
     private boolean horizonShutdownDispatched;
 
@@ -1098,6 +1115,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 decoderRenderer.setRenderTarget(streamContainer.getSurface());
 
                 // Starten Sie die NvConnection
+                horizonSelectionGeneration = currentLaunchGeneration();
                 horizonStreamTicket = HorizonStreamObserver.instance().beginAttempt(
                         com.limelight.pocket.core.HorizonLaunchTarget.pc(pocketPcUuid(), appId));
                 connecting = true;
@@ -1931,6 +1949,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        cancelDeferredTasks();
         horizonInputVisible = false;
         if (!horizonShutdownDispatched) HorizonStreamObserver.instance().ended(horizonStreamTicket);
         super.onDestroy();
@@ -2001,6 +2020,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        cancelDeferredTasks();
         horizonInputVisible = false;
         if (!connecting && !connected && !horizonShutdownDispatched) {
             HorizonStreamObserver.instance().ended(horizonStreamTicket);
@@ -3297,20 +3317,32 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         showPocketToast(getString(R.string.pocket_signin_mirror_toast), true, 5000);
         final String uuid = pocketPcUuid();
         final String companionHost = host;
+        final long streamTicket = horizonStreamTicket;
+        final HorizonDeferredTask task = new HorizonDeferredTask(streamTicket,
+                horizonSelectionGeneration, elapsedNow(), 300000L);
+        horizonSignInTask = task;
         new Thread(() -> {
-            while (!isFinishing() && connected && !pocketSwitching) {
+            while (deferredCurrent(task) && HorizonStreamObserver.instance().isRunning(streamTicket)) {
                 if (PcCompanion.run(getApplicationContext(), companionHost, uuid, "PING") != null) {
                     try {
                         Thread.sleep(6000); // let the desktop finish appearing
                     } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         return;
                     }
-                    runOnUiThread(this::pocketSwitchToVirtualDisplay);
+                    runOnUiThread(() -> {
+                        if (deferredUiOwner() && connected && HorizonStreamObserver.instance().isRunning(streamTicket)
+                                && task.claim(HorizonStreamObserver.instance().snapshot().ticket,
+                                currentLaunchGeneration(), elapsedNow())) {
+                            pocketSwitchToVirtualDisplay();
+                        }
+                    });
                     return;
                 }
                 try {
                     Thread.sleep(3000);
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     return;
                 }
             }
@@ -3318,7 +3350,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     private void pocketSwitchToVirtualDisplay() {
-        if (pocketSwitching || isFinishing() || !connected) {
+        if (!deferredUiOwner() || !connected || !HorizonStreamObserver.instance().isRunning(horizonStreamTicket)) {
             return;
         }
         Intent next = new Intent(getIntent());
@@ -3864,9 +3896,22 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (uuid == null || appName == null || host == null) {
             return false;
         }
+        final HorizonDeferredTask task = new HorizonDeferredTask(horizonStreamTicket,
+                horizonSelectionGeneration, elapsedNow(), 60000L);
+        if (!deferredCurrent(task)) return false;
+        horizonFallbackTask = task;
         pocketDesktopTried = true;
         showPocketToast(getString(R.string.pocket_fallback_trying), true, 4000);
         final android.content.Context app = getApplicationContext();
+        // Bound the automatic fallback independently of network IO completion.
+        timerHandler.postDelayed(() -> {
+            if (deferredUiOwner() && task.expire(HorizonStreamObserver.instance().snapshot().ticket,
+                    currentLaunchGeneration(), elapsedNow())) {
+                Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_error_title),
+                        getString(R.string.pocket_error_launch_failed) + pocketTroubleshootHint(), true);
+                finishSecondScreen();
+            }
+        }, 60000L);
         new Thread(() -> {
             com.limelight.pocket.pclib.PcGame match = null;
             java.util.List<String> log = new java.util.ArrayList<>();
@@ -3877,15 +3922,15 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     match = com.limelight.pocket.pclib.PcLibrary.byName(r.games, appName);
                 }
             }
+            if (!deferredCurrent(task)) return;
             if (match == null || !match.isInstalled()) {
                 log = com.limelight.pocket.pclib.PcLibrary.apolloLog(app, host, uuid);
             }
             final com.limelight.pocket.pclib.PcGame found = match;
             final java.util.List<String> reasons = log;
             runOnUiThread(() -> {
-                if (isFinishing()) {
-                    return;
-                }
+                if (!deferredUiOwner() || !task.claim(HorizonStreamObserver.instance().snapshot().ticket,
+                        currentLaunchGeneration(), elapsedNow())) return;
                 if (found != null && found.isInstalled() && desktop != null) {
                     // Through Desktop, with this game's own settings
                     if (isDestroyed() || instance != Game.this) return;
