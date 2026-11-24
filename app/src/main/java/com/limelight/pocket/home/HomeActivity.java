@@ -167,6 +167,7 @@ public class HomeActivity extends ConsoleActivity {
     private int focusGeneration;
     private boolean workspace;
     private boolean workspaceInitialFocusPending;
+    private boolean workspaceArtPrepared;
     private int workspaceColumns;
     private String heroKey;
     private boolean loadedOnce;
@@ -276,6 +277,8 @@ public class HomeActivity extends ConsoleActivity {
         dock.refresh();
         widgets = new WidgetShelf(this, () -> dock.focusLast());
         applyLayout(false);
+        tiles.setHasStableIds(true);
+        row.setPreserveFocusAfterLayout(true);
         row.setAdapter(tiles);
         setUpActions();
         setHints(hintA(this, R.string.pocket_hero_play),
@@ -307,7 +310,8 @@ public class HomeActivity extends ConsoleActivity {
             main.post(() -> {
                 if (!isFinishing()) {
                     TILE_ART.evictAll();
-                    tiles.notifyDataSetChanged();
+                    workspaceArtPrepared = true;
+                    refreshHomeTiles();
                     if (workspace && workspaceInitialFocusPending && !entries.isEmpty()) focusAt(0, 0);
                 }
             });
@@ -531,7 +535,10 @@ public class HomeActivity extends ConsoleActivity {
             target = Math.max(0, Math.min(heroPos, entries.size() - 1));
         }
         heroKey = null;
-        if (workspace && firstLoad) workspaceInitialFocusPending = true;
+        if (workspace && firstLoad) {
+            workspaceInitialFocusPending = true;
+            ((ViewGroup) heroView).setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        }
         if (workspace && workspaceInitialFocusPending) {
             // Initial focus belongs to the first actual tile, not the empty detail pane.
             // Keep pending through async list/art refresh until a tile really gains focus.
@@ -571,17 +578,36 @@ public class HomeActivity extends ConsoleActivity {
                 // Workspace tiles are touch-mode focusable. Do not change the window's
                 // input mode merely to set an initial controller selection.
                 if (tile.requestFocus() && tile.hasFocus()) {
-                    if (workspace && position == 0) workspaceInitialFocusPending = false;
+                    if (workspace && position == 0 && workspaceArtPrepared && hasWindowFocus()) {
+                        finishWorkspaceInitialFocus();
+                    }
                     return;
                 }
             }
             if (heroPos != position || heroKey == null) {
                 updateHero(position);
             }
-            if (attempt < 6) {
+            if (attempt < 12) {
                 row.postDelayed(() -> focusAt(position, attempt + 1, generation), attempt < 2 ? 16 : 120);
+            } else if (workspace && workspaceInitialFocusPending && hasWindowFocus()) {
+                finishWorkspaceInitialFocus(); // fail open: detail actions must remain reachable
             }
         });
+    }
+
+    private void finishWorkspaceInitialFocus() {
+        if (!workspaceInitialFocusPending) return;
+        workspaceInitialFocusPending = false;
+        ((ViewGroup) heroView).setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+    }
+
+    /** Artwork refresh changes content, not membership/order; retain focused holders. */
+    private void refreshHomeTiles() {
+        if (workspace) {
+            if (!entries.isEmpty()) tiles.notifyItemRangeChanged(0, entries.size());
+        } else {
+            tiles.notifyDataSetChanged();
+        }
     }
 
     @Override
@@ -1119,7 +1145,7 @@ public class HomeActivity extends ConsoleActivity {
 
     private void refreshArt(String key) {
         TILE_ART.remove(key);
-        tiles.notifyDataSetChanged();
+        refreshHomeTiles();
         if (key.equals(heroKey)) {
             heroKey = null;
             updateHero(heroPos);
@@ -1338,6 +1364,10 @@ public class HomeActivity extends ConsoleActivity {
 
     @Override
     public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+        if (workspaceInitialFocusPending && event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+            finishWorkspaceInitialFocus(); // do not steal a deliberate touch selection
+            focusGeneration++;
+        }
         if (ambient != null && ambient.showing()) {
             if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP) {
                 wakeFromAmbient();
@@ -1591,7 +1621,7 @@ public class HomeActivity extends ConsoleActivity {
         }
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
-        if (!workspace) workspaceInitialFocusPending = false;
+        if (!workspace) finishWorkspaceInitialFocus();
         float widthDp=screenW/d;
         float heightDp=getResources().getDisplayMetrics().heightPixels/d;
         int brandMode=HorizonHomeStyle.brandMode(widthDp);
@@ -2508,6 +2538,20 @@ public class HomeActivity extends ConsoleActivity {
     }
 
     private final class Tiles extends RecyclerView.Adapter<TileHolder> {
+        private final java.util.Map<String, Long> stableIds = new java.util.HashMap<>();
+        private long nextStableId = 1L;
+
+        @Override public long getItemId(int position) {
+            HomeStore.Entry entry = entries.get(position);
+            if (entry == null) return 0L;
+            String key = entry.item.key();
+            Long id = stableIds.get(key);
+            if (id == null) {
+                id = nextStableId++;
+                stableIds.put(key, id);
+            }
+            return id;
+        }
 
         @NonNull
         @Override
@@ -2624,7 +2668,6 @@ public class HomeActivity extends ConsoleActivity {
                 if (has) {
                     int pos = h.getBindingAdapterPosition();
                     if (pos != RecyclerView.NO_POSITION) {
-                        if (workspace && pos == 0) workspaceInitialFocusPending = false;
                         if (pos != heroPos) {
                             PocketUi.tick(HomeActivity.this);
                         }
@@ -2752,7 +2795,7 @@ public class HomeActivity extends ConsoleActivity {
                     main.post(() -> {
                         if (!isFinishing()) {
                             TILE_ART.remove(key);
-                            tiles.notifyDataSetChanged();
+                            refreshHomeTiles();
                         }
                     });
                 }
