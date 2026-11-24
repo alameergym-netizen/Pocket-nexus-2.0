@@ -636,8 +636,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         if (pendingResume != null) {
             // Left before the stream came back: keep the ticket for next time
             statusHandler.removeCallbacks(resumeLaunch);
-            ResumeTicket.putBack(this, pendingResumeReason);
-            pendingResume = null;
+            ResumeTicket.putBack(this, pendingResume);
+            clearPendingResume();
             removeResumeOverlay();
         }
         statusRunning = false;
@@ -710,7 +710,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     // ---- Seamless resume ------------------------------------------------------------------
 
     private Intent pendingResume;
-    private int pendingResumeReason;
+    private boolean resumePreparing;
+    private boolean resumeSignIn;
     private com.limelight.pocket.ui.ResumeOverlay resumeOverlay;
     private final Runnable resumeLaunch = this::launchPendingResume;
 
@@ -733,7 +734,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             return;
         }
         pendingResume = intent;
-        pendingResumeReason = reason;
+        resumePreparing = false;
+        resumeSignIn = false;
 
         String caption;
         String subtitle;
@@ -783,9 +785,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     private void launchPendingResume() {
-        if (pendingResume == null) {
-            return;
-        }
+        if (pendingResume == null || resumePreparing) return;
+        if (!ResumeTicket.owns(pendingResume)) { cancelResume(); return; }
         statusHandler.removeCallbacks(resumeLaunch);
         if (ResumeTicket.isPreviousStreamStopping()) {
             // Let the last stream finish saying goodbye to the PC first
@@ -796,6 +797,10 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             return;
         }
         final Intent intent = pendingResume;
+        resumePreparing = true;
+        statusHandler.postDelayed(() -> {
+            if (pendingResume == intent) cancelResume();
+        }, 15000L);
         if (ResumeTicket.isUsb(intent)) {
             new Thread(() -> {
                 UsbBridge.ensureConnected();
@@ -808,18 +813,26 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     private void startResumedStream(Intent intent) {
-        if (pendingResume != intent) {
-            return; // cancelled meanwhile
+        if (pendingResume != intent) return;
+        if (!ResumeTicket.owns(intent) || isFinishing() || isDestroyed() || signInChecking) {
+            cancelResume();
+            return;
         }
-        pendingResume = null;
+        resumeSignIn = true;
         runWhenSignedIn(intent, () -> {
+            if (pendingResume != intent) return;
+            if (isFinishing() || isDestroyed() || !ResumeTicket.claimDispatch(intent)) {
+                cancelResume();
+                return;
+            }
+            clearPendingResume();
             PocketSounds.play(this, PocketSounds.SELECT);
             startActivity(intent);
             if (PocketPrefs.animationsEnabled(this)) {
                 overridePendingTransition(R.anim.pocket_launch_in, R.anim.pocket_launch_out);
             }
             statusHandler.postDelayed(this::removeResumeOverlay, 600);
-        }, this::removeResumeOverlay);
+        }, () -> { if (pendingResume == intent) cancelResume(); });
     }
 
     // ---- Windows sign-in screen -------------------------------------------------------------
@@ -837,6 +850,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     /** Reserve one deferred stream dispatch for this screen. UI thread only. */
     public long beginStreamDispatch() {
         if (isFinishing() || isDestroyed()) return 0;
+        if (pendingResume != null) cancelResume();
         long now = android.os.SystemClock.elapsedRealtime();
         long epoch = dispatchEpoch();
         if (streamDispatch.pending(streamDispatchTicket, epoch, now)) return 0;
@@ -918,9 +932,19 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         }, "PocketSignInCheck").start();
     }
 
-    private void cancelResume() {
+    private void clearPendingResume() {
         statusHandler.removeCallbacks(resumeLaunch);
         pendingResume = null;
+        resumePreparing = false;
+        if (resumeSignIn) {
+            signInGeneration++;
+            signInChecking = false;
+        }
+        resumeSignIn = false;
+    }
+    private void cancelResume() {
+        ResumeTicket.cancel(pendingResume);
+        clearPendingResume();
         PocketSounds.play(this, PocketSounds.BACK);
         if (resumeOverlay != null) {
             resumeOverlay.dismiss();
@@ -1476,6 +1500,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                     case KeyEvent.KEYCODE_BUTTON_B:
                     case KeyEvent.KEYCODE_BACK:
                     case KeyEvent.KEYCODE_ESCAPE:
+                        swallowKeyUp = event.getKeyCode();
                         cancelResume();
                         break;
                     default:

@@ -46,6 +46,10 @@ public final class ResumeTicket {
     private static final long QUALITY_MAX_AGE_MS = 60 * 1000L;
 
     private static Bundle memoryExtras;
+    private static final String EXTRA_CLAIM = "pocket.resume.claim";
+    private static final com.limelight.pocket.core.HorizonResumeClaim CLAIM =
+            new com.limelight.pocket.core.HorizonResumeClaim();
+    private static long epoch() { return com.limelight.pocket.core.HorizonLaunchRequests.shared().generation(); }
     private static final com.limelight.pocket.core.HorizonShutdownBarrier SHUTDOWN =
             new com.limelight.pocket.core.HorizonShutdownBarrier();
 
@@ -54,10 +58,12 @@ public final class ResumeTicket {
     }
 
     /** A stream started: remember how to start it again and forget any older ticket. */
-    public static void remember(Context context, Intent gameIntent) {
+    public static synchronized void remember(Context context, Intent gameIntent) {
+        CLAIM.invalidate();
         try {
             Bundle extras = gameIntent.getExtras() != null ? new Bundle(gameIntent.getExtras()) : new Bundle();
             extras.remove(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
+            extras.remove(EXTRA_CLAIM);
             memoryExtras = extras;
             prefs(context).edit()
                     .putString(KEY_EXTRAS, encode(extras))
@@ -76,7 +82,8 @@ public final class ResumeTicket {
     }
 
     /** recoverAttempt >= 0 marks a reconnect after a drop; -1 clears the count. */
-    public static void arm(Context context, int reason, int bitrateKbps, int fps, int adaptiveSteps, int recoverAttempt) {
+    public static synchronized void arm(Context context, int reason, int bitrateKbps, int fps, int adaptiveSteps, int recoverAttempt) {
+        CLAIM.invalidate();
         try {
             Bundle extras = memoryExtras != null ? new Bundle(memoryExtras) : decode(prefs(context).getString(KEY_EXTRAS, null));
             if (extras == null) {
@@ -113,7 +120,8 @@ public final class ResumeTicket {
         }
     }
 
-    public static void disarm(Context context) {
+    public static synchronized void disarm(Context context) {
+        CLAIM.invalidate();
         prefs(context).edit().putLong(KEY_ARMED_AT, 0).apply();
     }
 
@@ -133,26 +141,47 @@ public final class ResumeTicket {
     }
 
     /** The armed stream, ready to start, or null. Taking it disarms it. */
-    public static Intent take(Context context) {
-        if (!isArmed(context)) {
-            return null;
-        }
+    public static synchronized Intent take(Context context) {
+        if (!isArmed(context)) return null;
+        long armedAt=prefs(context).getLong(KEY_ARMED_AT,0);
+        int reason=reason(context);
+        long max=reason==REASON_SUSPEND?SUSPEND_MAX_AGE_MS:QUALITY_MAX_AGE_MS;
         Bundle extras = memoryExtras != null ? new Bundle(memoryExtras) : decode(prefs(context).getString(KEY_EXTRAS, null));
-        disarm(context);
         if (extras == null || extras.getString(Game.EXTRA_HOST) == null) {
+            disarm(context);
             return null;
         }
+        com.limelight.pocket.core.HorizonResumeClaim.Claim claim =
+                CLAIM.begin(armedAt,max,System.currentTimeMillis(),epoch(),reason);
+        if (claim==null) return null;
+        prefs(context).edit().putLong(KEY_ARMED_AT,0).apply();
         Intent intent = new Intent(context, Game.class);
         intent.putExtras(extras);
+        intent.putExtra(EXTRA_CLAIM,claim.id);
         return intent;
     }
 
-    /** Puts a taken ticket back (the screen went away before it was used). */
-    public static void putBack(Context context, int reason) {
-        prefs(context).edit()
-                .putLong(KEY_ARMED_AT, System.currentTimeMillis())
-                .putInt(KEY_REASON, reason)
-                .apply();
+    public static synchronized boolean owns(Intent intent) {
+        return intent!=null && CLAIM.current(intent.getLongExtra(EXTRA_CLAIM,0),System.currentTimeMillis(),epoch());
+    }
+    public static synchronized boolean claimDispatch(Intent intent) {
+        if (intent==null) return false;
+        boolean ok=CLAIM.finish(intent.getLongExtra(EXTRA_CLAIM,0),System.currentTimeMillis(),epoch())!=null;
+        intent.removeExtra(EXTRA_CLAIM);
+        return ok;
+    }
+    public static synchronized void cancel(Intent intent) {
+        if (intent!=null) CLAIM.cancel(intent.getLongExtra(EXTRA_CLAIM,0));
+    }
+
+    /** Restore only this still-current taken ticket, using its original expiry. */
+    public static synchronized void putBack(Context context, Intent intent) {
+        if (intent==null) return;
+        com.limelight.pocket.core.HorizonResumeClaim.Claim claim =
+                CLAIM.finish(intent.getLongExtra(EXTRA_CLAIM,0),System.currentTimeMillis(),epoch());
+        if (claim==null) return;
+        prefs(context).edit().putLong(KEY_ARMED_AT,claim.armedAt)
+                .putInt(KEY_REASON,claim.reason).apply();
     }
 
     public static String appName(Intent intent) {
