@@ -28,6 +28,13 @@ public final class HorizonLaunchTarget {
         return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.PC_STREAM, h,
                 "shortcut", appName == null ? "" : appName);
     }
+    /** A missing UUID is not an identity. Positive numeric IDs remain a legacy fallback. */
+    public static boolean sameRunningPcApp(int runningId, String runningUuid, int requestedId, String requestedUuid) {
+        boolean runningHasUuid = runningUuid != null && !runningUuid.trim().isEmpty();
+        boolean requestedHasUuid = requestedUuid != null && !requestedUuid.trim().isEmpty();
+        if (runningHasUuid && requestedHasUuid) return runningUuid.equalsIgnoreCase(requestedUuid);
+        return runningId > 0 && requestedId > 0 && runningId == requestedId;
+    }
     public static HorizonLaunchTarget cloud(String service, String url) {
         return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.CLOUD,
                 service == null ? "" : service, url == null ? "" : url);

@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 public class ShortcutTrampoline extends AppCompatActivity {
@@ -173,8 +172,8 @@ public class ShortcutTrampoline extends AppCompatActivity {
                 if (app != null) {
                     final Intent startIntent = ServerHelper.createStartIntent(this, app, details,
                             localBinder, prefConfig.useVirtualDisplay);
-                    if (details.runningGameId == 0 || details.runningGameId == app.getAppId()
-                            || Objects.equals(details.runningGameUUID, app.getAppUUID())) {
+                    if (details.runningGameId == 0 || com.limelight.pocket.core.HorizonLaunchTarget.sameRunningPcApp(
+                            details.runningGameId, details.runningGameUUID, app.getAppId(), app.getAppUUID())) {
                         intentStack.add(startIntent);
                         dispatchStack();
                     } else {
@@ -278,6 +277,12 @@ public class ShortcutTrampoline extends AppCompatActivity {
             }
         }
 
+        if ((appUUID == null || appUUID.isEmpty()) && (appIDStr == null || appIDStr.isEmpty())
+                && (appName == null || appName.isEmpty())) {
+            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title),
+                    getResources().getString(R.string.scut_invalid_app_id), true);
+            return false;
+        }
         return true;
     }
 
@@ -403,7 +408,9 @@ public class ShortcutTrampoline extends AppCompatActivity {
         // Set the AppView UUID intent
         setIntent(new Intent(getIntent()).putExtra(AppView.UUID_EXTRA, uuidString));
 
-        if (validateAppInput(appUUID, appIDStr, appName)) {
+        boolean hasAppInput = appUUID != null || appIDStr != null || appName != null;
+        if (hasAppInput && !validateAppInput(appUUID, appIDStr, appName)) return;
+        if (hasAppInput) {
             // If app data came from .art file or was determined by appNameString from extras
             if (appUUID != null && !appUUID.isEmpty()) {
                 app = new NvApp(appName, // appName can be null if only UUID is provided
