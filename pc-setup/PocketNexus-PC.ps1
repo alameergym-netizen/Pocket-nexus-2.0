@@ -779,12 +779,64 @@ public static class PcGames {
         s.Flush();
     }
 
+    // Playnite publishes a local, explicitly exported snapshot. Keep it out of the legacy launch
+    // cache. A missing or invalid snapshot never makes the existing providers unavailable.
+    static List<Game> ReadPlayniteExport() {
+        List<Game> games = new List<Game>();
+        try {
+            string path = Path.Combine(DataDir, "playnite-catalog.tsv");
+            using (FileStream file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
+                if (file.Length > 4 * 1024 * 1024) return null;
+                using (StreamReader input = new StreamReader(file, new UTF8Encoding(false, true), false)) {
+                    if (input.ReadLine() != "NEXUS-PLAYNITE 1") return null;
+                    HashSet<Guid> seen = new HashSet<Guid>();
+                    string row;
+                    while ((row = input.ReadLine()) != null) {
+                        if (row == "END " + games.Count.ToString(CultureInfo.InvariantCulture)) {
+                            return input.ReadLine() == null ? games : null;
+                        }
+                        if (games.Count >= 5000) return null;
+                        string[] fields = row.Split('\t');
+                        Guid id;
+                        if (fields.Length != 3 || !Guid.TryParseExact(fields[0], "D", out id)
+                                || id == Guid.Empty || !seen.Add(id)
+                                || (fields[1] != "0" && fields[1] != "1")
+                                || fields[2].Length > 200 || string.IsNullOrWhiteSpace(fields[2])) return null;
+                        foreach (char character in fields[2]) {
+                            if (char.IsControl(character)) return null;
+                        }
+                        games.Add(new Game {
+                            Source = "playnite", Id = id.ToString("D"), Name = fields[2],
+                            State = fields[1] == "1" ? "installed" : "notinstalled"
+                        });
+                    }
+                }
+            }
+        } catch (IOException) {
+        } catch (UnauthorizedAccessException) {
+        } catch (DecoderFallbackException) {
+        }
+        return null;
+    }
+
+    public static string PlayniteExportStatus() {
+        if (!File.Exists(Path.Combine(DataDir, "playnite-catalog.tsv"))) return "No export";
+        List<Game> games = ReadPlayniteExport();
+        return games == null ? "Unreadable export" : games.Count + " exported games";
+    }
+
     // A separate scoped TLS view sends only display metadata and no launch commands or paths.
     public static void WriteSecureLibrary(Stream stream) {
         List<Game> games;
         try { games = Scan(); }
         catch (Exception) { Send(stream, "ERR library"); return; }
         if (games.Count > 5000) { Send(stream, "ERR size"); return; }
+        List<Game> playnite = ReadPlayniteExport();
+        if (playnite != null && playnite.Count > 0 && games.Count < 5000) {
+            int available = 5000 - games.Count;
+            games = new List<Game>(games);
+            games.AddRange(playnite.GetRange(0, Math.Min(available, playnite.Count)));
+        }
         int count = 0;
         foreach (Game game in games) {
             string name = Clean(game.Name).Replace("\0", "");
@@ -2150,6 +2202,7 @@ function Get-HostDashboardText {
         ("SECURE STATUS  " + $(if ($script:secureHost) { "TLS on TCP $SecureStatusPort" } elseif (Test-Path -LiteralPath $script:secureStatusFlag) { "Listener unavailable" } else { "Disabled" })),
         ("USB BRIDGE     " + (Get-HostUsbLabel $script:bridgeOk ([bool]$script:adb) $script:lastState)),
         ("PC LIBRARY     " + $(if ($script:pcLibraryError) { "Unavailable" } else { "Initialized" })),
+        ("PLAYNITE       " + $(if ($script:pcLibraryError) { "Unavailable" } else { [PcGames]::PlayniteExportStatus() })),
         ("STREAM HOST    " + $endpoint),
         ("AUTOSTART      " + $(if (Test-Path $StartupLink) { "Enabled" } else { "Disabled" })),
         "",
@@ -2565,6 +2618,39 @@ function Invoke-SelfTest {
             Check ($safeRows.Length -gt 1 -and $safeRows[-1] -eq ("END " + ($safeRows.Length - 1))) "secure library writes a counted fixture response"
             Check (@($safeRows[0..($safeRows.Length - 2)] | Where-Object { $_ -notmatch '^S\t[^\t]+\t[^\t]*\t[01]$' }).Count -eq 0) "secure library only emits name, source and installed flag"
         } finally { $catalog.Dispose() }
+        $module = Import-Module (Join-Path $here "playnite\PocketNexusCatalog.psm1") -PassThru -Force -ErrorAction Stop
+        try {
+            $exportPath = Join-Path $DataDir "playnite-catalog.tsv"
+            $playniteId = [Guid]"10000000-0000-0000-0000-000000000001"
+            $entries = @(
+                [pscustomobject]@{ Id = $playniteId; Name = "Deck" + [char]9 + "Game"; Hidden = $false; IsInstalled = $true },
+                [pscustomobject]@{ Id = [Guid]::NewGuid(); Name = "Hidden fixture"; Hidden = $true; IsInstalled = $true },
+                [pscustomobject]@{ Id = [Guid]::NewGuid(); Name = "Uninstalled fixture"; Hidden = $false; IsInstalled = $false },
+                [pscustomobject]@{ Id = $playniteId; Name = "Duplicate fixture"; Hidden = $false; IsInstalled = $false }
+            )
+            $exported = & $module { param($entries, $path) Write-NexusSnapshot $entries $path } $entries $exportPath
+            Check ($exported -eq 2 -and [PcGames]::PlayniteExportStatus() -eq "2 exported games") "Playnite exports distinct visible games"
+            $catalog = New-Object IO.MemoryStream
+            try {
+                [PcGames]::WriteSecureLibrary($catalog)
+                $rows = [Text.Encoding]::UTF8.GetString($catalog.ToArray()).Trim().Split([char]10)
+                Check ($rows -contains "S`tDeck Game`tplaynite`t1" -and $rows -contains "S`tUninstalled fixture`tplaynite`t0") "TLS catalog exposes only Playnite name and installation status"
+                Check ($rows -contains "S`tTest Installed Game`tsteam`t1" -and $rows[-1] -eq ("END " + ($rows.Length - 1))) "Playnite and Steam coexist in the counted TLS catalog"
+                Check ([PcGames]::Launch("playnite", $playniteId.ToString("D")) -eq "ERR unknown") "Playnite export cannot populate the legacy launch cache"
+            } finally { $catalog.Dispose() }
+            $empty = & $module { param($path) Write-NexusSnapshot @() $path } $exportPath
+            Check ($empty -eq 0 -and [PcGames]::PlayniteExportStatus() -eq "0 exported games") "Playnite atomically replaces the previous export"
+            [IO.File]::WriteAllLines($exportPath, @("NEXUS-PLAYNITE 1", "$playniteId`t1`tUnfinished fixture"))
+            Check ([PcGames]::PlayniteExportStatus() -eq "Unreadable export") "Playnite rejects an incomplete export"
+            $catalog = New-Object IO.MemoryStream
+            try {
+                [PcGames]::WriteSecureLibrary($catalog)
+                $rows = [Text.Encoding]::UTF8.GetString($catalog.ToArray()).Trim().Split([char]10)
+                Check ($rows -contains "S`tTest Installed Game`tsteam`t1" -and @($rows -match "playnite").Count -eq 0) "Unreadable Playnite export leaves Steam available"
+            } finally { $catalog.Dispose() }
+            [IO.File]::Delete($exportPath)
+            Check ([PcGames]::PlayniteExportStatus() -eq "No export") "Removed Playnite export is no longer visible"
+        } finally { Remove-Module $module }
         [PcGames]::SteamRootOverride = $null
     } else {
         Check $false "test fixtures missing (run tests\make_fixtures.py)"

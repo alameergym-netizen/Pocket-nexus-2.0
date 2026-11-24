@@ -45,6 +45,13 @@ Secure host status (development)
   - The encrypted listener carries read-only status and game metadata. Power, launching, mic, USB,
     and stream paths use their existing connections. Keep the plaintext control port private.
 
+Playnite game list (development)
+  - Copy the playnite folder from this archive into Playnite's Extensions folder and restart
+    Playnite. The installed configuration usually uses %APPDATA%\Playnite\Extensions.
+  - Open Playnite's main menu > Extensions > Pocket Nexus > Export visible games to Nexus Host.
+    Confirm the export, then refresh the secure game list on the handheld. Repeat after changes.
+  - Use Remove Nexus Host export in Playnite to stop providing those entries to paired devices.
+
 Vibepollo status (development)
   - In the Vibepollo web UI, create a token scoped to GET /api/metadata. In the Windows Nexus
     Host dashboard, open Vibepollo status and select the local management port (usually 47990).

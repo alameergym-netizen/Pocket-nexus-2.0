@@ -33,3 +33,9 @@ Windows tray settings can scope legacy APC1 to loopback at the next restart. ADB
 
 ## Device-scoped secure game list
 The Windows tray can issue a status-only key or a status-and-game-list key. Existing status keys retain their original scope. Android verifies the saved certificate before either request. The new request returns a bounded, counted list of game names, local catalog sources and installed flags. It omits paths and launch commands. It does not launch, install, reconfigure, or change the legacy PC library. Keys can be independently revoked or reissued in the tray. The Android list is built only from a complete authenticated reply, without a cached fallback. Physical LAN pairing and migrations remain part of acceptance.
+
+## Optional Playnite catalog
+
+The development Windows archive includes a Playnite 10 script extension in its `playnite` folder. Copy that folder into Playnite's `Extensions` folder and restart Playnite. Use **Extensions → Pocket Nexus → Export visible games to Nexus Host** to publish a snapshot for devices paired for the secure game list. The corresponding **Remove Nexus Host export** command removes the local snapshot. The Windows dashboard shows the snapshot count or an unreadable status.
+
+Each export is manual and replaces the previous snapshot atomically. It includes visible game names and installed flags. Playnite GUIDs identify rows locally and stay on Windows. Legacy library commands and launch access remain as before. Nexus Host adds the Playnite rows within the existing 5,000-row response limit, with existing providers first. A malformed snapshot leaves the existing providers usable. Real Playnite desktop and Windows-to-RP6 interoperability still need acceptance. [Playnite 10.65 SDK menu interface](https://github.com/JosefNemec/Playnite/blob/10.65/source/PlayniteSDK/Plugins/MenuEntry.cs) · [Database interface](https://github.com/JosefNemec/Playnite/blob/10.65/source/PlayniteSDK/Database/IGameDatabase.cs)
