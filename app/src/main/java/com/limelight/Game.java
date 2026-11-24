@@ -207,6 +207,18 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
     private volatile long horizonStreamTicket;
+    private long horizonStopOwner;
+    private boolean horizonShutdownDispatched;
+
+    private boolean ownsStreamCallback() {
+        return instance == this && !isFinishing() && !isDestroyed()
+                && (connecting || connected);
+    }
+
+    private long ensureShutdownOwner() {
+        if (horizonStopOwner == 0) horizonStopOwner = ResumeTicket.markStopStarted();
+        return horizonStopOwner;
+    }
     private com.limelight.pocket.pclib.HorizonPcLaunchQueue.Ticket horizonPcLaunch;
     private boolean connecting = false;
     public boolean connected = false;
@@ -1904,9 +1916,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         horizonInputVisible = false;
         HorizonStreamObserver.instance().ended(horizonStreamTicket);
         super.onDestroy();
-        com.limelight.pocket.apps.HomeScreen.streaming = false;
-
-        if (instance == this) instance = null;
+        if (instance == this) {
+            com.limelight.pocket.apps.HomeScreen.streaming = false;
+            instance = null;
+        }
+        if (!horizonShutdownDispatched && horizonStopOwner != 0) {
+            ResumeTicket.markStopFinished(horizonStopOwner);
+        }
         timerHandler.removeCallbacksAndMessages(null);
         if (streamMenu != null) {
             streamMenu.hide();
@@ -1977,7 +1993,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         // Artemis Pocket: the screen went off or the app was left mid-game. The game keeps
         // running on the PC; the next console screen brings the stream straight back.
-        if (!isFinishing() && connected && !quitOnStop && !pocketSwitching && PocketPrefs.seamlessResume(this)) {
+        if (instance == this && !isFinishing() && connected && !quitOnStop && !pocketSwitching && PocketPrefs.seamlessResume(this)) {
             ResumeTicket.arm(this, ResumeTicket.REASON_SUSPEND, 0, 0, -1);
         }
         pocketRecordPlaytime();
@@ -2970,13 +2986,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     /** Ends this stream and brings it straight back with new settings; the game keeps running. */
     private void pocketSwitchStream(int reason, int bitrateKbps, int fps, int adaptiveSteps) {
-        if (pocketSwitching) {
+        if (pocketSwitching || !ownsStreamCallback()) {
             return;
         }
         pocketSwitching = true;
         ResumeTicket.arm(this, reason, bitrateKbps, fps, adaptiveSteps);
         if (connected) {
-            ResumeTicket.markStopStarted();
+            ensureShutdownOwner();
         }
         finish();
     }
@@ -5403,6 +5419,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                if (!ownsStreamCallback()) return;
                 if (spinner != null) {
                     spinner.setMessage(getResources().getString(R.string.conn_starting) + " " + stage);
                 }
@@ -5431,7 +5448,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // thread to keep things smooth for the UI. Inside moonlight-common,
             // we prevent another thread from starting a connection before and
             // during the process of stopping this one.
-            ResumeTicket.markStopStarted();
+            final long shutdownOwner = ensureShutdownOwner();
+            horizonShutdownDispatched = true;
             new Thread() {
                 public void run() {
                     try {
@@ -5450,7 +5468,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     }
                     } finally {
                         // Also release the resume barrier after a cleanup exception.
-                        ResumeTicket.markStopFinished();
+                        ResumeTicket.markStopFinished(shutdownOwner);
                     }
                 }
             }.start();
@@ -5476,6 +5494,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     spinner = null;
                 }
 
+                if (!ownsStreamCallback()) return;
                 HorizonStreamObserver.instance().failed(horizonStreamTicket);
                 if (!displayedFailureDialog && pocketTryDesktopFallback(stage, errorCode)) {
                     displayedFailureDialog = true;
@@ -5560,6 +5579,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                if (!ownsStreamCallback()) return;
                 // Let the display go to sleep now
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
