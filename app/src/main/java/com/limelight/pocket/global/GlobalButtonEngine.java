@@ -107,6 +107,16 @@ public final class GlobalButtonEngine {
             return;
         }
         if (!pkg.equals(front)) {
+            // A delayed Back gesture belongs to the original foreground app, not its successor.
+            if (down == GlobalButtons.BACK) {
+                main.removeCallbacks(holdFired);
+                down = -1;
+                held = false;
+            }
+            if (pendingTap == GlobalButtons.BACK) {
+                main.removeCallbacks(tapFired);
+                pendingTap = -1;
+            }
             front = pkg;
             // Remembered for Quick Resume only once it stayed in front a moment (not an app
             // that flashes up and goes: a sign-in, a share sheet, a launcher passing through)
@@ -139,6 +149,7 @@ public final class GlobalButtonEngine {
     }
 
     private int buttonOf(KeyEvent event) {
+        if (com.limelight.pocket.HorizonBackKey.reservedForNavigation(event)) return -1;
         if (com.limelight.pocket.PocketPrefs.matchesBack(
                 com.limelight.pocket.PocketPrefs.getBackKey(service), event)) return GlobalButtons.BACK;
         switch (event.getKeyCode()) {

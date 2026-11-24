@@ -7,11 +7,17 @@ import android.view.KeyEvent;
 public final class HorizonBackKey {
     private HorizonBackKey() {}
 
-    private static boolean eligible(KeyEvent e) {
-        int key = e.getKeyCode(), scan = e.getScanCode(), source = e.getSource();
+    /** Prevent stale/legacy shortcut mappings from stealing a normal face-button press. */
+    public static boolean reservedForNavigation(KeyEvent e) {
+        int key = e.getKeyCode(), scan = e.getScanCode();
         // Linux BTN_SOUTH/EAST/C/NORTH/WEST/Z are face keys even when a keylayout aliases them.
-        if (key == KeyEvent.KEYCODE_BUTTON_B || (scan >= 304 && scan <= 309)) return false;
-        if ((e.getFlags() & (KeyEvent.FLAG_FALLBACK | KeyEvent.FLAG_VIRTUAL_HARD_KEY)) != 0) return false;
+        return key == KeyEvent.KEYCODE_BUTTON_B || (scan >= 304 && scan <= 309)
+                || (e.getFlags() & (KeyEvent.FLAG_FALLBACK | KeyEvent.FLAG_VIRTUAL_HARD_KEY)) != 0;
+    }
+
+    private static boolean eligible(KeyEvent e) {
+        int source = e.getSource();
+        if (reservedForNavigation(e)) return false;
         return (source & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE
                 && source != InputDevice.SOURCE_MOUSE_RELATIVE;
     }

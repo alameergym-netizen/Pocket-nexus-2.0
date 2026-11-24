@@ -43,6 +43,22 @@ public class HorizonBackKeyTest {
         assertFalse(HorizonBackKey.matches(spec, back(0,159,0)));
         assertFalse(HorizonBackKey.matches(spec, back(0,158,KeyEvent.FLAG_FALLBACK)));
     }
+    @Test public void staleHotkeyMappingsCannotStealBOrFallback() {
+        KeyEvent b = key(0, KeyEvent.KEYCODE_BUTTON_B,305,0,InputDevice.SOURCE_GAMEPAD,100);
+        assertFalse(PocketPrefs.matchesHotkey("k:97", b));
+        assertFalse(PocketPrefs.matchesHome("k:97", b));
+        assertFalse(PocketPrefs.matchesHotkey("k:4", back(0,158,KeyEvent.FLAG_FALLBACK)));
+        KeyEvent m1 = key(0, KeyEvent.KEYCODE_F8,66,0,InputDevice.SOURCE_KEYBOARD,100);
+        assertTrue(PocketPrefs.matchesHotkey("k:138", m1));
+    }
+    @Test public void clearingPressOnFocusLossRejectsLaterRelease() {
+        HorizonBackKey.Press p = new HorizonBackKey.Press();
+        p.accept(back(0,158,0));
+        p.clear();
+        assertFalse(p.accept(back(1,158,0)));
+        p.accept(back(0,158,0));
+        assertTrue(p.accept(back(1,158,0)));
+    }
     @Test public void matchingPressOnlyOpensOnRelease() {
         HorizonBackKey.Press p = new HorizonBackKey.Press();
         assertFalse(p.accept(back(1,158,0)));

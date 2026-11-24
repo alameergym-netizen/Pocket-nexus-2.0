@@ -614,6 +614,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        controlBackPress.clear();
+        normalBPress.clear();
         super.onPause();
         DockMode.removeListener(dockListener);
         // The other screens read their own layout (or the shared one)
@@ -648,6 +650,10 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) {
+            controlBackPress.clear();
+            normalBPress.clear();
+        }
         if (hasFocus) {
             enterImmersive();
             // Opened with a button (L1 / R1, A...) while Android still thought the screen was
@@ -1310,6 +1316,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     private final HorizonBackKey.Press controlBackPress = new HorizonBackKey.Press();
+    private final HorizonBackKey.Press normalBPress = new HorizonBackKey.Press();
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
@@ -1454,7 +1461,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         boolean up = event.getAction() == KeyEvent.ACTION_UP;
         // Consume B directly: Android must not synthesize a BACK fallback from an unhandled B.
         if (keyCode == KeyEvent.KEYCODE_BUTTON_B) {
-            if (up && !event.isCanceled()) {
+            if (normalBPress.accept(event)) {
                 PocketSounds.play(this, PocketSounds.BACK);
                 onBackPressed();
             }

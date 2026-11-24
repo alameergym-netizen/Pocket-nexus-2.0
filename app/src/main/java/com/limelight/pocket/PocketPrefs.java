@@ -98,7 +98,7 @@ public final class PocketPrefs {
     }
 
     public static boolean matchesHotkey(String hotkey, KeyEvent event) {
-        if (hotkey == null || hotkey.length() < 3) {
+        if (HorizonBackKey.reservedForNavigation(event) || hotkey == null || hotkey.length() < 3) {
             return false;
         }
         try {
@@ -179,6 +179,7 @@ public final class PocketPrefs {
      * controllers keep working as plain Guide.
      */
     public static boolean matchesHome(String spec, KeyEvent event) {
+        if (HorizonBackKey.reservedForNavigation(event)) return false;
         if (KEY_AUTO.equals(spec)) {
             if (event.getKeyCode() == KeyEvent.KEYCODE_HOME) {
                 return true;
