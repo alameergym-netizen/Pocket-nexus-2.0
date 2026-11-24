@@ -1,5 +1,8 @@
 """Verify opt-in Home workspace against a disposable Android 13 emulator."""
 from pathlib import Path
+import json
+import math
+import statistics
 import re
 import subprocess
 import sys
@@ -25,6 +28,49 @@ def focus_label(tree, name):
 def home_ready(tree):
     return resource(tree, "homeRow") is not None and c.has(tree, "Add to Home")
 
+def reported_number(output, field):
+    match = re.search(re.escape(field) + r"\s*:\s*(\d+)", output)
+    return int(match[1]) if match else None
+
+
+def frame_durations(report):
+    durations = []
+    columns = None
+    for line in report.splitlines():
+        fields = line.split(",")
+        if line == "---PROFILEDATA---":
+            columns = None
+        elif {"Flags", "IntendedVsync", "FrameCompleted"}.issubset(fields):
+            columns = tuple(fields.index(name) for name in ("Flags", "IntendedVsync", "FrameCompleted"))
+        elif columns is not None and len(fields) > max(columns):
+            try:
+                flags, started, completed = (int(fields[index]) for index in columns)
+            except ValueError:
+                continue
+            if flags == 0 and 0 < started < completed < 2**63 - 1:
+                durations.append((completed - started) / 1_000_000)
+    return sorted(durations)
+
+
+def record_performance(start_output, ready_ms):
+    memory = c.adb("shell", "dumpsys", "meminfo", c.PKG).decode(errors="replace")
+    frames = c.adb("shell", "dumpsys", "gfxinfo", c.PKG, "framestats").decode(errors="replace")
+    timings = frame_durations(frames)
+    metrics = {
+        "environment": "Android 13 x86_64 CI emulator with system animation scales disabled",
+        "scenario": "cold process start to Home followed by controller navigation",
+        "launch_total_ms": reported_number(start_output, "TotalTime"),
+        "launch_wait_ms": reported_number(start_output, "WaitTime"),
+        "home_visible_observation_ms": ready_ms,
+        "process_pss_kib": reported_number(memory, "TOTAL PSS"),
+        "frame_count": len(timings),
+        "frame_median_ms": round(statistics.median(timings), 2) if timings else None,
+        "frame_p95_ms": round(timings[math.ceil(0.95 * len(timings)) - 1], 2) if timings else None,
+    }
+    (c.RESULTS / "home-performance.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+    print("Home emulator measurements " + json.dumps(metrics), flush=True)
+
+
 def main(apk):
     c.RESULTS.mkdir(exist_ok=True)
     c.adb("install", "-g", apk, timeout=180)
@@ -41,8 +87,12 @@ def main(apk):
                     "pin\tnexus\tMusic\tmusic\t\t\t0\n"
                     "pin\tnexus\tFiles\tfiles\t\t\t0\n", encoding="utf-8")
     c.adb("push", str(seed), seed_dir + "/seed.txt")
-    c.launch()
+    started = time.monotonic()
+    launch_output = c.adb("shell", "am", "start", "-W", "-a", "android.intent.action.MAIN",
+                          "-c", "android.intent.category.LAUNCHER", "-n", c.PKG + "/com.limelight.PcView")
     tree = c.wait_for("Home with pinned tools and Add tile", home_ready)
+    ready_ms = round((time.monotonic() - started) * 1000)
+    c.adb("shell", "dumpsys", "gfxinfo", c.PKG, "reset")
     assert c.has(tree, "Music") and c.has(tree, "Files"), "seeded pins not visible"
     grid = bounds(resource(tree, "homeRow"))
     # These regions must be distinct; the grid cannot run into the bottom tool strip.
@@ -70,6 +120,7 @@ def main(apk):
     c.wait_for("detail action focus", lambda t: resource(t, "pocketHeroPlay") is not None
                and resource(t, "pocketHeroPlay").get("focused") == "true")
     c.capture("03-detail-focus")
+    record_performance(launch_output.decode(errors="replace"), ready_ms)
     print("PASS: independent regions, grid-to-dock and detail focus", flush=True)
     c.key("BUTTON_SELECT")
     # Layout chip is transient (1.5s); UIAutomator waits for idle and can miss it.

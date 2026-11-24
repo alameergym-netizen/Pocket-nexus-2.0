@@ -2,4 +2,8 @@
 <resources>
     <string name="horizon_library_workspace_title">Game Library</string>
     <string name="horizon_library_workspace_count">%1$d / %2$d games · %3$s</string>
+    <item name="horizon_library_detail" type="id" />
+    <item name="horizon_library_grid" type="id" />
+    <item name="horizon_library_details_action" type="id" />
+    <item name="horizon_library_options_action" type="id" />
 </resources>

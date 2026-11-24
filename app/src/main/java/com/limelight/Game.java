@@ -3809,7 +3809,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 }
                 break;
             case ANDROID_HOME:
-                goToAndroidHome();
+                com.limelight.pocket.apps.HomeScreen.openOtherLauncher(this);
                 break;
             case DISCONNECT:
                 disconnect();

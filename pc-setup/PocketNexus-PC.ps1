@@ -72,6 +72,7 @@ $script:tray = $null
 $script:adb = $null
 $script:pin = ""
 $script:companionOk = $false
+$script:legacyLanFlag = Join-Path $DataDir "legacy-usb-only"
 $script:secureHost = $null
 $script:secureStatusFlag = Join-Path $DataDir "secure-status-enabled"
 $script:bridgeOk = $false
@@ -352,6 +353,13 @@ public static class PocketCompanion {
         Thread cpu = new Thread(CpuLoop);
         cpu.IsBackground = true;
         cpu.Start();
+    }
+
+    public static bool IsLoopbackBound {
+        get {
+            IPEndPoint endpoint = listener == null ? null : listener.LocalEndpoint as IPEndPoint;
+            return endpoint != null && IPAddress.IsLoopback(endpoint.Address);
+        }
     }
 
     public static void Log(string text) { Events.Enqueue(text); }
@@ -1742,6 +1750,42 @@ public static class PcGames {
 }
 
 # ---- Servers ---------------------------------------------------------------------------------
+function Get-LegacyLanAllowed {
+    return -not (Test-Path -LiteralPath $script:legacyLanFlag)
+}
+
+function Set-LegacyLanAllowed([bool]$allowed) {
+    if ($allowed) {
+        if (Test-Path -LiteralPath $script:legacyLanFlag) {
+            Remove-Item -LiteralPath $script:legacyLanFlag -ErrorAction Stop
+        }
+    } else {
+        [IO.File]::WriteAllText($script:legacyLanFlag, "1")
+    }
+}
+
+function Get-LegacyScopeText {
+    if (-not $script:companionOk) { return "Listener unavailable" }
+    $loopback = [PocketCompanion]::IsLoopbackBound
+    $label = if ($loopback) { "USB and local only" } else { "TCP network and USB" }
+    if ($loopback -eq (Get-LegacyLanAllowed)) { $label += " (restart pending)" }
+    return $label
+}
+
+function Edit-LegacyLanScope {
+    $allow = -not (Get-LegacyLanAllowed)
+    $prompt = if ($allow) {
+        "Allow legacy power, mic and library control over Wi-Fi after the next restart? APC1 is plaintext. Use a trusted private network."
+    } else {
+        "Limit legacy power, mic and library control to USB and local connections after the next restart? Secure status and streaming use separate listeners."
+    }
+    if ([System.Windows.Forms.MessageBox]::Show($prompt, "Nexus Host", "YesNo") -ne "Yes") { return }
+    Set-LegacyLanAllowed $allow
+    $script:legacyLanItem.Checked = $allow
+    if ($script:hostSummary) { $script:hostSummary.Text = Get-HostDashboardText }
+    [void][System.Windows.Forms.MessageBox]::Show("Saved. Restart Nexus Host after your current stream or transfer finishes.", "Nexus Host")
+}
+
 function Start-Servers {
     $script:bridgeOk = $true
     try { [PocketBridge]::Start($TunnelPort) }
@@ -1762,7 +1806,10 @@ function Start-Servers {
     $script:pin = ([BitConverter]::ToUInt32($pinBytes, 0) % 1000000).ToString().PadLeft(6, "0")
 
     $script:companionOk = $true
-    try { [PocketCompanion]::Start($CompanionPort, $token, $script:pin) }
+    try {
+        $usbOnly = -not (Get-LegacyLanAllowed)
+        [PocketCompanion]::Start($CompanionPort, $token, $script:pin, $usbOnly)
+    }
     catch { $script:companionOk = $false; Say "PC helper: port $CompanionPort is busy (another program uses it) - pick another Wi-Fi port from the icon next to the clock" "Yellow" }
 }
 
@@ -1981,6 +2028,7 @@ function Get-StatusText {
     $lines += "Wi-Fi link PIN: " + $script:pin
     $lines += "PC helper: " + $(if ($script:companionOk) { "ready" } else { "port $CompanionPort busy" })
     $lines += "Wi-Fi port: " + $CompanionPort
+    $lines += "Legacy control: " + (Get-LegacyScopeText)
     $lines += "PC library: " + $(if ($script:pcLibraryError) { "unavailable - " + $script:pcLibraryError } else { "ready" })
     $lines += "USB-C: " + $(if (-not $script:adb) { "ADB missing" } elseif ($script:lastState -eq "device") { "handheld connected" } else { "no handheld on the cable" })
     $apollo = Get-NetTCPConnection -LocalPort 47989 -State Listen -ErrorAction SilentlyContinue
@@ -2074,6 +2122,7 @@ function Get-HostDashboardText {
     return (@(
         ("COMPANION      " + $(if ($script:companionOk) { "Listener started" } else { "Listener unavailable" })),
         ("CONTROL PORT   " + $CompanionPort),
+        ("LEGACY SCOPE   " + (Get-LegacyScopeText)),
         ("SECURE STATUS  " + $(if ($script:secureHost) { "TLS on TCP $SecureStatusPort" } elseif (Test-Path -LiteralPath $script:secureStatusFlag) { "Listener unavailable" } else { "Disabled" })),
         ("USB BRIDGE     " + (Get-HostUsbLabel $script:bridgeOk ([bool]$script:adb) $script:lastState)),
         ("PC LIBRARY     " + $(if ($script:pcLibraryError) { "Unavailable" } else { "Initialized" })),
@@ -2292,6 +2341,12 @@ function Start-Tray {
     $pinItem.add_Click({ try { [System.Windows.Forms.Clipboard]::SetText($script:pin) } catch { } })
     $portItem = $menu.Items.Add("Wi-Fi port: " + $CompanionPort + "   (change)")
     $portItem.add_Click({ try { Edit-WifiPort } catch { Write-Log ("Wi-Fi port: " + $_.Exception.Message) } })
+    $script:legacyLanItem = $menu.Items.Add("Allow legacy Wi-Fi control")
+    $script:legacyLanItem.Checked = Get-LegacyLanAllowed
+    $script:legacyLanItem.add_Click({
+        try { Edit-LegacyLanScope }
+        catch { [void][System.Windows.Forms.MessageBox]::Show("Could not save the legacy control setting.", "Nexus Host") }
+    })
     [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
     $statusItem = $menu.Items.Add("Open Nexus Host")
     $statusItem.add_Click({ try { Show-HostDashboard } catch { Write-Log ("Dashboard: " + $_.Exception.Message) } })
@@ -2350,6 +2405,11 @@ function Invoke-SelfTest {
     function Check($ok, $what) {
         if ($ok) { Write-Host ("  ok    " + $what) } else { Write-Host ("  FAIL  " + $what); $failed.Add($what) }
     }
+    Check (Get-LegacyLanAllowed) "existing installations default to legacy Wi-Fi enabled"
+    Set-LegacyLanAllowed $false
+    Check (-not (Get-LegacyLanAllowed)) "persist USB-only control in the isolated test settings"
+    Set-LegacyLanAllowed $true
+    Check (Get-LegacyLanAllowed) "explicit Wi-Fi restore clears the USB-only setting"
     $fwCommand = Get-FirewallPortCommand 47119
     Check ($fwCommand -match 'Set-NetFirewallRule' -and $fwCommand -notmatch 'Remove-NetFirewallRule' -and $fwCommand -match '-LocalPort 47119' -and $fwCommand -match 'Private,Domain') "firewall updates existing rule without removing it"
     $invalidPort = $false
@@ -2385,6 +2445,7 @@ function Invoke-SelfTest {
     $writer.NewLine = "`n"
     $writer.AutoFlush = $true
     $reader = New-Object System.IO.StreamReader($stream)
+    Check ([PocketCompanion]::IsLoopbackBound) "legacy listener uses a real loopback socket in USB-only mode"
     $writer.WriteLine("APC1 -")
     $hello = $reader.ReadLine()
     Check ($hello -like "OK 1 *") ("hello: " + $hello)

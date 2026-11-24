@@ -103,6 +103,7 @@ public class LibraryActivity extends ConsoleActivity {
     private TextView meta;
     private TextView ways;
     private TextView empty;
+    private LinearLayout detailActions;
     private LinearLayout tabs;
     private HorizontalScrollView tabScroll;
     private RecyclerView grid;
@@ -197,6 +198,7 @@ public class LibraryActivity extends ConsoleActivity {
 
         // Independent selected-game detail surface; artwork no longer covers the entire library.
         LinearLayout detail = new LinearLayout(this);
+        detail.setId(R.id.horizon_library_detail);
         detail.setOrientation(LinearLayout.VERTICAL);
         detail.setPadding(dp(12), dp(12), dp(12), dp(10));
         GradientDrawable detailBg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
@@ -223,6 +225,22 @@ public class LibraryActivity extends ConsoleActivity {
         LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(-1, -2);
         wl.topMargin = dp(4);
         detail.addView(ways, wl);
+
+        detailActions = new LinearLayout(this);
+        detailActions.setVisibility(View.GONE);
+        View detailsAction = detailAction(R.string.pocket_hint_details, () -> onButtonX());
+        detailsAction.setId(R.id.horizon_library_details_action);
+        detailActions.addView(detailsAction, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        View optionsAction = detailAction(R.string.pocket_ul_hint_options, () -> {
+            if (heroPos >= 0 && heroPos < shown.size()) options(shown.get(heroPos));
+        });
+        optionsAction.setId(R.id.horizon_library_options_action);
+        LinearLayout.LayoutParams optionsLp = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        optionsLp.setMarginStart(dp(6));
+        detailActions.addView(optionsAction, optionsLp);
+        LinearLayout.LayoutParams actionLp = new LinearLayout.LayoutParams(-1, -2);
+        actionLp.topMargin = dp(8);
+        detail.addView(detailActions, actionLp);
         if (spec.split) {
             LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(spec.detailWidth), -1);
             dl.setMarginEnd(dp(12));
@@ -240,6 +258,7 @@ public class LibraryActivity extends ConsoleActivity {
                 ? new LinearLayout.LayoutParams(0, -1, 1f)
                 : new LinearLayout.LayoutParams(-1, 0, 1f));
         grid = new RecyclerView(this);
+        grid.setId(R.id.horizon_library_grid);
         grid.setLayoutManager(new GridLayoutManager(this, spec.columns));
         grid.setItemAnimator(null);
         grid.setClipToPadding(false);
@@ -267,6 +286,20 @@ public class LibraryActivity extends ConsoleActivity {
         hlp.topMargin = dp(6);
         column.addView(footer, hlp);
         return root;
+    }
+
+    private View detailAction(int label, Runnable action) {
+        TextView button = text(12f, PocketFonts.semibold(), 0xFFFFFFFF);
+        button.setText(label);
+        button.setGravity(Gravity.CENTER);
+        button.setFocusable(true);
+        button.setOnClickListener(view -> action.run());
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(0x24FFFFFF);
+        background.setCornerRadius(dp(8));
+        button.setBackground(background);
+        FocusGlow.apply(button, dp(8), false, 1.02f, null);
+        return button;
     }
 
     private void load() {
@@ -375,6 +408,7 @@ public class LibraryActivity extends ConsoleActivity {
         buildTabs();
         cards.notifyDataSetChanged();
         kicker.setText(getString(R.string.horizon_library_workspace_count, shown.size(), all.size(), getString(sortLabel(sort))));
+        detailActions.setVisibility(shown.isEmpty() ? View.GONE : View.VISIBLE);
         if (shown.isEmpty()) {
             empty.setVisibility(View.VISIBLE);
             empty.setText(all.isEmpty() ? R.string.pocket_ul_empty_all : R.string.pocket_ul_empty);
@@ -395,10 +429,10 @@ public class LibraryActivity extends ConsoleActivity {
         heroPos = -1;
         updateHero(target);
         focusAt(target, 0);
-        if (first) {
+        if (first && PocketPrefs.animationsEnabled(this)) {
             grid.setAlpha(0f);
             grid.setTranslationY(dp(24));
-            grid.animate().alpha(1f).translationY(0).setDuration(PocketPrefs.animationsEnabled(this) ? 380 : 0)
+            grid.animate().alpha(1f).translationY(0).setDuration(380)
                     .setInterpolator(PocketMotion.DECELERATE).start();
         }
     }
@@ -445,7 +479,11 @@ public class LibraryActivity extends ConsoleActivity {
         }
         final View on = current;
         if (on != null) {
-            tabScroll.post(() -> tabScroll.smoothScrollTo(Math.max(0, on.getLeft() - dp(40)), 0));
+            tabScroll.post(() -> {
+                int x = Math.max(0, on.getLeft() - dp(40));
+                if (PocketPrefs.animationsEnabled(this)) tabScroll.smoothScrollTo(x, 0);
+                else tabScroll.scrollTo(x, 0);
+            });
         }
     }
 
@@ -474,7 +512,7 @@ public class LibraryActivity extends ConsoleActivity {
                 return;
             }
             RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(position);
-            if (holder != null && holder.itemView.requestFocus()) {
+            if (holder instanceof Cards.Holder && ((Cards.Holder) holder).card.requestFocus()) {
                 return;
             }
             if (attempt < 6) {
@@ -799,7 +837,7 @@ public class LibraryActivity extends ConsoleActivity {
                 }
             });
             card.setClipToOutline(true);
-            card.setFocusable(true);
+            card.setFocusableInTouchMode(true);
             card.setClickable(true);
             ImageView cover = new ImageView(LibraryActivity.this);
             cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -874,6 +912,7 @@ public class LibraryActivity extends ConsoleActivity {
             UniversalLibrary.Game g = shown.get(position);
             h.key = g.key;
             h.name.setText(g.title);
+            h.card.setContentDescription(g.title);
             h.name.setVisibility(View.VISIBLE);
             h.cover.setImageDrawable(null);
             StringBuilder b = new StringBuilder();
