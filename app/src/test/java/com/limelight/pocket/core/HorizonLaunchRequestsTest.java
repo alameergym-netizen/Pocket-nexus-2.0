@@ -73,6 +73,29 @@ public class HorizonLaunchRequestsTest {
         long ticket = q.begin(retro,100);
         assertFalse(q.current(ticket,15101));
     }
+    @Test public void activityHandoffClaimsOriginalRequestWithoutSecondBegin() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long request = q.beginPc(HorizonLaunchTarget.pc("pc",1),100);
+        assertTrue(q.current(request,101));
+        assertEquals(0L,q.beginPc(HorizonLaunchTarget.pc("pc",1),102));
+        assertTrue(q.claim(request,30100));
+        assertFalse(q.claim(request,30101));
+    }
+    @Test public void supersededHandoffCannotDispatchAfterDiscovery() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long request = q.beginPc(HorizonLaunchTarget.pc("pc",1),100);
+        long newer = q.beginPc(HorizonLaunchTarget.pc("pc",2),200);
+        q.cancel(request);
+        assertFalse(q.claim(request,300));
+        assertTrue(q.claim(newer,300));
+    }
+    @Test public void abandonedHandoffCanBeRetried() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long request = q.beginPc(HorizonLaunchTarget.pc("pc",1),100);
+        q.cancel(request);
+        assertFalse(q.current(request,101));
+        assertTrue(q.beginPc(HorizonLaunchTarget.pc("pc",1),102)>request);
+    }
     @Test public void toolsAreNotDebounced() {
         HorizonLaunchRequests q = new HorizonLaunchRequests();
         HorizonLaunchTarget t = item(HomeItem.NEXUS,"music","","",0);

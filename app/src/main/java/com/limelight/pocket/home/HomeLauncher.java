@@ -45,14 +45,16 @@ public final class HomeLauncher {
         if (a == null || item == null || item.kind == null || a.isFinishing() || a.isDestroyed()) return;
         com.limelight.pocket.core.HorizonLaunchTarget target =
                 com.limelight.pocket.core.HorizonLaunchTarget.from(item);
-        long request = REQUESTS.begin(target, android.os.SystemClock.elapsedRealtime());
+        boolean pc = HomeItem.PC.equals(item.kind) || HomeItem.PC_LIBRARY_GAME.equals(item.kind);
+        long now = android.os.SystemClock.elapsedRealtime();
+        long request = pc ? REQUESTS.beginPc(target, now) : REQUESTS.begin(target, now);
         if (request == 0L) return; // rapid repeat, not a second launch
         switch (item.kind) {
             case HomeItem.PC:
-                startOnPc(a, item.a, item.n);
+                startOnPc(a, item.a, item.n, request, false);
                 return;
             case HomeItem.PC_LIBRARY_GAME:
-                startPcLibraryGame(a, item);
+                startPcLibraryGame(a, item, request);
                 return;
             case HomeItem.CLOUD: {
                 CloudService s = CloudService.byId(item.a);
@@ -109,20 +111,29 @@ public final class HomeLauncher {
 
     /** A game of a PC: the Streaming screen starts it (it knows the PC's state, wakes and pairs). */
     public static void startOnPc(Activity a, String uuid, int appId) {
+        if (a == null || a.isFinishing() || a.isDestroyed() || uuid == null || appId == 0) return;
+        long request = REQUESTS.beginPc(com.limelight.pocket.core.HorizonLaunchTarget.pc(uuid, appId),
+                android.os.SystemClock.elapsedRealtime());
+        if (request != 0) startOnPc(a, uuid, appId, request, false);
+    }
+
+    private static void startOnPc(Activity a, String uuid, int appId, long request, boolean commandHandoff) {
         PocketSounds.play(a, PocketSounds.SELECT);
         Intent i = new Intent(a, PcView.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(PcView.EXTRA_HOME_UUID, uuid)
-                .putExtra(PcView.EXTRA_HOME_APP, appId);
+                .putExtra(PcView.EXTRA_HOME_APP, appId)
+                .putExtra(PcView.EXTRA_HOME_REQUEST, request)
+                .putExtra(PcView.EXTRA_HOME_COMMAND, commandHandoff);
         a.startActivity(i);
         a.overridePendingTransition(R.anim.pocket_section_in, R.anim.pocket_section_out);
     }
 
-    private static void startPcLibraryGame(Activity a, HomeItem item) {
+    private static void startPcLibraryGame(Activity a, HomeItem item, long request) {
         NvApp app = PcLibrary.apolloAppFor(a, item.a, item.name);
         if (app != null) {
             HomeStore.record(a, item);
-            startOnPc(a, item.a, app.getAppId());
+            startOnPc(a, item.a, app.getAppId(), request, false);
             return;
         }
         NvApp desktop = PcLibrary.desktopApp(a, item.a);
@@ -133,7 +144,7 @@ public final class HomeLauncher {
         // The stream opens on the PC's desktop and asks the PC to start the game
         PcLaunchTicket.arm(item.a, desktop.getAppId(), item.b, item.name, item.n);
         HomeStore.record(a, item);
-        startOnPc(a, item.a, desktop.getAppId());
+        startOnPc(a, item.a, desktop.getAppId(), request, true);
     }
 
     private static void startRetro(final Activity a, final HomeItem item, final long request) {
