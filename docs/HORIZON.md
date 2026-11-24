@@ -78,3 +78,6 @@ The explicit PServer probe checks Android service visibility and binder liveness
 GPU preview uses a single readable KGSL devfreq range and available steps in Hz; CPU remains kHz. Bounded full reads prevent truncated frequency lists. The transaction simulation exercises multi-domain downclock planning, reverse-order rollback and indeterminate rollback failure using in-memory maps only. It is not a real privileged host, persistent journal, thermal controller or kernel writer. No operation changes hardware.
 
 The CPU-only candidate passed CI independently. This integrated candidate adds GPU preview and simulated rollback on top of the verified Theme Studio baseline; the combined build must pass before merge.
+
+## Integrated CI dependency recovery
+Run 45410368931 assembled successfully but Robolectric failed to download its Android 14 instrumented runtime from repo1.maven.org (HTTP 429), preventing three test classes from running. Use the official alternate Maven Central endpoint through Robolectric's documented runtime property; do not disable or filter tests. See https://robolectric.org/configuring/ . A successful rerun is required before merge.
