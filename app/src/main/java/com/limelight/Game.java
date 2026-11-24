@@ -211,6 +211,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private volatile long horizonStreamTicket;
     private long horizonSelectionGeneration;
     private HorizonDeferredTask horizonSignInTask, horizonFallbackTask;
+    private final Handler horizonDeferredHandler = new Handler(Looper.getMainLooper());
 
     private long currentLaunchGeneration() { return HorizonLaunchRequests.shared().generation(); }
     private long elapsedNow() { return android.os.SystemClock.elapsedRealtime(); }
@@ -221,6 +222,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         return instance == this && !isFinishing() && !isDestroyed() && !pocketSwitching;
     }
     private void cancelDeferredTasks() {
+        horizonDeferredHandler.removeCallbacksAndMessages(null);
         if (horizonSignInTask != null) horizonSignInTask.cancel();
         if (horizonFallbackTask != null) horizonFallbackTask.cancel();
     }
@@ -3903,8 +3905,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         pocketDesktopTried = true;
         showPocketToast(getString(R.string.pocket_fallback_trying), true, 4000);
         final android.content.Context app = getApplicationContext();
-        // Bound the automatic fallback independently of network IO completion.
-        timerHandler.postDelayed(() -> {
+        // Bound fallback independently of network IO and stream timer cleanup.
+        horizonDeferredHandler.postDelayed(() -> {
             if (deferredUiOwner() && task.expire(HorizonStreamObserver.instance().snapshot().ticket,
                     currentLaunchGeneration(), elapsedNow())) {
                 Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_error_title),
@@ -3913,6 +3915,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             }
         }, 60000L);
         new Thread(() -> {
+            if (!deferredCurrent(task)) return;
             com.limelight.pocket.pclib.PcGame match = null;
             java.util.List<String> log = new java.util.ArrayList<>();
             if (desktop != null && desktop.getAppId() != appId) {
