@@ -512,7 +512,7 @@ public class LibraryActivity extends ConsoleActivity {
                 return;
             }
             RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(position);
-            if (holder != null && holder.itemView.requestFocus()) {
+            if (holder instanceof Cards.Holder && ((Cards.Holder) holder).card.requestFocus()) {
                 return;
             }
             if (attempt < 6) {
@@ -837,7 +837,7 @@ public class LibraryActivity extends ConsoleActivity {
                 }
             });
             card.setClipToOutline(true);
-            card.setFocusable(true);
+            card.setFocusableInTouchMode(true);
             card.setClickable(true);
             ImageView cover = new ImageView(LibraryActivity.this);
             cover.setScaleType(ImageView.ScaleType.CENTER_CROP);

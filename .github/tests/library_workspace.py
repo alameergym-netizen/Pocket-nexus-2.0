@@ -88,6 +88,7 @@ def main(apk):
     library = open_library()
     detail, grid = bounds(resource(library, DETAIL)), bounds(resource(library, GRID))
     assert detail[2] <= grid[0], (detail, grid)
+    controls.wait_for("first game focus after touch entry", lambda t: game_has_focus(t, FIRST))
     controls.capture("01-wide-library")
     controls.key("DPAD_RIGHT")
     controls.wait_for("second game controller focus", lambda t: game_has_focus(t, SECOND))
@@ -125,6 +126,11 @@ def main(apk):
 if __name__ == "__main__":
     try:
         main(sys.argv[1])
+    except AssertionError:
+        tree = controls.snap()
+        print("Focused nodes:", [(node.get("resource-id"), node.get("text"), node.get("content-desc"))
+                                for node in tree.iter("node") if node.get("focused") == "true"], flush=True)
+        raise
     finally:
         controls.RESULTS.mkdir(exist_ok=True)
         for name, args in (
