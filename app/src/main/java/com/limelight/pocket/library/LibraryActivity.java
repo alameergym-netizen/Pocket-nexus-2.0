@@ -235,6 +235,12 @@ public class LibraryActivity extends ConsoleActivity {
         empty.setVisibility(View.GONE);
         body.addView(empty, new FrameLayout.LayoutParams(dp(440), -2, Gravity.CENTER));
 
+        // A shade along the bottom: the hints stay readable over bright covers
+        View foot = new View(this);
+        foot.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x00000000, 0xCC000000, 0xF2000000}));
+        root.addView(foot, new FrameLayout.LayoutParams(-1, dp(72), Gravity.BOTTOM));
+
         LinearLayout hints = new LinearLayout(this);
         hints.setId(R.id.pocketHintBar);
         hints.setOrientation(LinearLayout.HORIZONTAL);
