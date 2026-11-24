@@ -1,4 +1,6 @@
 #include "lsfg_render_loop.hpp"
+
+#include <utility>
 #include "android_vk_session.hpp"
 #include "android_vk_probe.hpp"
 #include "ahb_image_bridge.hpp"
@@ -706,13 +708,39 @@ bool createSwapchain() {
     }
     if (imageCount < 2) imageCount = 2;
 
+    // Pocket Nexus: never pre-rotated. On a handheld whose panel is portrait by nature (the
+    // Retroid Pocket 6), a landscape window reports currentTransform = ROTATE_90/270 and a
+    // currentExtent swapped to the panel's own orientation; presenting with that transform
+    // asks the app to rotate its content itself, which this plain blit doesn't — the picture
+    // came out turned a quarter and stretched. With IDENTITY and the window's own (landscape)
+    // size, the system compositor turns it the right way, as for any other window.
+    VkSurfaceTransformFlagBitsKHR preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    if ((caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) == 0) {
+        preTransform = caps.currentTransform;
+    }
     VkExtent2D extent = caps.currentExtent;
+    const bool quarterTurn = (caps.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR
+            | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR
+            | VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR
+            | VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR)) != 0;
+    if (preTransform == VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR && quarterTurn
+            && extent.width != UINT32_MAX && extent.height != UINT32_MAX) {
+        std::swap(extent.width, extent.height);
+    }
     if (extent.width == 0 || extent.width == UINT32_MAX) {
         extent.width = g.outWidth > 0 ? g.outWidth : 1920;
     }
     if (extent.height == 0 || extent.height == UINT32_MAX) {
         extent.height = g.outHeight > 0 ? g.outHeight : 1080;
     }
+    // The window's own size, when it's known and disagrees (still the other way round)
+    if (g.outWidth > 0 && g.outHeight > 0
+            && (extent.width > extent.height) != (g.outWidth > g.outHeight)) {
+        std::swap(extent.width, extent.height);
+    }
+    LOGI("createSwapchain: currentTransform=0x%x preTransform=0x%x extent=%ux%u window=%ux%u",
+         (unsigned)caps.currentTransform, (unsigned)preTransform, extent.width, extent.height,
+         g.outWidth, g.outHeight);
 
     // TRANSFER_DST is mandatory for vkCmdBlitImage into the swapchain images.
     // Some drivers require explicit opt-in via capabilities.supportedUsageFlags.
@@ -732,7 +760,7 @@ bool createSwapchain() {
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .preTransform = caps.currentTransform,
+        .preTransform = preTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
         .clipped = VK_TRUE,

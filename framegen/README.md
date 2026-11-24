@@ -9,7 +9,9 @@ Lossless Scaling (`Lossless.dll`, never shipped with the app).
   volk (MIT). Vendored unchanged.
 * `src/main/cpp/` — the native render loop, shader extraction and Vulkan session of
   [LSFG-Android](https://github.com/FrankBarretta/LSFG-Android-Application) (GPLv3, commit
-  `b847541`); only the JNI class name was changed.
+  `b847541`). Changed here: the JNI class name, and the swapchain is never pre-rotated
+  (IDENTITY transform, the window's own size), so a panel that is portrait by nature (Retroid
+  Pocket 6) shows the stream the right way round.
 
 The app's own part (decoder frames in, generated frames out to the stream's surface) is in
 `com.limelight.pocket.video.LsfgPipeline`.
