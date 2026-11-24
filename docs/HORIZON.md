@@ -40,3 +40,6 @@ A read-only volume inventory shows Android-reported internal/removable storage, 
 
 ## PC Connect milestone 1
 Bounded, complete line framing rejects truncated replies and embedded newline commands. Read-only diagnostics distinguish reachable helper, pairing, PING latency, version and status. The Windows helper is unchanged and APC1 remains plaintext; use USB or trusted encrypted networking. TLS, host identity verification and the Vibepollo management adapter are future work.
+
+## Audio milestone 1
+Android-visible audio output inventory, sound/Bluetooth settings and optional Huawei AI Life handoff are exposed in the device panel and Settings. Existing media session controls now respect advertised capabilities and recheck them when pressed. No ANC, internal EQ, JamesDSP processing or privileged audio routing is implemented in this milestone.

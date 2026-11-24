@@ -1616,6 +1616,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 this::askIgdb);
 
         addHeader(R.string.pocket_header_device);
+        addAction(getString(R.string.horizon_audio_title), getString(R.string.horizon_audio_sub), null,
+                () -> com.limelight.pocket.device.HorizonAudio.show(this));
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             addAction(getString(R.string.pocket_set_language), getString(R.string.pocket_set_language_sub), null, () -> {

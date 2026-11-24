@@ -112,28 +112,21 @@ public final class HandheldTools {
             return;
         }
         PlaybackState st = mc.getPlaybackState();
-        final boolean playing = st != null && st.getState() == PlaybackState.STATE_PLAYING;
+        long actions = st == null ? 0 : st.getActions();
         items.add(StreamMenuView.Item.header(a.getString(R.string.pocket_device_music)));
         items.add(StreamMenuView.Item.note(nowPlaying(a, mc)));
-        items.add(StreamMenuView.Item.repeatable(a.getString(playing ? R.string.pocket_device_music_pause
-                : R.string.pocket_device_music_play), () -> {
-            PlaybackState now = mc.getPlaybackState();
-            if (now != null && now.getState() == PlaybackState.STATE_PLAYING) {
-                mc.getTransportControls().pause();
-            }
-            else {
-                mc.getTransportControls().play();
-            }
-            PocketSounds.play(a, PocketSounds.SELECT);
-        }).withIcon("PLAY_PAUSE"));
-        items.add(StreamMenuView.Item.repeatable(a.getString(R.string.pocket_device_music_next), () -> {
-            mc.getTransportControls().skipToNext();
-            PocketSounds.play(a, PocketSounds.NAV);
-        }).withIcon("PLAY"));
-        items.add(StreamMenuView.Item.repeatable(a.getString(R.string.pocket_device_music_previous), () -> {
-            mc.getTransportControls().skipToPrevious();
-            PocketSounds.play(a, PocketSounds.NAV);
-        }));
+        if (HorizonAudio.supportsToggle(actions)) {
+            items.add(StreamMenuView.Item.repeatable(a.getString(R.string.horizon_audio_toggle),
+                    () -> HorizonAudio.transport(a, mc, 0)).withIcon("PLAY_PAUSE"));
+        }
+        if ((actions & PlaybackState.ACTION_SKIP_TO_NEXT) != 0) {
+            items.add(StreamMenuView.Item.repeatable(a.getString(R.string.pocket_device_music_next),
+                    () -> HorizonAudio.transport(a, mc, 1)).withIcon("PLAY"));
+        }
+        if ((actions & PlaybackState.ACTION_SKIP_TO_PREVIOUS) != 0) {
+            items.add(StreamMenuView.Item.repeatable(a.getString(R.string.pocket_device_music_previous),
+                    () -> HorizonAudio.transport(a, mc, -1)));
+        }
         items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_device_music_open), () -> {
             Intent open = a.getPackageManager().getLaunchIntentForPackage(mc.getPackageName());
             if (open != null) {

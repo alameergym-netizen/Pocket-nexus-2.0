@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_audio_title">Audio &amp; accessories</string>
+    <string name="horizon_audio_sub">Inspect audio outputs and open available system or accessory settings.</string>
+    <string name="horizon_audio_outputs">Available audio outputs</string>
+    <string name="horizon_audio_speaker">Built-in speaker</string>
+    <string name="horizon_audio_earpiece">Earpiece</string>
+    <string name="horizon_audio_wired">Wired headphones</string>
+    <string name="horizon_audio_bluetooth">Bluetooth audio</string>
+    <string name="horizon_audio_usb">USB audio</string>
+    <string name="horizon_audio_hdmi">HDMI audio</string>
+    <string name="horizon_audio_other">Other audio output</string>
+    <string name="horizon_audio_snapshot">Android-reported available outputs, not necessarily the active media route. Reopen to refresh.</string>
+    <string name="horizon_audio_sound_settings">Android sound settings</string>
+    <string name="horizon_audio_bluetooth_settings">Bluetooth settings</string>
+    <string name="horizon_audio_ai_life">Open Huawei AI Life</string>
+    <string name="horizon_audio_unavailable">Unavailable</string>
+    <string name="horizon_audio_toggle">Play / pause</string>
+    <string name="horizon_audio_limit">Speaker DSP, headset ANC and internal headset EQ require a separately verified backend. No audio processing is enabled here.</string>
+</resources>

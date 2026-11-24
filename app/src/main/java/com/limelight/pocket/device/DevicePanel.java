@@ -90,6 +90,10 @@ public final class DevicePanel {
                     () -> open(a, new Intent(Settings.Panel.ACTION_VOLUME))));
         }
 
+        items.add(StreamMenuView.Item.submenu(a.getString(R.string.horizon_audio_title),
+                () -> a.pushConsolePage(a.getString(R.string.horizon_audio_title), HorizonAudio.items(a)))
+                .withIcon("VOLUME_UP"));
+
         items.add(StreamMenuView.Item.header(a.getString(R.string.pocket_device_connections)));
         items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_apps_set_wifi), () -> open(a,
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ? new Intent(Settings.Panel.ACTION_WIFI)
