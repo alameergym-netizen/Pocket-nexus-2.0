@@ -64,11 +64,11 @@ function GetMainMenuItems {
     param($menuArgs)
     $export = New-Object Playnite.SDK.Plugins.ScriptMainMenuItem
     $export.Description = 'Export visible games to Nexus Host'
-    $export.MenuSection = 'Pocket Nexus'
+    $export.MenuSection = '@Pocket Nexus'
     $export.FunctionName = 'Export-NexusPlayniteCatalog'
     $remove = New-Object Playnite.SDK.Plugins.ScriptMainMenuItem
     $remove.Description = 'Remove Nexus Host export'
-    $remove.MenuSection = 'Pocket Nexus'
+    $remove.MenuSection = '@Pocket Nexus'
     $remove.FunctionName = 'Remove-NexusPlayniteCatalog'
     return @($export, $remove)
 }
