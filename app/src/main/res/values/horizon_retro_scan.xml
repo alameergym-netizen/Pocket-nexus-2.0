@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_retro_scan_incomplete">Scan incomplete. Check your storage connection; previous index retained if available.</string>
+</resources>

@@ -69,12 +69,25 @@ public final class RomScanner {
 
     /** The system's games, sorted by name. */
     public static List<Rom> scan(EsdeConfig.SystemDef system, File folder) {
-        List<Rom> out = new ArrayList<>();
-        if (folder != null && folder.isDirectory()) {
-            walk(system, folder, "", 0, out);
+        return scanChecked(system,folder).games;
+    }
+
+    static final class ScanResult {
+        final List<Rom> games = new ArrayList<>();
+        boolean complete = true;
+    }
+
+    static ScanResult scanChecked(EsdeConfig.SystemDef system,File folder) {
+        ScanResult result=new ScanResult();
+        if (folder == null || !folder.isDirectory()) { result.complete=false; }
+        else {
+            try {
+                walk(system,folder,"",0,result);
+                if (!folder.isDirectory() || !folder.canRead()) { result.complete=false; }
+            } catch (SecurityException e) { result.complete=false; }
         }
-        sortByName(out);
-        return out;
+        sortByName(result.games);
+        return result;
     }
 
     public static void sortByName(List<Rom> roms) {
@@ -92,12 +105,16 @@ public final class RomScanner {
         return n;
     }
 
-    private static void walk(EsdeConfig.SystemDef system, File dir, String rel, int depth, List<Rom> out) {
-        if (out.size() >= MAX_GAMES || new File(dir, "noload.txt").exists()) {
+    private static void walk(EsdeConfig.SystemDef system, File dir, String rel, int depth, ScanResult result) {
+        List<Rom> out=result.games;
+        if (Thread.currentThread().isInterrupted() || out.size() >= MAX_GAMES) {
+            result.complete=false;
             return;
         }
-        File[] children = dir.listFiles();
+        if (new File(dir,"noload.txt").exists()) { return; }
+        File[] children=dir.listFiles();
         if (children == null) {
+            result.complete=false;
             return;
         }
         Arrays.sort(children, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
@@ -128,11 +145,20 @@ public final class RomScanner {
             if (hidden.contains(g.getName().toLowerCase(Locale.ROOT))) {
                 continue;
             }
+            if (Thread.currentThread().isInterrupted() || out.size() >= MAX_GAMES) {
+                result.complete=false;
+                return;
+            }
+            if (!g.exists() || !g.canRead()) {
+                result.complete=false;
+                continue;
+            }
             out.add(new Rom(system.name, rel + g.getName(), g, g.isDirectory()));
         }
         for (File f : folders) {
-            walk(system, f, rel + f.getName() + "/", depth + 1, out);
+            walk(system, f, rel + f.getName() + "/", depth + 1, result);
         }
+        if (!dir.isDirectory() || !dir.canRead()) { result.complete=false; }
     }
 
     private static final Pattern SHEET_FILE = Pattern.compile("^\\s*FILE\\s+\"?([^\"]+?)\"?\\s+\\S+\\s*$",

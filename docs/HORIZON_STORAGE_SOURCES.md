@@ -1,0 +1,3 @@
+# ROM storage sources candidate
+
+Remember up to eight manually chosen folders, retain prior selected root, report readable/unavailable status, switch only on explicit confirmation, forget shortcuts without deleting ROM files. Existing ES-DE settings and single-root scanner retained. Restrict direct-path picker mapping to Android external-storage document provider and reject traversal, invalid volume names, canonical escapes and unreadable folders. Path shortcuts are not stable volume identity. Existing game IDs remain relative and can share artwork/history/favourites across sources; UI warns, no simultaneous multi-root merge or save synchronization. No formatting/mounting/permission bypass. Five pure unit tests. Physical SD/USB checks required.
