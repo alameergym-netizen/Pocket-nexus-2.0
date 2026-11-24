@@ -42,11 +42,7 @@ import com.limelight.pocket.ui.PocketTheme;
 import com.limelight.pocket.ui.StreamMenuView;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -82,6 +78,7 @@ public class FilesActivity extends Activity {
     /** Copied or cut files (kept while the app runs, so they can be pasted anywhere). */
     private static final List<File> CLIP = new ArrayList<>();
     private static boolean clipCut;
+    private static long clipGeneration;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private Preview preview;
@@ -747,6 +744,7 @@ public class FilesActivity extends Activity {
         CLIP.clear();
         CLIP.addAll(files);
         clipCut = cut;
+        clipGeneration++;
         marked.clear();
         rows.notifyDataSetChanged();
         Toast.makeText(this, getString(cut ? R.string.pocket_files_cut_done : R.string.pocket_files_copied, files.size()), Toast.LENGTH_SHORT).show();
@@ -755,83 +753,36 @@ public class FilesActivity extends Activity {
     private void paste(final File into) {
         final List<File> what = new ArrayList<>(CLIP);
         final boolean cut = clipCut;
-        if (what.isEmpty()) {
-            return;
-        }
+        final long generation = clipGeneration;
+        if (what.isEmpty()) return;
         Toast.makeText(this, R.string.pocket_files_working, Toast.LENGTH_SHORT).show();
         io.execute(() -> {
-            int done = 0;
-            for (File f : what) {
-                if (into.getAbsolutePath().startsWith(f.getAbsolutePath() + File.separator)
-                        || into.getAbsolutePath().equals(f.getAbsolutePath())) {
-                    continue; // never into itself
-                }
-                File target = freeName(new File(into, f.getName()));
+            List<File> completed = new ArrayList<>();
+            int sourceRetained = 0;
+            for (File file : what) {
+                if (Thread.currentThread().isInterrupted()) break;
                 try {
-                    if (cut && f.renameTo(target)) {
-                        done++;
-                        continue;
+                    if (VerifiedFileTransfer.transfer(file, into, cut) == VerifiedFileTransfer.Result.COMPLETE) {
+                        completed.add(file);
+                    } else {
+                        sourceRetained++;
                     }
-                    copy(f, target);
-                    if (cut) {
-                        deleteAll(f);
-                    }
-                    done++;
-                } catch (IOException e) {
-                    // the rest still go
+                } catch (IOException | SecurityException ignored) {
+                    // Leave this source in place and continue with the other selected items.
                 }
             }
-            final int n = done;
+            final int retained = sourceRetained;
+            final int failed = what.size() - completed.size() - retained;
             main.post(() -> {
-                if (cut) {
-                    CLIP.clear();
-                }
-                Toast.makeText(this, getString(R.string.pocket_files_pasted, n), Toast.LENGTH_SHORT).show();
-                if (dir != null) {
-                    load(dir, null);
-                }
+                if (cut && generation == clipGeneration) CLIP.removeAll(completed);
+                if (isFinishing() || isDestroyed()) return;
+                String status = failed == 0 && retained == 0
+                        ? getString(R.string.pocket_files_pasted, completed.size())
+                        : getString(R.string.horizon_file_transfer_partial, completed.size(), failed, retained);
+                Toast.makeText(this, status, Toast.LENGTH_LONG).show();
+                if (dir != null) load(dir, null);
             });
         });
-    }
-
-    private static File freeName(File f) {
-        if (!f.exists()) {
-            return f;
-        }
-        String name = f.getName();
-        int dot = name.lastIndexOf('.');
-        String base = dot > 0 && f.getName().indexOf('.') != 0 ? name.substring(0, dot) : name;
-        String ext = dot > 0 ? name.substring(dot) : "";
-        for (int i = 2; i < 1000; i++) {
-            File t = new File(f.getParentFile(), base + " (" + i + ")" + ext);
-            if (!t.exists()) {
-                return t;
-            }
-        }
-        return f;
-    }
-
-    private static void copy(File from, File to) throws IOException {
-        if (from.isDirectory()) {
-            if (!to.mkdirs() && !to.isDirectory()) {
-                throw new IOException("mkdir " + to);
-            }
-            File[] kids = from.listFiles();
-            if (kids != null) {
-                for (File k : kids) {
-                    copy(k, new File(to, k.getName()));
-                }
-            }
-            return;
-        }
-        try (InputStream in = new FileInputStream(from); OutputStream out = new FileOutputStream(to)) {
-            byte[] buf = new byte[256 * 1024];
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                out.write(buf, 0, n);
-            }
-        }
-        to.setLastModified(from.lastModified());
     }
 
     private static boolean deleteAll(File f) {
