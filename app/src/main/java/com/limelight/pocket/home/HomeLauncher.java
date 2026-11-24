@@ -37,9 +37,16 @@ public final class HomeLauncher {
     public static final String GAMEHUB_LITE = "gamehub";
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final com.limelight.pocket.core.HorizonLaunchRequests REQUESTS =
+            com.limelight.pocket.core.HorizonLaunchRequests.shared();
 
     /** Starts it (true when it went; a message says why not otherwise). */
     public static void launch(final Activity a, final HomeItem item) {
+        if (a == null || item == null || item.kind == null || a.isFinishing() || a.isDestroyed()) return;
+        com.limelight.pocket.core.HorizonLaunchTarget target =
+                com.limelight.pocket.core.HorizonLaunchTarget.from(item);
+        long request = REQUESTS.begin(target, android.os.SystemClock.elapsedRealtime());
+        if (request == 0L) return; // rapid repeat, not a second launch
         switch (item.kind) {
             case HomeItem.PC:
                 startOnPc(a, item.a, item.n);
@@ -59,7 +66,7 @@ public final class HomeLauncher {
                 return;
             }
             case HomeItem.RETRO:
-                startRetro(a, item);
+                startRetro(a, item, request);
                 return;
             case HomeItem.ANDROID: {
                 Intent launch = a.getPackageManager().getLaunchIntentForPackage(item.a);
@@ -129,14 +136,15 @@ public final class HomeLauncher {
         startOnPc(a, item.a, desktop.getAppId());
     }
 
-    private static void startRetro(final Activity a, final HomeItem item) {
+    private static void startRetro(final Activity a, final HomeItem item, final long request) {
         final Context app = a.getApplicationContext();
         new Thread(() -> {
             final EsdeConfig cfg = RetroLibrary.config(app);
             final File root = HorizonHomeRetroSource.choose(item.c,RetroLibrary.romRoot(app),
                     RetroLibrary.rememberedRoots(app));
             MAIN.post(() -> {
-                if (a.isFinishing() || a.isDestroyed()) {
+                if (a.isFinishing() || a.isDestroyed() || !a.hasWindowFocus()
+                        || !REQUESTS.claim(request, android.os.SystemClock.elapsedRealtime())) {
                     return;
                 }
                 if (root == null || !HorizonHomeRetroSource.stillSelected(root,item.c,
