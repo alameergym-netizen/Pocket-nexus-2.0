@@ -22,6 +22,7 @@ import com.limelight.pocket.ui.RadialMenuView;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
+import com.limelight.pocket.HorizonStartupRecovery;
 import com.limelight.pocket.ResumeTicket;
 import com.limelight.pocket.core.HorizonStreamObserver;
 import com.limelight.pocket.core.HorizonDeferredTask;
@@ -501,6 +502,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         super.onCreate(savedInstanceState);
 
         instance = this;
+        HorizonStartupRecovery.begin(this, this, getIntent());
         timerHandler = new Handler(Looper.getMainLooper());
 
         UiHelper.setLocale(this);
@@ -1954,6 +1956,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
         horizonInputVisible = false;
         if (!horizonShutdownDispatched) HorizonStreamObserver.instance().ended(horizonStreamTicket);
@@ -2025,6 +2028,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
         horizonInputVisible = false;
         if (!connecting && !connected && !horizonShutdownDispatched) {
@@ -5804,6 +5808,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 // A stopped/replaced activity must not dispatch a pending PC launch.
                 if (!connecting || isFinishing() || isDestroyed() || instance != Game.this
                         || !HorizonStreamObserver.instance().connected(horizonStreamTicket)) return;
+                HorizonStartupRecovery.end(Game.this);
                 connected = true;
                 connecting = false;
                 pocketSessionStartMs = android.os.SystemClock.elapsedRealtime();
