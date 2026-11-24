@@ -27,6 +27,7 @@ import com.limelight.pocket.core.HorizonStreamObserver;
 import com.limelight.pocket.core.HorizonDeferredTask;
 import com.limelight.pocket.core.HorizonLaunchRequests;
 import com.limelight.pocket.PocketAdaptive;
+import com.limelight.pocket.streaming.HorizonStreamSafety;
 import com.limelight.pocket.PcCompanion;
 import com.limelight.pocket.PocketMic;
 import com.limelight.pocket.PcPower;
@@ -389,6 +390,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private int pocketLastBatteryAlert = 101;
     // v2: adaptive stream, seamless resume, mic, playtime
     private int pocketStreamBitrate;
+    private int pocketStreamLimitReason;
     private com.limelight.pocket.streaming.HorizonAdaptiveMemory.Scope pocketAdaptiveScope;
     private final com.limelight.pocket.streaming.HorizonAdaptiveDecision pocketAdaptiveDecision =
             new com.limelight.pocket.streaming.HorizonAdaptiveDecision();
@@ -2912,10 +2914,18 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             return pocketMicLabel();
         }).withIcon("MIC"));
 
+        final String audioRouteTitle = getString(R.string.horizon_route_title);
+        items.add(StreamMenuView.Item.submenu(audioRouteTitle, () -> streamMenu.push(audioRouteTitle,
+                com.limelight.pocket.device.HorizonAudio.streamRouteRows(this))).withIcon("INFO"));
+
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_sm_header_quality)));
         final String bitrateTitle = getString(R.string.pocket_sm_bitrate);
         items.add(StreamMenuView.Item.submenu(bitrateTitle, () -> streamMenu.push(bitrateTitle, pocketBitrateItems()))
                 .withValue(Math.round(pocketStreamBitrate / 1000f) + " Mbps").withIcon("SPEED"));
+        if (pocketStreamLimitReason != 0) {
+            items.add(StreamMenuView.Item.info(getString(R.string.horizon_power_stream_limit),
+                    getString(pocketStreamLimitReason)));
+        }
         final String fpsTitle = getString(R.string.pocket_sm_fps);
         items.add(StreamMenuView.Item.submenu(fpsTitle, () -> streamMenu.push(fpsTitle, pocketFpsItems()))
                 .withValue(Math.round(prefConfig.fps) + " FPS").withIcon("PULSE"));
@@ -3014,13 +3024,42 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         int configured = pocketProfileBitrate > 0 ? pocketProfileBitrate
                 : (metered ? prefConfig.meteredBitrate : (usb ? PocketPrefs.usbBitrateKbps(this) : prefConfig.bitrate));
         int override = getIntent().getIntExtra(ResumeTicket.EXTRA_BITRATE, 0);
-        if (override > 0) {
-            return override;
+        int chosen = override > 0 ? override : configured;
+        if (override <= 0 && !metered && !usb) {
+            chosen = PocketAdaptive.startBitrate(this, configured, pocketAdaptiveScope);
         }
-        if (metered || usb) {
-            return configured;
+        return pocketApplyStreamSafety(chosen);
+    }
+
+    private int pocketApplyStreamSafety(int chosen) {
+        pocketStreamLimitReason = 0;
+        if (!PocketPrefs.powerLimitsStream(this)) return chosen;
+        android.os.PowerManager manager = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (manager == null) return chosen;
+
+        boolean batterySaver = false;
+        HorizonStreamSafety.Thermal thermal = HorizonStreamSafety.Thermal.UNRESTRICTED;
+        try {
+            batterySaver = manager.isPowerSaveMode();
+            if (Build.VERSION.SDK_INT >= 29) {
+                int state = manager.getCurrentThermalStatus();
+                if (state >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) {
+                    thermal = HorizonStreamSafety.Thermal.CRITICAL;
+                } else if (state >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
+                    thermal = HorizonStreamSafety.Thermal.SEVERE;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Use whichever public device signals Android supplied.
         }
-        return PocketAdaptive.startBitrate(this, configured, pocketAdaptiveScope);
+        HorizonStreamSafety.Decision decision = HorizonStreamSafety.limit(chosen, batterySaver, thermal);
+        switch (decision.reason) {
+            case CRITICAL_THERMAL: pocketStreamLimitReason = R.string.horizon_stream_limit_critical; break;
+            case SEVERE_THERMAL: pocketStreamLimitReason = R.string.horizon_stream_limit_severe; break;
+            case BATTERY_SAVER: pocketStreamLimitReason = R.string.horizon_stream_limit_battery_saver; break;
+            default: break;
+        }
+        return decision.bitrateKbps;
     }
 
     /** Ends this stream and brings it straight back with new settings; the game keeps running. */

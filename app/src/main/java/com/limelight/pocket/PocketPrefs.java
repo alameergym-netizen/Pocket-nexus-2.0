@@ -362,6 +362,7 @@ public final class PocketPrefs {
 
     public static final String KEY_SEAMLESS_RESUME = "pocket_seamless_resume";
     public static final String KEY_ADAPTIVE = "pocket_adaptive_stream";
+    public static final String KEY_POWER_STREAM_LIMIT = "horizon_power_stream_limit";
     public static final String KEY_FRAME_GEN = "pocket_frame_gen";
     public static final String KEY_MIC = "pocket_mic_passthrough";
     public static final String KEY_ACCENT = "pocket_accent";
@@ -388,6 +389,11 @@ public final class PocketPrefs {
     }
 
     /** Start quality from the connection, and lower it by itself when the connection struggles. */
+    public static boolean powerLimitsStream(Context context) {
+        try { return prefs(context).getBoolean(KEY_POWER_STREAM_LIMIT, false); }
+        catch (ClassCastException e) { return false; }
+    }
+
     public static boolean adaptiveStream(Context context) {
         return prefs(context).getBoolean(KEY_ADAPTIVE, true);
     }

@@ -4,3 +4,6 @@ Optional stereo PCM16 EQ before AudioTrack, based on https://www.w3.org/TR/audio
 
 ## Integrated validation candidate
 PR #6 passed 109 tests on the earlier baseline. This candidate preserves the 120-test performance and Theme Studio baseline and adds both the audio session fix and stream EQ. Avoids API 24-only Double.isFinite for minSdk 21, bypasses malformed profile preferences, and resets EQ state across discarded PCM blocks. No external effects or device hardware control is asserted. Full integrated build and physical RP6 audio tests are required.
+
+## In-stream delivery diagnostics
+Open PC stream audio route from the stream-specific menu to see the current Android output, track buffer and underruns, highest decoder queue, skipped PCM blocks and partial or failed writes. Reopening takes a new per-stream snapshot. The PCM callback keeps the prior 40 ms queue cutoff, checks the queue once per block, and counts skips without writing a log entry for every one. The EQ resets after an interrupted write. These counters distinguish renderer delivery from the Android track underrun signal. Physical FreeBuds/USB output, CPU cost, and end-to-end latency remain in the device matrix.

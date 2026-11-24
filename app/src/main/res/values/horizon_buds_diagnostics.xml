@@ -8,6 +8,10 @@
     <string name="horizon_route_buffer">Track buffer capacity</string>
     <string name="horizon_route_ms">%1$.1f ms</string>
     <string name="horizon_route_underruns">Track underruns</string>
+    <string name="horizon_route_queue_peak">Highest decoder queue</string>
+    <string name="horizon_route_dropped">Audio blocks skipped</string>
+    <string name="horizon_route_partial">Partial track writes</string>
+    <string name="horizon_route_errors">Track write errors</string>
     <string name="horizon_route_mode">Track performance mode</string>
     <string name="horizon_route_low_latency">Low latency</string>
     <string name="horizon_route_power_saving">Power saving</string>
