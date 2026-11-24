@@ -40,7 +40,9 @@ Secure host status (development)
     one device leaves other devices paired. The handheld's Forget action clears its local copy.
   - Allow TCP 47111 only on the Windows private network and from the handheld or trusted subnet
     if the Windows firewall blocks it. Setup does not open this port automatically.
-  - The encrypted listener carries read-only host status. Existing power, library, mic, USB,
+  - To also view the PC game list, choose Copy status and game list pairing code from the
+    tray and pair that code on the handheld. Each new scope is assigned per device.
+  - The encrypted listener carries read-only status and game metadata. Power, launching, mic, USB,
     and stream paths use their existing connections. Keep the plaintext control port private.
 
 Vibepollo status (development)

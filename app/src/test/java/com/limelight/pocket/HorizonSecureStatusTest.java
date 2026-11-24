@@ -32,6 +32,13 @@ public class HorizonSecureStatusTest {
         assertNull(HorizonSecureStatus.Pairing.parse("APC1:47111" + suffix));
     }
 
+    @Test public void catalogCapabilityIsExplicitInThePairingCode() {
+        String common = ":47111:" + FINGERPRINT + ":" + KEY;
+        assertFalse(HorizonSecureStatus.Pairing.parse("NEXUS1" + common).library);
+        assertTrue(HorizonSecureStatus.Pairing.parse("NEXUS2" + common).library);
+        assertNull(HorizonSecureStatus.Pairing.parse("NEXUS3" + common));
+    }
+
     @Test public void acceptsOnlyBoundedStatusWithAllFields() {
         HorizonSecureStatus.Status status = HorizonSecureStatus.Status.parse(
                 "STATUS cpu=10 ram=42 up=123456 bat=-1 ac=1");

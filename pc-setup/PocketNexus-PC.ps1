@@ -773,10 +773,29 @@ public static class PcGames {
         if (l != null) { try { l(text); } catch { } }
     }
 
-    static void Send(NetworkStream s, string line) {
+    static void Send(Stream s, string line) {
         byte[] b = Encoding.UTF8.GetBytes(line + "\n");
         s.Write(b, 0, b.Length);
         s.Flush();
+    }
+
+    // A separate scoped TLS view sends only display metadata and no launch commands or paths.
+    public static void WriteSecureLibrary(Stream stream) {
+        List<Game> games;
+        try { games = Scan(); }
+        catch (Exception) { Send(stream, "ERR library"); return; }
+        if (games.Count > 5000) { Send(stream, "ERR size"); return; }
+        int count = 0;
+        foreach (Game game in games) {
+            string name = Clean(game.Name).Replace("\0", "");
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            if (name.Length > 256) name = name.Substring(0, 256);
+            string source = Clean(game.Source);
+            if (source.Length > 32) source = source.Substring(0, 32);
+            Send(stream, "S\t" + name + "\t" + source + "\t" + (game.State == "installed" ? "1" : "0"));
+            count++;
+        }
+        Send(stream, "END " + count);
     }
 
     // The library's commands
@@ -1854,13 +1873,18 @@ function Start-NexusSecureStatus {
     $certificate = Get-NexusSecureCertificate
     $credentials = Join-Path $DataDir "secure-status-devices.txt"
     [PocketCompanion]::StartStatusMonitor()
-    $script:secureHost = [PocketNexus.NexusSecureHost]::new($certificate, $credentials, [Net.IPAddress]::Any, $SecureStatusPort, $status)
+    $library = $null
+    if ("PcGames" -as [type]) {
+        $library = [Delegate]::CreateDelegate([Action[IO.Stream]], [PcGames].GetMethod("WriteSecureLibrary"))
+    }
+    $script:secureHost = [PocketNexus.NexusSecureHost]::new($certificate, $credentials, [Net.IPAddress]::Any, $SecureStatusPort, $status, $library)
 }
 
 function Update-NexusSecureMenu {
     if ($script:secureToggle) {
         $script:secureToggle.Checked = Test-Path -LiteralPath $script:secureStatusFlag
         $script:secureIssue.Enabled = [bool]$script:secureHost
+        $script:secureLibraryIssue.Enabled = [bool]$script:secureHost -and [bool]("PcGames" -as [type])
         $script:secureRevoke.Enabled = [bool]$script:secureHost
     }
     if ($script:hostSummary) { $script:hostSummary.Text = Get-HostDashboardText }
@@ -1884,7 +1908,7 @@ function Switch-NexusSecureStatus {
     Update-NexusSecureMenu
 }
 
-function Request-NexusSecureDevice([bool]$revoke) {
+function Request-NexusSecureDevice([bool]$revoke, [bool]$library = $false) {
     if (-not $script:secureHost) { return }
     Add-Type -AssemblyName Microsoft.VisualBasic -ErrorAction Stop
     $names = $script:secureHost.DeviceNames()
@@ -1900,7 +1924,7 @@ function Request-NexusSecureDevice([bool]$revoke) {
             $confirm = [System.Windows.Forms.MessageBox]::Show("Replace the existing key for $name?", "Nexus Host secure status", "YesNo")
             if ($confirm -ne "Yes") { return }
         }
-        $pairing = $script:secureHost.Issue($name)
+        $pairing = $script:secureHost.Issue($name, $library)
         try {
             [System.Windows.Forms.Clipboard]::SetText($pairing)
         } catch {
@@ -2359,6 +2383,10 @@ function Start-Tray {
     $script:secureIssue.add_Click({
         try { Request-NexusSecureDevice $false } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not issue a device code. Check the device name and listener settings.", "Nexus Host secure status") }
     })
+    $script:secureLibraryIssue = $secureMenu.DropDownItems.Add("Copy status and game list pairing code")
+    $script:secureLibraryIssue.add_Click({
+        try { Request-NexusSecureDevice $false $true } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not issue a game list code.", "Nexus Host secure status") }
+    })
     $script:secureRevoke = $secureMenu.DropDownItems.Add("Revoke device")
     $script:secureRevoke.add_Click({
         try { Request-NexusSecureDevice $true } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not revoke this device.", "Nexus Host secure status") }
@@ -2530,6 +2558,13 @@ function Invoke-SelfTest {
         Check ($info.Count -eq 5 -and $info[[uint32]400][0] -eq "Some SDK" -and $info[[uint32]400][1] -eq "tool") "appinfo.vdf v28"
         $info27 = [PcGames]::ReadAppInfo([IO.File]::ReadAllBytes("$fx\appinfo_v27.vdf"), $null)
         Check ($info27.Count -eq 5 -and $info27[[uint32]200][0] -eq "Owned Not Installed") "appinfo.vdf v27"
+        $catalog = New-Object IO.MemoryStream
+        try {
+            [PcGames]::WriteSecureLibrary($catalog)
+            $safeRows = [Text.Encoding]::UTF8.GetString($catalog.ToArray()).Trim().Split([char]10)
+            Check ($safeRows.Length -gt 1 -and $safeRows[-1] -eq ("END " + ($safeRows.Length - 1))) "secure library writes a counted fixture response"
+            Check (@($safeRows[0..($safeRows.Length - 2)] | Where-Object { $_ -notmatch '^S\t[^\t]+\t[^\t]*\t[01]$' }).Count -eq 0) "secure library only emits name, source and installed flag"
+        } finally { $catalog.Dispose() }
         [PcGames]::SteamRootOverride = $null
     } else {
         Check $false "test fixtures missing (run tests\make_fixtures.py)"

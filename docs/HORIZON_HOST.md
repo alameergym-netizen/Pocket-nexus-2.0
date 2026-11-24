@@ -30,3 +30,6 @@ The dashboard can verify and save a connection to the local management API, then
 
 ## Optional USB-only legacy control
 Windows tray settings can scope legacy APC1 to loopback at the next restart. ADB reverse continues to reach it. Existing installations stay on their current Wi-Fi default until the owner chooses USB-only. The dashboard reports the actual bind scope and whether a restart is pending. The toggle changes the listener bind, with no firewall update or change to the encrypted status and streaming ports. The Windows self-test checks the bind address on an isolated socket and preserves the synthetic USB reverse mappings.
+
+## Device-scoped secure game list
+The Windows tray can issue a status-only key or a status-and-game-list key. Existing status keys retain their original scope. Android verifies the saved certificate before either request. The new request returns a bounded, counted list of game names, local catalog sources and installed flags. It omits paths and launch commands. It does not launch, install, reconfigure, or change the legacy PC library. Keys can be independently revoked or reissued in the tray. The Android list is built only from a complete authenticated reply, without a cached fallback. Physical LAN pairing and migrations remain part of acceptance.
