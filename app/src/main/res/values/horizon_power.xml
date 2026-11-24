@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_power_title">Estimated battery power</string>
+    <string name="horizon_power_note">Instantaneous battery-side estimate. Not CPU/GPU power; may fluctuate or be unavailable.</string>
+    <string name="horizon_power_unavailable">Unavailable</string>
+    <string name="horizon_power_value">%1$s W · %2$s</string>
+    <string name="horizon_power_charge">Charging</string>
+    <string name="horizon_power_discharge">Discharging</string>
+</resources>

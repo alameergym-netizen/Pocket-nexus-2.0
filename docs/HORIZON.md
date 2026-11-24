@@ -28,3 +28,6 @@ Global search augments the existing Home, Android and ROM index with all launch 
 
 ## Streaming milestone
 Six opt-in connection profiles apply only resolution, FPS and Wi-Fi/USB bitrates. Existing codec, frame generation and controller settings remain untouched. Settings reflect manual overrides as Custom. Values are unbenchmarked starting points, not network guarantees or CPU/GPU profiles.
+
+## Performance milestone 1
+The device info panel reports instantaneous estimated battery-side power using public Android battery telemetry when available. Control Center prioritizes recognized ClusterTune and PULSE launcher activities. This is launcher integration only, not a PServer backend; no CPU/GPU or thermal settings are written.

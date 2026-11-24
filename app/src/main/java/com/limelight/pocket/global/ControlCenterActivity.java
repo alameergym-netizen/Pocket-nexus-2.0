@@ -383,18 +383,16 @@ public class ControlCenterActivity extends Activity {
     /** The maker's own tool with the performance and fan modes (Retroid's, AYN's...), or null. */
     private String[] performanceTool() {
         List<String[]> found = com.limelight.pocket.device.HandheldTools.find(this);
-        String[] any = null;
+        String[] best = null;
+        int priority = 0;
         for (String[] t : found) {
-            String l = t[2].toLowerCase(Locale.ROOT);
-            if (l.contains("perform") || l.contains("fan") || l.contains("retroid") || l.contains("odin")
-                    || l.contains("ayn") || l.contains("pulse")) {
-                return t;
-            }
-            if (any == null && !l.contains("lossless") && !l.contains("lsfg")) {
-                any = t;
+            int score = com.limelight.pocket.device.HorizonPower.toolPriority(t[2]);
+            if (score > priority) {
+                priority = score;
+                best = t;
             }
         }
-        return any;
+        return best;
     }
 
     private String stepBrightness(int direction) {

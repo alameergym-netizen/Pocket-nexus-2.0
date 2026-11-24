@@ -130,6 +130,8 @@ public final class DeviceInfoPanel {
             }
         }
         items.add(StreamMenuView.Item.info(a.getString(R.string.pocket_info_battery), DevicePanel.batteryLine(a)));
+        items.add(StreamMenuView.Item.info(a.getString(R.string.horizon_power_title), HorizonPower.batteryPower(a)));
+        items.add(StreamMenuView.Item.note(a.getString(R.string.horizon_power_note)));
 
         items.add(StreamMenuView.Item.header(a.getString(R.string.pocket_info_tuned)));
         String hw = Build.HARDWARE;
