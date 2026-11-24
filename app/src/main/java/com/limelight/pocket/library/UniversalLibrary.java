@@ -80,6 +80,18 @@ public final class UniversalLibrary {
             return pick;
         }
 
+        /** A title can match multiple distinct stream applications on the same PC. */
+        boolean requiresPcChoice() {
+            Map<String, Integer> idsByHost = new HashMap<>();
+            for (Way way : ways) {
+                HomeItem item = way.item;
+                if (!HomeItem.PC.equals(item.kind) || item.a.isEmpty() || item.n <= 0) continue;
+                Integer recorded = idsByHost.put(item.a.toLowerCase(Locale.ROOT), item.n);
+                if (recorded != null && recorded != item.n) return true;
+            }
+            return false;
+        }
+
         public boolean on(int platform) {
             for (Way w : ways) {
                 if (w.platform == platform) {

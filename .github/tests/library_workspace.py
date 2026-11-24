@@ -74,6 +74,7 @@ def main(apk):
         "pref\tbool\tpocket_animations\tfalse\n"
         "pref\tstring\tpocket_home_layout\thorizon_workspace\n"
         "pin\tpc\tAster Circuit\temulator-test-pc\t\t\t501\n"
+        "pin\tpc\tAster Circuit\temulator-test-pc\t\t\t509\n"
         "pin\tpc\tBoreal Drift\temulator-test-pc\t\t\t502\n",
         encoding="utf-8",
     )
@@ -84,6 +85,12 @@ def main(apk):
     assert detail[2] <= grid[0], (detail, grid)
     controls.wait_for("first game focus after touch entry", lambda t: game_has_focus(t, FIRST))
     controls.capture("01-wide-library")
+    controls.key("BUTTON_A")
+    controls.wait_for("duplicate PC app IDs require an explicit choice", lambda t:
+                      controls.has(t, "PC · app 501") and controls.has(t, "PC · app 509"))
+    controls.capture("06-pc-app-choice")
+    controls.key("BUTTON_B")
+    controls.wait_for("focused game after closing the choice", lambda t: game_has_focus(t, FIRST))
     controls.key("DPAD_RIGHT")
     controls.wait_for("second game controller focus", lambda t: game_has_focus(t, SECOND))
     controls.key("BUTTON_X")
