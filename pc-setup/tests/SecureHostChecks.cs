@@ -18,11 +18,18 @@ namespace PocketNexus
         {
             var results = new System.Collections.Generic.List<string>();
             var host = Start(certificate, credentialFile);
-            string first, second;
+            string first, second, library;
             try
             {
                 first = host.Issue("Retroid");
                 second = host.Issue("Other handheld");
+                library = host.Issue("Game catalog handheld", true);
+                Check(library.StartsWith("NEXUS2:") &&
+                    Exchange(host.Port, library, "NEXUSG " + library.Split(':')[3]) == "S\tFixture\tsteam\t1",
+                    "Library-scoped key can read a display-only game list", results);
+                Check(Exchange(host.Port, first, "NEXUSG " + first.Split(':')[3]) == "ERR auth",
+                    "Existing status-only keys cannot read the game list", results);
+
                 Check(first.Split(':')[3] != second.Split(':')[3], "Independent device keys", results);
                 Check(Exchange(host.Port, first, null) == Status, "Pinned TLS handshake and authenticated status", results);
                 Check(Exchange(host.Port, first, "NEXUS1 " + new string('0', 64)) == "ERR auth",
@@ -49,6 +56,8 @@ namespace PocketNexus
             {
                 Check(Exchange(host.Port, first, null) == Status && Exchange(host.Port, second, null) == Status,
                     "Pinned identity and both device keys survive listener restart", results);
+                Check(Exchange(host.Port, library, "NEXUSG " + library.Split(':')[3]) == "S\tFixture\tsteam\t1",
+                    "Library scope persists across restart", results);
                 Check(host.Revoke("retroid") && !host.Revoke("retroid"), "Device revocation is scoped and idempotent", results);
                 Check(Exchange(host.Port, first, null) == "ERR auth" && Exchange(host.Port, second, null) == Status,
                     "Revocation preserves other devices", results);
@@ -68,7 +77,11 @@ namespace PocketNexus
 
         static NexusSecureHost Start(X509Certificate2 certificate, string path)
         {
-            return new NexusSecureHost(certificate, path, IPAddress.Loopback, 0, () => Status);
+            return new NexusSecureHost(certificate, path, IPAddress.Loopback, 0, () => Status, stream =>
+            {
+                byte[] payload = Encoding.UTF8.GetBytes("S\tFixture\tsteam\t1\nEND 1\n");
+                stream.Write(payload, 0, payload.Length);
+            });
         }
 
         static void Check(bool condition, string name, System.Collections.Generic.List<string> results)

@@ -16,6 +16,9 @@ namespace PocketNexus
     public sealed class NexusSecureHost
     {
         const string PairingVersion = "NEXUS1";
+        const string LibraryPairingVersion = "NEXUS2";
+        const string LibraryCommand = "NEXUSG";
+        const int LibraryTimeoutMs = 18000;
         const int ExchangeTimeoutMs = 8000;
         const int MaxDevices = 16;
         static readonly Regex DeviceName = new Regex(@"\A[A-Za-z0-9][A-Za-z0-9 _-]{0,31}\z");
@@ -26,11 +29,28 @@ namespace PocketNexus
         readonly X509Certificate2 certificate;
         readonly string credentialFile;
         readonly Func<string> status;
-        Dictionary<string, string> devices;
+        readonly Action<Stream> library;
+        Dictionary<string, Credential> devices;
+
+        sealed class Credential
+        {
+            public readonly string Digest;
+            public readonly bool Library;
+
+            public Credential(string digest, bool library)
+            {
+                Digest = digest;
+                Library = library;
+            }
+        }
         bool running;
 
         public NexusSecureHost(X509Certificate2 certificate, string credentialFile,
                 IPAddress address, int port, Func<string> status)
+            : this(certificate, credentialFile, address, port, status, null) { }
+
+        public NexusSecureHost(X509Certificate2 certificate, string credentialFile,
+                IPAddress address, int port, Func<string> status, Action<Stream> library)
         {
             if (!certificate.HasPrivateKey || certificate.NotAfter <= DateTime.Now ||
                     certificate.NotBefore > DateTime.Now)
@@ -38,6 +58,7 @@ namespace PocketNexus
             this.certificate = certificate;
             this.credentialFile = credentialFile;
             this.status = status;
+            this.library = library;
             Fingerprint = Hash(certificate.RawData);
             devices = ReadDevices();
             listener = new TcpListener(address, port);
@@ -68,21 +89,24 @@ namespace PocketNexus
             }
         }
 
-        public string Issue(string name)
+        public string Issue(string name) { return Issue(name, false); }
+
+        public string Issue(string name, bool allowLibrary)
         {
             if (!DeviceName.IsMatch(name)) throw new ArgumentException("Enter a device name of 1 to 32 letters, digits, spaces, hyphens or underscores");
             lock (gate)
             {
                 if (!running) throw new InvalidOperationException("Secure status is disabled");
+                if (allowLibrary && library == null) throw new InvalidOperationException("PC library is unavailable");
                 if (devices.Count >= MaxDevices && !devices.ContainsKey(name))
                     throw new InvalidOperationException("Revoke a device before adding another");
                 byte[] bytes = new byte[32];
                 using (var rng = RandomNumberGenerator.Create()) rng.GetBytes(bytes);
                 string key = Hex(bytes);
-                var next = new Dictionary<string, string>(devices, devices.Comparer);
-                next[name] = KeyDigest(key);
+                var next = new Dictionary<string, Credential>(devices, devices.Comparer);
+                next[name] = new Credential(KeyDigest(key), allowLibrary);
                 Save(next);
-                return PairingVersion + ":" + Port + ":" + Fingerprint + ":" + key;
+                return (allowLibrary ? LibraryPairingVersion : PairingVersion) + ":" + Port + ":" + Fingerprint + ":" + key;
             }
         }
 
@@ -90,7 +114,7 @@ namespace PocketNexus
         {
             lock (gate)
             {
-                var next = new Dictionary<string, string>(devices, devices.Comparer);
+                var next = new Dictionary<string, Credential>(devices, devices.Comparer);
                 if (!next.Remove(name)) return false;
                 Save(next);
                 return true;
@@ -106,9 +130,9 @@ namespace PocketNexus
             }
         }
 
-        Dictionary<string, string> ReadDevices()
+        Dictionary<string, Credential> ReadDevices()
         {
-            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var result = new Dictionary<string, Credential>(StringComparer.OrdinalIgnoreCase);
             try
             {
                 using (var input = new FileStream(credentialFile, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -120,10 +144,12 @@ namespace PocketNexus
                         while ((line = reader.ReadLine()) != null)
                         {
                             string[] fields = line.Split('\t');
-                            if (fields.Length != 2 || !DeviceName.IsMatch(fields[0]) ||
+                            bool validScope = fields.Length == 2 || (fields.Length == 3 &&
+                                (fields[2] == "status" || fields[2] == "library"));
+                            if (!validScope || !DeviceName.IsMatch(fields[0]) ||
                                     !Digest.IsMatch(fields[1]) || result.Count >= MaxDevices)
                                 throw new IOException("Invalid secure status device file");
-                            result.Add(fields[0], fields[1]);
+                            result.Add(fields[0], new Credential(fields[1], fields.Length == 3 && fields[2] == "library"));
                         }
                     }
                 }
@@ -132,13 +158,14 @@ namespace PocketNexus
             return result;
         }
 
-        void Save(Dictionary<string, string> next)
+        void Save(Dictionary<string, Credential> next)
         {
             string temporary = credentialFile + "." + Guid.NewGuid().ToString("N");
             try
             {
                 var lines = new List<string>();
-                foreach (var entry in next) lines.Add(entry.Key + "\t" + entry.Value);
+                foreach (var entry in next)
+                    lines.Add(entry.Key + "\t" + entry.Value.Digest + "\t" + (entry.Value.Library ? "library" : "status"));
                 File.WriteAllLines(temporary, lines.ToArray(), Encoding.ASCII);
                 if (File.Exists(credentialFile)) File.Replace(temporary, credentialFile, null);
                 else File.Move(temporary, credentialFile);
@@ -198,10 +225,19 @@ namespace PocketNexus
                         }
                         if (tls.ReadByte() != '\n') return;
                         string line = Encoding.ASCII.GetString(request);
-                        if (!line.StartsWith(PairingVersion + " ", StringComparison.Ordinal)) return;
+                        bool games = line.StartsWith(LibraryCommand + " ", StringComparison.Ordinal);
+                        if (!games && !line.StartsWith(PairingVersion + " ", StringComparison.Ordinal)) return;
                         string key = line.Substring(PairingVersion.Length + 1);
                         if (!Digest.IsMatch(key)) return;
-                        string response = Authorized(key) ? status() : "ERR auth";
+
+                        bool authorized = Authorized(key, games);
+                        if (authorized && games && library != null)
+                        {
+                            deadline.Change(LibraryTimeoutMs, Timeout.Infinite);
+                            library(tls);
+                            return;
+                        }
+                        string response = !authorized ? "ERR auth" : games ? "ERR library" : status();
                         byte[] reply = Encoding.ASCII.GetBytes(response + "\n");
                         tls.Write(reply, 0, reply.Length);
                         tls.Flush();
@@ -214,18 +250,18 @@ namespace PocketNexus
             }
         }
 
-        bool Authorized(string key)
+        bool Authorized(string key, bool requireLibrary)
         {
             string digest = KeyDigest(key);
             lock (gate)
             {
                 if (!running) return false;
                 bool allowed = false;
-                foreach (string expected in devices.Values)
+                foreach (Credential expected in devices.Values)
                 {
                     int diff = 0;
-                    for (int i = 0; i < expected.Length; i++) diff |= expected[i] ^ digest[i];
-                    allowed |= diff == 0;
+                    for (int i = 0; i < expected.Digest.Length; i++) diff |= expected.Digest[i] ^ digest[i];
+                    allowed |= diff == 0 && (!requireLibrary || expected.Library);
                 }
                 return allowed;
             }

@@ -12,8 +12,10 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 
 import com.limelight.R;
+import com.limelight.pocket.pclib.HorizonSecureLibrary;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.security.MessageDigest;
@@ -32,9 +34,10 @@ import javax.net.ssl.X509TrustManager;
 /** The opt-in encrypted status endpoint uses separate credentials from legacy PC control. */
 public final class HorizonSecureStatus {
     private static final int TIMEOUT_MS = 6000;
+    private static final int LIBRARY_TIMEOUT_MS = 20000;
     private static final String VERSION = "NEXUS1";
     private static final Pattern PAIRING = Pattern.compile(
-            "NEXUS1:([1-9][0-9]{3,4}):([0-9a-f]{64}):([0-9a-f]{64})");
+            "(NEXUS[12]):([1-9][0-9]{3,4}):([0-9a-f]{64}):([0-9a-f]{64})");
     private static final Pattern STATUS = Pattern.compile(
             "STATUS cpu=(-?[0-9]{1,3}) ram=(-?[0-9]{1,3}) up=([0-9]{1,15}) bat=(-?[0-9]{1,3}) ac=([01])");
 
@@ -44,25 +47,27 @@ public final class HorizonSecureStatus {
         final int port;
         final byte[] fingerprint;
         final String key;
+        final boolean library;
 
-        private Pairing(int port, byte[] fingerprint, String key) {
+        private Pairing(int port, byte[] fingerprint, String key, boolean library) {
             this.port = port;
             this.fingerprint = fingerprint;
             this.key = key;
+            this.library = library;
         }
 
         static Pairing parse(String code) {
             if (code == null || code.length() > 160) return null;
             Matcher match = PAIRING.matcher(code.trim());
             if (!match.matches()) return null;
-            int port = Integer.parseInt(match.group(1));
+            int port = Integer.parseInt(match.group(2));
             if (port < 1024 || port > 65535) return null;
-            String encoded = match.group(2);
+            String encoded = match.group(3);
             byte[] fingerprint = new byte[32];
             for (int i = 0; i < fingerprint.length; i++) {
                 fingerprint[i] = (byte) Integer.parseInt(encoded.substring(i * 2, i * 2 + 2), 16);
             }
-            return new Pairing(port, fingerprint, match.group(3));
+            return new Pairing(port, fingerprint, match.group(4), "NEXUS2".equals(match.group(1)));
         }
     }
 
@@ -126,7 +131,12 @@ public final class HorizonSecureStatus {
         }
     }
 
-    private static String request(String host, Pairing pairing) throws Exception {
+    private interface ReplyReader<T> {
+        T read(InputStream input) throws IOException;
+    }
+
+    private static <T> T request(String host, Pairing pairing, String command, int timeoutMs,
+                                 ReplyReader<T> reply) throws Exception {
         SSLContext tls = SSLContext.getInstance("TLSv1.2");
         tls.init(null, new TrustManager[] {new PinnedCertificate(pairing.fingerprint)}, null);
         try (Socket connection = new Socket()) {
@@ -135,18 +145,18 @@ public final class HorizonSecureStatus {
                 @Override public void run() {
                     try { connection.close(); } catch (IOException ignored) { }
                 }
-            }, TIMEOUT_MS);
+            }, timeoutMs);
             try {
                 connection.connect(new InetSocketAddress(host, pairing.port), TIMEOUT_MS);
                 try (SSLSocket socket = (SSLSocket) tls.getSocketFactory().createSocket(
                         connection, host, pairing.port, true)) {
                     socket.setEnabledProtocols(new String[] {"TLSv1.2"});
-                    socket.setSoTimeout(TIMEOUT_MS);
+                    socket.setSoTimeout(timeoutMs);
                     socket.startHandshake();
                     java.io.OutputStream output = socket.getOutputStream();
-                    output.write(PcCompanion.encodeCommand(VERSION + " " + pairing.key));
+                    output.write(PcCompanion.encodeCommand(command + " " + pairing.key));
                     output.flush();
-                    return PcCompanion.readLine(socket.getInputStream(), 128);
+                    return reply.read(socket.getInputStream());
                 }
             } finally {
                 deadline.cancel();
@@ -159,8 +169,25 @@ public final class HorizonSecureStatus {
         // A separate private store is excluded by Android backup and the in-app settings export.
         SharedPreferences pairings = activity.getSharedPreferences("horizon_secure_status", Context.MODE_PRIVATE);
         String code = pairings.getString(pcUuid, null);
-        if (Pairing.parse(code) == null) {
+        Pairing pairing = Pairing.parse(code);
+        if (pairing == null) {
             showPairing(activity, host, pairings, pcUuid);
+            return;
+        }
+
+        if (pairing.library) {
+            String[] labels = {
+                    activity.getString(R.string.horizon_secure_check), activity.getString(R.string.horizon_secure_games),
+                    activity.getString(R.string.horizon_secure_replace), activity.getString(R.string.horizon_secure_forget)
+            };
+            Runnable[] actions = {
+                    () -> check(activity, host, code, null), () -> showLibrary(activity, host, pairing),
+                    () -> showPairing(activity, host, pairings, pcUuid),
+                    () -> pairings.edit().remove(pcUuid).apply()
+            };
+            new AlertDialog.Builder(activity).setTitle(R.string.horizon_secure_status)
+                    .setItems(labels, (dialog, which) -> actions[which].run())
+                    .setNegativeButton(android.R.string.cancel, null).show();
             return;
         }
         new AlertDialog.Builder(activity)
@@ -220,7 +247,7 @@ public final class HorizonSecureStatus {
                 .show();
         new Thread(() -> {
             String reply;
-            try { reply = request(host, pairing); }
+            try { reply = request(host, pairing, VERSION, TIMEOUT_MS, input -> PcCompanion.readLine(input, 128)); }
             catch (Exception e) { reply = null; }
             Status status = Status.parse(reply);
             boolean revoked = "ERR auth".equals(reply);
@@ -240,6 +267,55 @@ public final class HorizonSecureStatus {
                 }
             });
         }, "NexusSecureStatus").start();
+    }
+
+    private static void showLibrary(Activity activity, String host, Pairing pairing) {
+        if (host == null || host.isEmpty() || UsbBridge.HOST_IP.equals(host)) {
+            showResult(activity, activity.getString(R.string.horizon_secure_no_address));
+            return;
+        }
+        AlertDialog progress = new AlertDialog.Builder(activity)
+                .setTitle(R.string.horizon_secure_games)
+                .setMessage(R.string.horizon_pc_checking)
+                .setCancelable(false)
+                .show();
+        new Thread(() -> {
+            HorizonSecureLibrary.Result reply;
+            try {
+                reply = request(host, pairing, "NEXUSG", LIBRARY_TIMEOUT_MS,
+                        input -> HorizonSecureLibrary.read(() -> PcCompanion.readLine(input, 2048)));
+            } catch (Exception e) {
+                reply = null;
+            }
+            HorizonSecureLibrary.Result result = reply;
+            activity.runOnUiThread(() -> {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+                progress.dismiss();
+                if (result == null || result.error != null) {
+                    int message = result != null && "ERR auth".equals(result.error)
+                            ? R.string.horizon_secure_rejected : R.string.horizon_secure_games_failed;
+                    showResult(activity, activity.getString(message));
+                    return;
+                }
+                AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+                        .setTitle(R.string.horizon_secure_games)
+                        .setPositiveButton(android.R.string.ok, null);
+                if (result.entries.isEmpty()) {
+                    builder.setMessage(R.string.horizon_secure_games_empty);
+                } else {
+                    String[] display = new String[result.entries.size()];
+                    for (int i = 0; i < display.length; i++) {
+                        HorizonSecureLibrary.Entry entry = result.entries.get(i);
+                        String state = activity.getString(entry.installed ? R.string.horizon_secure_game_installed
+                                : R.string.horizon_secure_game_other_state);
+                        display[i] = entry.title + " · " + state;
+                        if (!entry.source.isEmpty()) display[i] += " · " + entry.source;
+                    }
+                    builder.setItems(display, null);
+                }
+                builder.show();
+            });
+        }, "NexusSecureGameList").start();
     }
 
     private static String percent(Activity activity, int value) {
