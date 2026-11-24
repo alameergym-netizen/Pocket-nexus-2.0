@@ -248,10 +248,11 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
     }
 
     private void play(CloudService s) {
-        PocketSounds.play(this, PocketSounds.SELECT);
-        com.limelight.pocket.home.HomeStore.record(this, homeItem(s));
-        // Its official app, another full app, Chrome or the built-in player: the one picked
-        CloudClients.play(this, s, null);
+        // A dispatched client is a launch attempt, not confirmation of remote gameplay.
+        if (CloudClients.play(this, s, null).dispatched()) {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            com.limelight.pocket.home.HomeStore.record(this, homeItem(s));
+        }
     }
 
     /** X: Xbox Cloud Gaming's games, as covers (each starts straight away). */
