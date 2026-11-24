@@ -353,8 +353,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private int pocketLastBatteryAlert = 101;
     // v2: adaptive stream, seamless resume, mic, playtime
     private int pocketStreamBitrate;
-    private long pocketPoorSince;
-    private final java.util.ArrayDeque<Long> pocketPoorEvents = new java.util.ArrayDeque<>();
+    private final com.limelight.pocket.streaming.HorizonAdaptiveDecision pocketAdaptiveDecision =
+            new com.limelight.pocket.streaming.HorizonAdaptiveDecision();
     private boolean pocketSwitching;
     private boolean pocketFrameGen;
     private int pocketProfileBitrate;
@@ -403,7 +403,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
     private final PocketMic pocketMic = new PocketMic();
     private static final int POCKET_MIC_PERMISSION_REQUEST = 4711;
-    private final Runnable pocketPoorCheck = () -> pocketMaybeStepDown(false);
+    private final Runnable pocketPoorCheck = this::pocketMaybeStepDown;
 
     public interface GameMenuCallbacks {
         void showMenu(GameInputDevice devic);
@@ -3000,52 +3000,35 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     private void pocketOnConnectionStatus(boolean poor) {
-        if (pocketSwitching || !connected || !PocketPrefs.adaptiveStream(this)) {
-            return;
-        }
+        if (!ownsStreamCallback() || pocketSwitching || !connected || !PocketPrefs.adaptiveStream(this)) return;
         long now = android.os.SystemClock.elapsedRealtime();
-        if (pocketSessionStartMs == 0 || now - pocketSessionStartMs < 8000) {
-            return; // the first seconds of a stream are always a bit rough
-        }
-        if (poor) {
-            if (pocketPoorSince == 0) {
-                pocketPoorSince = now;
-            }
-            pocketPoorEvents.addLast(now);
-            while (!pocketPoorEvents.isEmpty() && now - pocketPoorEvents.peekFirst() > 20000) {
-                pocketPoorEvents.pollFirst();
-            }
-            if (pocketPoorEvents.size() >= 4) {
-                pocketMaybeStepDown(true);
-                return;
-            }
-            timerHandler.removeCallbacks(pocketPoorCheck);
-            timerHandler.postDelayed(pocketPoorCheck, 6000);
-        }
-        else {
-            pocketPoorSince = 0;
-            timerHandler.removeCallbacks(pocketPoorCheck);
+        if (pocketSessionStartMs == 0) return;
+        int steps = getIntent().getIntExtra(ResumeTicket.EXTRA_ADAPTIVE_STEPS, 0);
+        pocketAdaptiveDecision.observe(poor, now, pocketSessionStartMs);
+        timerHandler.removeCallbacks(pocketPoorCheck);
+        if (!poor || !pocketAdaptiveDecision.allowed(now, pocketSessionStartMs, steps)) return;
+        if (pocketAdaptiveDecision.shouldStep(now)) {
+            pocketMaybeStepDown();
+        } else {
+            long delay = pocketAdaptiveDecision.delayUntilSustained(now);
+            if (delay >= 0) timerHandler.postDelayed(pocketPoorCheck, delay);
         }
     }
 
-    private void pocketMaybeStepDown(boolean flapping) {
-        if (pocketSwitching || !connected) {
-            return;
-        }
-        if (!flapping && (pocketPoorSince == 0
-                || android.os.SystemClock.elapsedRealtime() - pocketPoorSince < 6000)) {
-            return;
-        }
+    private void pocketMaybeStepDown() {
+        if (!ownsStreamCallback() || pocketSwitching || !connected || !PocketPrefs.adaptiveStream(this)) return;
+        long now = android.os.SystemClock.elapsedRealtime();
+        int steps = getIntent().getIntExtra(ResumeTicket.EXTRA_ADAPTIVE_STEPS, 0);
+        if (!pocketAdaptiveDecision.allowed(now, pocketSessionStartMs, steps)
+                || !pocketAdaptiveDecision.shouldStep(now)) return;
         int current = pocketStreamBitrate > 0 ? pocketStreamBitrate : prefConfig.bitrate;
         int next = PocketAdaptive.stepDown(current);
-        if (next >= current) {
-            return;
-        }
+        if (next >= current) return;
         if (!UsbLink.isUsbAddress(host)) {
             PocketPrefs.setAdaptiveCap(this, next);
         }
-        int steps = getIntent().getIntExtra(ResumeTicket.EXTRA_ADAPTIVE_STEPS, 0) + 1;
-        pocketSwitchStream(ResumeTicket.REASON_ADAPTIVE, next, 0, steps);
+        pocketAdaptiveDecision.reset();
+        pocketSwitchStream(ResumeTicket.REASON_ADAPTIVE, next, 0, steps + 1);
     }
 
     private List<StreamMenuView.Item> pocketBitrateItems() {
@@ -5440,6 +5423,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             final long stoppingTicket = horizonStreamTicket;
             HorizonStreamObserver.instance().stopping(stoppingTicket);
             connecting = connected = false;
+            timerHandler.removeCallbacks(pocketPoorCheck);
+            pocketAdaptiveDecision.reset();
             updatePipAutoEnter();
 
             controllerHandler.stop();
@@ -5672,7 +5657,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                pocketOnConnectionStatus(connectionStatus == MoonBridge.CONN_STATUS_POOR);
+                if (!ownsStreamCallback()) return;
+                if (connectionStatus == MoonBridge.CONN_STATUS_POOR || connectionStatus == MoonBridge.CONN_STATUS_OKAY) {
+                    pocketOnConnectionStatus(connectionStatus == MoonBridge.CONN_STATUS_POOR);
+                }
                 if (prefConfig.disableWarnings) {
                     return;
                 }
