@@ -13,7 +13,7 @@
     <string name="horizon_perm_quiet">Do not disturb control</string>
     <string name="horizon_perm_quiet_desc">Optional access for changing the Android interruption filter.</string>
     <string name="horizon_perm_mic">Microphone access</string>
-    <string name="horizon_perm_mic_desc">Optional microphone permission for PC streaming voice. Opens this app's permission settings.</string>
+    <string name="horizon_perm_mic_desc">Optional microphone permission for PC streaming voice. Opens the permission settings for this app.</string>
     <string name="horizon_perm_granted">Granted</string>
     <string name="horizon_perm_missing">Not granted</string>
     <string name="horizon_perm_unavailable">Unavailable</string>
