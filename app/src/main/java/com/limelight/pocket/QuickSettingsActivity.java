@@ -1628,6 +1628,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 this::askIgdb);
 
         addHeader(R.string.pocket_header_device);
+        addAction(getString(R.string.horizon_bridge_title), getString(R.string.horizon_bridge_sub), null,
+                () -> com.limelight.pocket.device.HorizonBridge.show(this));
         addAction(getString(R.string.horizon_audio_title), getString(R.string.horizon_audio_sub), null,
                 () -> com.limelight.pocket.device.HorizonAudio.show(this));
 

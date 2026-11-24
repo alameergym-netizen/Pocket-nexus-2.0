@@ -146,6 +146,8 @@ public final class DevicePanel {
         // The music playing in any app, and the handheld's own tools (fan, performance, frame gen)
         HandheldTools.addMusic(a, items);
         HandheldTools.addTools(a, items);
+        items.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_title),
+                () -> HorizonBridge.show(a)).withIcon("SLIDERS"));
 
         items.add(StreamMenuView.Item.header(a.getString(R.string.pocket_device_device)));
         items.add(StreamMenuView.Item.action(a.getString(R.string.pocket_apps_set_battery),

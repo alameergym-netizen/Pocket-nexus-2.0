@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_bridge_title">Retroid Bridge</string>
+    <string name="horizon_bridge_sub">Inspect hardware, firmware, readable CPU/GPU limits and tuning-tool availability.</string>
+    <string name="horizon_bridge_identity">Device capability</string>
+    <string name="horizon_bridge_firmware">Firmware build</string>
+    <string name="horizon_bridge_detected">Detected by model</string>
+    <string name="horizon_bridge_not_confirmed">Not confirmed</string>
+    <string name="horizon_bridge_unverified">Privileged backend not verified</string>
+    <string name="horizon_bridge_read_only">Read-only diagnostics. No root request, clock changes or fan overrides. Missing readings may require firmware-specific access.</string>
+    <string name="horizon_bridge_cpu">CPU frequency policies</string>
+    <string name="horizon_bridge_gpu">GPU frequency</string>
+    <string name="horizon_bridge_unknown">Unavailable / access restricted</string>
+    <string name="horizon_bridge_limit">Current maximum: %1$s</string>
+    <string name="horizon_bridge_current">Current frequency</string>
+    <string name="horizon_bridge_max">Current maximum</string>
+    <string name="horizon_bridge_safety">Thermal guidance</string>
+    <string name="horizon_bridge_advice_unknown">Thermal status is unavailable. Keep manufacturer limits and avoid automatic tuning.</string>
+    <string name="horizon_bridge_advice_normal">Android reports no or light thermal pressure. Keep manufacturer limits.</string>
+    <string name="horizon_bridge_advice_reduce">Reduce workload or streaming quality; keep cooling and thermal safeguards enabled.</string>
+    <string name="horizon_bridge_advice_stop">High thermal pressure. Stop heavy workloads and allow the device to cool.</string>
+    <string name="horizon_bridge_refresh">Refresh readings</string>
+</resources>

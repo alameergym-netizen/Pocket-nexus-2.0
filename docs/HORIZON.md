@@ -49,3 +49,6 @@ Global Back/Guide hold duration is configurable, without changing stream control
 
 ## CI diagnostics
 CI explicitly installs Android SDK 36 and the pinned native tools. APK assembly and unit tests are separate steps; build logs and test reports are retained even on failure. Successful runs upload a development APK, not a release. The imported default branch may still be ci-logs; a repository administrator should select horizon-foundation before using manual workflow dispatch.
+
+## Retroid Bridge milestone 1
+Read-only hardware/firmware and sysfs frequency inventory, conservative Android thermal guidance, and existing tuning-tool handoff. CPU policies and GPU readings depend on app-visible kernel nodes. PServer remains unverified on the target firmware and no privileged operations are performed. References for future compatibility review: https://github.com/keiretrogaming/pulse and https://github.com/AurelioB/ClusterTune (no upstream source copied in this milestone).
