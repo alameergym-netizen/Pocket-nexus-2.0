@@ -1213,6 +1213,20 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private void buildLookTab() {
         addHeader(R.string.pocket_header_app);
 
+        String[] densityLabels = {getString(R.string.horizon_density_classic),
+                getString(R.string.horizon_density_compact), getString(R.string.horizon_density_large)};
+        addChoice(getString(R.string.horizon_density_title), getString(R.string.horizon_density_sub),
+                densityLabels, () -> com.limelight.pocket.ui.HorizonAppearance.density(this),
+                index -> prefs().edit().putInt(com.limelight.pocket.ui.HorizonAppearance.KEY_DENSITY, index).apply(), null);
+        String[] cornerLabels = {getString(R.string.horizon_density_classic),
+                getString(R.string.horizon_corners_sharp), getString(R.string.horizon_corners_soft)};
+        addChoice(getString(R.string.horizon_corners_title), getString(R.string.horizon_corners_sub),
+                cornerLabels, () -> com.limelight.pocket.ui.HorizonAppearance.corners(this),
+                index -> prefs().edit().putInt(com.limelight.pocket.ui.HorizonAppearance.KEY_CORNERS, index).apply(), null);
+        addToggle(getString(R.string.horizon_art_motion_title), getString(R.string.horizon_art_motion_sub),
+                () -> com.limelight.pocket.ui.HorizonAppearance.artMotion(this),
+                value -> prefs().edit().putBoolean(com.limelight.pocket.ui.HorizonAppearance.KEY_ART_MOTION, value).apply());
+
         final int[] scaleValues = {75, 80, 85, 90, 100, 110, 120};
         final String[] scaleLabels = new String[scaleValues.length];
         for (int i = 0; i < scaleValues.length; i++) {

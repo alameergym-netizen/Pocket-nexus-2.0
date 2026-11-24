@@ -54,7 +54,8 @@ public final class KeyArtStage {
     /** Once settled, the art drifts very slowly (a living backdrop, like a console's). */
     private void startDrift(KeyArtView view) {
         stopDrift();
-        if (shown == null || !PocketPrefs.animationsEnabled(activity) || view.getAlpha() < 0.99f) {
+        if (shown == null || !PocketMotion.on(view) || !HorizonAppearance.artMotion(activity)
+                || !activity.hasWindowFocus() || view.getAlpha() < 0.99f) {
             return;
         }
         view.setPivotX(view.getWidth() * 0.75f);
@@ -78,6 +79,22 @@ public final class KeyArtStage {
         }
         a.setTranslationX(0f);
         b.setTranslationX(0f);
+    }
+
+    /** Release background animation resources when Home is no longer visible. */
+    public void pauseMotion() {
+        a.animate().withEndAction(null).cancel();
+        b.animate().withEndAction(null).cancel();
+        stopMotion();
+        stopDrift();
+        if (shown != null) {
+            KeyArtView active = onA ? a : b;
+            KeyArtView other = onA ? b : a;
+            active.setAlpha(1f);
+            active.setScaleX(1f);
+            active.setScaleY(1f);
+            other.setAlpha(0f);
+        }
     }
 
     /** Forget what is shown, so the next request puts it up again (new art arrived). */
@@ -107,7 +124,7 @@ public final class KeyArtStage {
             return;
         }
         stopMotion();
-        if (f == null || shown == null || !PocketPrefs.animationsEnabled(activity)
+        if (f == null || shown == null || !PocketMotion.on(frame) || !HorizonAppearance.artMotion(activity)
                 || !(frame instanceof android.view.ViewGroup)) {
             return;
         }
@@ -247,7 +264,7 @@ public final class KeyArtStage {
         // Another game's art: its moving art (if any) comes after, by itself
         stopMotion();
         shown = bitmap;
-        boolean animate = PocketPrefs.animationsEnabled(activity);
+        boolean animate = PocketMotion.on(frame);
         if (bitmap == null) {
             stopDrift();
             if (animate) {
