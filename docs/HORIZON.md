@@ -67,3 +67,6 @@ The validation candidate passed its Android build and all 100 recorded unit test
 
 ## Alpha 2 UI candidate
 Independent Home card density and corner preferences preserve existing presets; compact and large sizes apply to shelves and grids, with a short-screen guard. Animated key art is optional, and Home releases motion resources on pause. Full physical-device layout and focus checks remain required. Alpha 1 baseline is retained until this candidate passes CI.
+
+## PServer discovery and CPU preview candidate
+The explicit PServer probe checks Android service visibility and binder liveness without launching a host or invoking the vendor command transaction. Hidden API restrictions may prevent discovery; a responsive binder is not proof of write access. CPU preview derives selectable Eco/Balanced/Performance limits from the observed current range and readable steps only. No writes, root prompt, or automatic application. The next privileged milestone must include authenticated host lifecycle, identity, transaction journal, readback and rollback. Architecture reference: https://github.com/AurelioB/ClusterTune/blob/f2bcccadd10d9daebb38d0900b185b8265cb4779/docs/execution-methods-plan.md ; independently implemented probe and preview; no upstream code incorporated.
