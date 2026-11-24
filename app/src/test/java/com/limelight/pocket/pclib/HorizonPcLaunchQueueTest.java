@@ -43,6 +43,15 @@ public class HorizonPcLaunchQueueTest {
         q.arm("pc",2,"","Game",42,200020);
         assertNull(q.take(t,"pc",2,200030));
     }
+    @Test public void clearingHostDoesNotAffectOtherHost() {
+        HorizonPcLaunchQueue q=new HorizonPcLaunchQueue();
+        q.arm("pc",2,"cmd","Game",42,100);
+        HorizonPcLaunchQueue.Ticket t=q.snapshotFor("pc",2,110);
+        q.clearHost("other");
+        assertNotNull(q.snapshotFor("pc",2,120));
+        q.clearHost("pc");
+        assertNull(q.take(t,"pc",2,130));
+    }
     @Test public void noSnapshotCannotPickUpLaterWish() {
         HorizonPcLaunchQueue q=new HorizonPcLaunchQueue();
         q.arm("pc",2,"cmd","Game",42,100);
