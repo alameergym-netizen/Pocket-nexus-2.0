@@ -157,11 +157,19 @@ public final class CloudClients {
     }
 
     /** Plays the service (url: a game's own page to start straight in it; null: the service). */
-    public static void play(Activity a, CloudService s, String url) {
-        play(a, s, preferred(a, s), url);
+    public static HorizonCloudDispatch.Result play(Activity a, CloudService s, String url) {
+        if (a == null || s == null || a.isFinishing() || a.isDestroyed()) return HorizonCloudDispatch.Result.REJECTED;
+        return play(a, s, preferred(a, s), url);
     }
 
-    public static void play(Activity a, CloudService s, Client cl, String url) {
+    public static HorizonCloudDispatch.Result play(Activity a, CloudService s, Client cl, String url) {
+        if (a == null || s == null || cl == null || a.isFinishing() || a.isDestroyed()) {
+            return HorizonCloudDispatch.Result.REJECTED;
+        }
+        if (!HorizonCloudDispatch.claim(com.limelight.pocket.core.HorizonLaunchRequests.shared(),
+                s.id, url, android.os.SystemClock.elapsedRealtime())) {
+            return HorizonCloudDispatch.Result.REJECTED;
+        }
         String target = url != null && !url.isEmpty() ? url : s.url;
         try {
             switch (cl.kind) {
@@ -172,12 +180,12 @@ public final class CloudClients {
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     if (url != null && view.resolveActivity(a.getPackageManager()) != null) {
                         a.startActivity(view);
-                        return;
+                        return HorizonCloudDispatch.Result.EXTERNAL_LINK_DISPATCHED;
                     }
                     Intent launch = a.getPackageManager().getLaunchIntentForPackage(cl.pkg);
                     if (launch != null) {
                         a.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                        return;
+                        return HorizonCloudDispatch.Result.EXTERNAL_APP_DISPATCHED;
                     }
                     break;
                 }
@@ -197,15 +205,17 @@ public final class CloudClients {
                         tab.intent.setPackage(cl.pkg);
                     }
                     tab.launchUrl(a, Uri.parse(target));
-                    return;
+                    return HorizonCloudDispatch.Result.BROWSER_DISPATCHED;
                 }
                 default:
                     break;
             }
             // Pocket Nexus's own player
             a.startActivity(s.playerIntent(a).putExtra(CloudPlayerActivity.EXTRA_URL, url));
+            return HorizonCloudDispatch.Result.INTERNAL_PLAYER_DISPATCHED;
         } catch (RuntimeException e) {
             Toast.makeText(a, R.string.pocket_cloud_cant_open, Toast.LENGTH_LONG).show();
+            return HorizonCloudDispatch.Result.REJECTED;
         }
     }
 }

@@ -841,6 +841,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         long epoch = dispatchEpoch();
         if (streamDispatch.pending(streamDispatchTicket, epoch, now)) return 0;
         if (streamDispatchTicket != 0) cancelStreamDispatch(streamDispatchTicket);
+        if (signInChecking) return 0; // do not steal a separate pending resume check
         final long ticket = streamDispatch.begin(epoch, now);
         streamDispatchTicket = ticket;
         if (ticket != 0) statusHandler.postDelayed(() -> cancelStreamDispatch(ticket),

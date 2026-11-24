@@ -187,15 +187,15 @@ public class ServerHelper {
                     parent.overridePendingTransition(R.anim.pocket_launch_in, R.anim.pocket_hold);
                 }
             };
-            console.runWhenSignedIn(intent,
-                    () -> ready.accept(com.limelight.pocket.core.HorizonStreamDispatch.Stage.SIGN_IN),
-                    () -> console.cancelStreamDispatch(ticket));
             if (com.limelight.pocket.PocketPrefs.animationsEnabled(parent)) {
                 console.playLaunchZoom(() -> ready.accept(com.limelight.pocket.core.HorizonStreamDispatch.Stage.ANIMATION));
             }
             else {
                 ready.accept(com.limelight.pocket.core.HorizonStreamDispatch.Stage.ANIMATION);
             }
+            console.runWhenSignedIn(intent,
+                    () -> ready.accept(com.limelight.pocket.core.HorizonStreamDispatch.Stage.SIGN_IN),
+                    () -> console.cancelStreamDispatch(ticket));
             return;
         }
         parent.startActivity(createStartIntent(parent, app, computer, managerBinder, withVDisplay));
