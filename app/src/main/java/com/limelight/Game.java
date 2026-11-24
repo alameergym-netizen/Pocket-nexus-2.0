@@ -479,7 +479,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         String pocketProfileUuid = getIntent().getStringExtra(EXTRA_PC_UUID);
         int pocketProfileApp = getIntent().getIntExtra(EXTRA_APP_ID, 0);
         // A game from the PC games streamed through Desktop: its own settings, not Desktop's
-        horizonPcLaunch = com.limelight.pocket.pclib.PcLaunchTicket.snapshotFor(pocketProfileUuid, pocketProfileApp);
+        horizonPcLaunch = com.limelight.pocket.pclib.PcLaunchTicket.snapshotFor(
+                getIntent().getStringExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN), pocketProfileUuid, pocketProfileApp);
+        getIntent().removeExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
         int pocketTicketProfile = horizonPcLaunch != null ? horizonPcLaunch.profile : 0;
         if (pocketTicketProfile != 0) {
             pocketProfileApp = pocketTicketProfile;
@@ -3875,9 +3877,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 }
                 if (found != null && found.isInstalled() && desktop != null) {
                     // Through Desktop, with this game's own settings
-                    com.limelight.pocket.pclib.PcLaunchTicket.arm(uuid, desktop.getAppId(), found.launchCommand(),
+                    if (isDestroyed() || instance != Game.this) return;
+                    String token = com.limelight.pocket.pclib.PcLaunchTicket.arm(uuid, desktop.getAppId(), found.launchCommand(),
                             found.name, appId);
+                    if (token == null) return;
                     Intent again = new Intent(getIntent());
+                    again.putExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN, token);
                     again.putExtra(EXTRA_APP_ID, desktop.getAppId());
                     again.putExtra(EXTRA_APP_NAME, desktop.getAppName());
                     again.putExtra(EXTRA_APP_UUID, desktop.getAppUUID());

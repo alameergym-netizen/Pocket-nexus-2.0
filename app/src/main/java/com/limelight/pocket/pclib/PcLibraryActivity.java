@@ -846,14 +846,17 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
             return;
         }
         if (!claimLaunch(g)) return;
-        PcLaunchTicket.arm(uuid, desktop.getAppId(), g.launchCommand(), g.name, pageId(g));
-        finishWithStart(desktop.getAppId());
+        String token = PcLaunchTicket.arm(uuid, desktop.getAppId(), g.launchCommand(), g.name, pageId(g));
+        if (token != null) finishWithStart(desktop.getAppId(), token);
     }
 
-    private void finishWithStart(int appId) {
+    private void finishWithStart(int appId) { finishWithStart(appId, null); }
+
+    private void finishWithStart(int appId, String commandToken) {
         PocketSounds.play(this, PocketSounds.SELECT);
         Intent result = new Intent();
         result.putExtra(RESULT_APP_ID, appId);
+        if (commandToken != null) result.putExtra(PcLaunchTicket.EXTRA_TOKEN, commandToken);
         setResult(RESULT_OK, result);
         finish();
     }

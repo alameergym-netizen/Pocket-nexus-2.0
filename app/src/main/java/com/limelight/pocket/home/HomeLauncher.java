@@ -60,7 +60,7 @@ public final class HomeLauncher {
         if (request == 0L) return; // rapid repeat, not a second launch
         switch (item.kind) {
             case HomeItem.PC:
-                startOnPc(a, item.a, item.n, request, false);
+                startOnPc(a, item.a, item.n, request, null);
                 return;
             case HomeItem.PC_LIBRARY_GAME:
                 startPcLibraryGame(a, item, request);
@@ -112,17 +112,17 @@ public final class HomeLauncher {
         if (a == null || a.isFinishing() || a.isDestroyed() || uuid == null || appId == 0) return;
         long request = REQUESTS.beginPc(com.limelight.pocket.core.HorizonLaunchTarget.pc(uuid, appId),
                 android.os.SystemClock.elapsedRealtime());
-        if (request != 0) startOnPc(a, uuid, appId, request, false);
+        if (request != 0) startOnPc(a, uuid, appId, request, null);
     }
 
-    private static void startOnPc(Activity a, String uuid, int appId, long request, boolean commandHandoff) {
+    private static void startOnPc(Activity a, String uuid, int appId, long request, String commandToken) {
         PocketSounds.play(a, PocketSounds.SELECT);
         Intent i = new Intent(a, PcView.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(PcView.EXTRA_HOME_UUID, uuid)
                 .putExtra(PcView.EXTRA_HOME_APP, appId)
                 .putExtra(PcView.EXTRA_HOME_REQUEST, request)
-                .putExtra(PcView.EXTRA_HOME_COMMAND, commandHandoff);
+                .putExtra(PcLaunchTicket.EXTRA_TOKEN, commandToken);
         a.startActivity(i);
         a.overridePendingTransition(R.anim.pocket_section_in, R.anim.pocket_section_out);
     }
@@ -131,7 +131,7 @@ public final class HomeLauncher {
         NvApp app = PcLibrary.apolloAppFor(a, item.a, item.name);
         if (app != null) {
             HomeStore.record(a, item);
-            startOnPc(a, item.a, app.getAppId(), request, false);
+            startOnPc(a, item.a, app.getAppId(), request, null);
             return;
         }
         NvApp desktop = PcLibrary.desktopApp(a, item.a);
@@ -140,9 +140,10 @@ public final class HomeLauncher {
             return;
         }
         // The stream opens on the PC's desktop and asks the PC to start the game
-        PcLaunchTicket.arm(item.a, desktop.getAppId(), item.b, item.name, item.n);
+        String token = PcLaunchTicket.arm(item.a, desktop.getAppId(), item.b, item.name, item.n);
+        if (token == null) return;
         HomeStore.record(a, item);
-        startOnPc(a, item.a, desktop.getAppId(), request, true);
+        startOnPc(a, item.a, desktop.getAppId(), request, token);
     }
 
     private static void startRetro(final Activity a, final HomeItem item, final long request) {

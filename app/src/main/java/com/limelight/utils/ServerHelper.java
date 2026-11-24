@@ -95,6 +95,12 @@ public class ServerHelper {
     public static Intent createStartIntent(Activity parent, NvApp app, ComputerDetails computer,
                                            ComputerManagerService.ComputerManagerBinder managerBinder,
                                            boolean withVDisplay) {
+        return createStartIntent(parent, app, computer, managerBinder, withVDisplay, null);
+    }
+
+    public static Intent createStartIntent(Activity parent, NvApp app, ComputerDetails computer,
+                                           ComputerManagerService.ComputerManagerBinder managerBinder,
+                                           boolean withVDisplay, String commandToken) {
         Intent gameIntent = null;
         PreferenceConfiguration prefConfig = PreferenceConfiguration.readPreferences(parent);
         // Try to add secondary DisplayContext if supported and connected
@@ -120,6 +126,7 @@ public class ServerHelper {
         gameIntent.putExtra(Game.EXTRA_APP_NAME, app.getAppName());
         gameIntent.putExtra(Game.EXTRA_APP_UUID, app.getAppUUID());
         gameIntent.putExtra(Game.EXTRA_APP_ID, app.getAppId());
+        if (commandToken != null) gameIntent.putExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN, commandToken);
         gameIntent.putExtra(Game.EXTRA_APP_HDR, app.isHdrSupported());
         gameIntent.putExtra(Game.EXTRA_UNIQUEID, managerBinder.getUniqueId());
         gameIntent.putExtra(Game.EXTRA_PC_UUID, computer.uuid);
@@ -157,6 +164,13 @@ public class ServerHelper {
             ComputerManagerService.ComputerManagerBinder managerBinder,
             boolean withVDisplay
     ) {
+        doStart(parent, app, computer, managerBinder, withVDisplay, null);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public static void doStart(Activity parent, NvApp app, ComputerDetails computer,
+                               ComputerManagerService.ComputerManagerBinder managerBinder,
+                               boolean withVDisplay, String commandToken) {
         if (parent == null || parent.isFinishing() || parent.isDestroyed()
                 || computer == null || app == null || managerBinder == null) return;
         if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null) {
@@ -175,7 +189,7 @@ public class ServerHelper {
             if (ticket == 0) return;
             final Intent intent;
             try {
-                intent = createStartIntent(parent, app, computer, managerBinder, withVDisplay);
+                intent = createStartIntent(parent, app, computer, managerBinder, withVDisplay, commandToken);
             } catch (RuntimeException e) {
                 console.cancelStreamDispatch(ticket);
                 throw e;
@@ -198,7 +212,7 @@ public class ServerHelper {
                     () -> console.cancelStreamDispatch(ticket));
             return;
         }
-        parent.startActivity(createStartIntent(parent, app, computer, managerBinder, withVDisplay));
+        parent.startActivity(createStartIntent(parent, app, computer, managerBinder, withVDisplay, commandToken));
         if (com.limelight.pocket.PocketPrefs.animationsEnabled(parent)) {
             parent.overridePendingTransition(R.anim.pocket_launch_in, R.anim.pocket_launch_out);
         }
