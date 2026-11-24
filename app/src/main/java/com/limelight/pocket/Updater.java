@@ -151,8 +151,14 @@ public final class Updater {
     }
 
     /** Downloads it (with progress), into the app's cache. */
-    public static void download(Context context, final Release r, final Progress p) {
+    public static synchronized void download(Context context, final Release r, final Progress p) {
+        if (BuildConfig.DEBUG || r == null || !HorizonUpdatePolicy.validSha(r.sha)
+                || !HorizonUpdatePolicy.allowedUrl(r.url)) {
+            MAIN.post(() -> p.onDone(null, "Invalid update or development build"));
+            return;
+        }
         if (downloading) {
+            MAIN.post(() -> p.onDone(null, "An update is already downloading"));
             return;
         }
         downloading = true;
@@ -172,18 +178,24 @@ public final class Updater {
                         f.delete();
                     }
                 }
-                out = new File(dir, "PocketNexus2-" + r.sha + ".apk");
+                out = new File(dir, "PocketNexus2-" + r.sha + ".apk.part");
                 HttpURLConnection con = open(r.url);
                 long total = con.getContentLengthLong() > 0 ? con.getContentLengthLong() : r.size;
                 long got = 0;
                 int lastPct = -1;
                 try (InputStream in = con.getInputStream(); OutputStream o = new FileOutputStream(out)) {
+                    if (total > HorizonUpdatePolicy.MAX_APK_BYTES) {
+                        throw new java.io.IOException("Update exceeds size limit");
+                    }
                     byte[] buf = new byte[1 << 16];
                     int n;
                     while ((n = in.read(buf)) > 0) {
+                        if (got + n > HorizonUpdatePolicy.MAX_APK_BYTES) {
+                            throw new java.io.IOException("Update exceeds size limit");
+                        }
                         o.write(buf, 0, n);
                         got += n;
-                        int pct = total > 0 ? (int) (got * 100 / total) : 0;
+                        int pct = total > 0 ? (int) Math.min(100, got * 100 / total) : 0;
                         if (pct != lastPct) {
                             lastPct = pct;
                             final int pp = pct;
@@ -193,11 +205,18 @@ public final class Updater {
                 } finally {
                     con.disconnect();
                 }
-                if (total > 0 && got < total) {
-                    throw new java.io.IOException("The download stopped early");
+                if (got == 0 || (total > 0 && got != total)) {
+                    throw new java.io.IOException("Update download size mismatch");
                 }
+                if (!validPackage(c, out)) {
+                    throw new java.io.IOException("Update package, version or signing certificate mismatch");
+                }
+                File verified = new File(dir, "PocketNexus2-" + r.sha + ".apk");
+                if (!out.renameTo(verified)) { throw new java.io.IOException("Could not finalize update"); }
+                out = verified;
             } catch (Exception e) {
                 error = e.getMessage() != null ? e.getMessage() : e.toString();
+                if (out != null) { out.delete(); }
                 out = null;
             }
             downloading = false;
@@ -209,17 +228,11 @@ public final class Updater {
 
     /** Hands the downloaded build to Android's installer (asking for the permission first if needed). */
     public static void install(Activity a, File apk) {
-        // Never hand an unrelated or older package to the installer.
-        if (BuildConfig.DEBUG || apk == null || !apk.isFile()) { return; }
-        android.content.pm.PackageManager pm = a.getPackageManager();
-        try {
-            android.content.pm.PackageInfo candidate = pm.getPackageArchiveInfo(apk.getAbsolutePath(), 0);
-            android.content.pm.PackageInfo current = pm.getPackageInfo(a.getPackageName(), 0);
-            if (candidate == null || !a.getPackageName().equals(candidate.packageName)) { return; }
-            long nextCode = Build.VERSION.SDK_INT >= 28 ? candidate.getLongVersionCode() : candidate.versionCode;
-            long currentCode = Build.VERSION.SDK_INT >= 28 ? current.getLongVersionCode() : current.versionCode;
-            if (nextCode <= currentCode) { return; }
-        } catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException e) { return; }
+        if (BuildConfig.DEBUG || apk == null || !apk.isFile() || !validPackage(a, apk)) {
+            android.widget.Toast.makeText(a, "Update package, version or signing certificate mismatch",
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
         if (Build.VERSION.SDK_INT >= 26 && !a.getPackageManager().canRequestPackageInstalls()) {
             // Android asks once: "allow Pocket Nexus to install apps"
             a.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -233,12 +246,46 @@ public final class Updater {
         a.startActivity(i);
     }
 
+    /** Strict same-current-signer policy; signing-key rotation requires a separate migration. */
+    @SuppressWarnings("deprecation")
+    private static boolean validPackage(Context c, File apk) {
+        android.content.pm.PackageManager pm = c.getPackageManager();
+        int flags = Build.VERSION.SDK_INT >= 28
+                ? android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+                : android.content.pm.PackageManager.GET_SIGNATURES;
+        try {
+            android.content.pm.PackageInfo next = pm.getPackageArchiveInfo(apk.getAbsolutePath(), flags);
+            android.content.pm.PackageInfo current = pm.getPackageInfo(c.getPackageName(), flags);
+            if (next == null || !c.getPackageName().equals(next.packageName)) { return false; }
+            long nextCode = Build.VERSION.SDK_INT >= 28 ? next.getLongVersionCode() : next.versionCode;
+            long currentCode = Build.VERSION.SDK_INT >= 28 ? current.getLongVersionCode() : current.versionCode;
+            if (nextCode <= currentCode) { return false; }
+            android.content.pm.Signature[] ns, cs;
+            if (Build.VERSION.SDK_INT >= 28) {
+                if (next.signingInfo == null || current.signingInfo == null) { return false; }
+                ns = next.signingInfo.getApkContentsSigners();
+                cs = current.signingInfo.getApkContentsSigners();
+            } else {
+                ns = next.signatures;
+                cs = current.signatures;
+            }
+            return ns != null && cs != null && ns.length > 0 && cs.length > 0
+                    && new java.util.HashSet<>(java.util.Arrays.asList(ns))
+                    .equals(new java.util.HashSet<>(java.util.Arrays.asList(cs)));
+        } catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException e) {
+            return false;
+        }
+    }
+
     // ---- The web -----------------------------------------------------------------------------
 
     /** Follows GitHub's redirects (to its file servers) by hand: Android doesn't across hosts. */
     private static HttpURLConnection open(String url) throws Exception {
         String at = url;
         for (int hop = 0; hop < 5; hop++) {
+            if (!HorizonUpdatePolicy.allowedUrl(at)) {
+                throw new java.io.IOException("Untrusted update endpoint");
+            }
             HttpURLConnection con = (HttpURLConnection) new URL(at).openConnection();
             con.setInstanceFollowRedirects(false);
             con.setConnectTimeout(15000);

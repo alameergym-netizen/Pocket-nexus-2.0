@@ -58,3 +58,6 @@ Horizon exports version 2 and accepts original Pocket Nexus version 1. All recog
 
 ## Smart streaming milestone
 Connection check no longer assumes 150 Mbps from a wired interface. Single-host TCP timing, link indications and VPN presence produce a conservative starting point capped at 25 Mbps, with thermal/battery-saver reductions. Explicit confirmation applies resolution, FPS and ordinary bitrate, leaving USB bitrate, codec and frame generation untouched. This is a heuristic, not a bandwidth benchmark, live adaptation or direct/relay classifier. Existing per-game and dock settings may override it.
+
+## Validation candidate — updater
+Development builds reject update downloads and installation. Release downloads accept HTTPS on explicitly allowed GitHub hosts, enforce a 512 MiB bound and remove incomplete files. The staged APK must match the installed package, have a greater version code and the same current signing certificate set before being renamed and again before installation. Android remains the final APK verifier. Key rotation is deliberately unsupported. Full Android CI and real-device validation are still required.
