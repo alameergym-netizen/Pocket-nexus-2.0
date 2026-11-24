@@ -106,6 +106,10 @@ public final class HorizonAudio {
         }
         if (!found) { rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_unavailable))); }
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_snapshot)));
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_route_title),
+                () -> showStreamRoute(a)));
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_buds_title),
+                () -> showBluetooth(a)));
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_audio_fx_title)));
         rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_audio_fx_title),
                 a.getString(com.limelight.pocket.PocketPrefs.prefs(a)
@@ -126,6 +130,89 @@ public final class HorizonAudio {
         } catch (RuntimeException ignored) {}
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_limit)));
         return rows;
+    }
+
+    private static void showStreamRoute(ConsoleActivity a) {
+        List<StreamMenuView.Item> rows = new ArrayList<>();
+        com.limelight.binding.audio.HorizonAudioRoute.Snapshot s =
+                com.limelight.binding.audio.HorizonAudioRoute.snapshot();
+        if (s == null) {
+            rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_route_inactive)));
+        } else {
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_actual),
+                    s.type < 0 ? a.getString(R.string.horizon_audio_unavailable)
+                            : a.getString(typeLabel(s.type)) + (s.name.isEmpty() ? "" : " · " + s.name)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_format),
+                    s.sampleRate + " Hz · " + a.getString(R.string.horizon_route_channels,s.channels)));
+            double ms = com.limelight.binding.audio.HorizonAudioRoute.bufferMs(s.bufferFrames,s.sampleRate);
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_buffer),
+                    ms < 0 ? a.getString(R.string.horizon_audio_unavailable)
+                            : a.getString(R.string.horizon_route_ms,ms)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_underruns),
+                    s.underruns < 0 ? a.getString(R.string.horizon_audio_unavailable) : Integer.toString(s.underruns)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_mode),
+                    a.getString(s.performanceMode < 0 ? R.string.horizon_audio_unavailable
+                            : s.performanceMode == 1 ? R.string.horizon_route_low_latency
+                            : s.performanceMode == 2 ? R.string.horizon_route_power_saving
+                            : R.string.horizon_route_standard)));
+        }
+        rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_route_note)));
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh), () -> showStreamRoute(a)));
+        a.showConsolePanel(a.getString(R.string.horizon_route_title),null,null,rows);
+    }
+
+    private static void showBluetooth(ConsoleActivity a) {
+        List<StreamMenuView.Item> rows = new ArrayList<>();
+        rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_note)));
+        boolean found = false;
+        if (Build.VERSION.SDK_INT >= 23) {
+            try {
+                AudioManager am = (AudioManager) a.getSystemService(Context.AUDIO_SERVICE);
+                if (am != null) {
+                    for (AudioDeviceInfo device : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                        int t = device.getType();
+                        if (t != AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                                && t != AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                                && t != AudioDeviceInfo.TYPE_BLE_HEADSET
+                                && t != AudioDeviceInfo.TYPE_BLE_SPEAKER
+                                && t != AudioDeviceInfo.TYPE_BLE_BROADCAST) { continue; }
+                        CharSequence raw = device.getProductName();
+                        String name = raw == null || raw.length() == 0
+                                ? a.getString(R.string.horizon_audio_unavailable) : raw.toString();
+                        String transport = t == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ? "A2DP"
+                                : t == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ? "SCO" : "Bluetooth LE";
+                        rows.add(StreamMenuView.Item.header(name));
+                        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_transport),transport));
+                        if (HorizonBudsPolicy.matches7i(name)) {
+                            rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_name_match)));
+                        }
+                        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_rates),
+                                capability(a,device.getSampleRates())));
+                        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_buds_channels),
+                                capability(a,device.getChannelCounts())));
+                        found = true;
+                    }
+                }
+            } catch (RuntimeException ignored) {}
+        }
+        if (!found) { rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_unavailable))); }
+        try {
+            Intent libre = a.getPackageManager().getLaunchIntentForPackage("io.github.librebuds");
+            if (libre != null) {
+                rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_buds_open_libre),() -> launch(a,libre)));
+            } else {
+                rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_libre_missing)));
+            }
+        } catch (RuntimeException ignored) {}
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_audio_bluetooth_settings),
+                () -> launch(a,new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh),() -> showBluetooth(a)));
+        a.showConsolePanel(a.getString(R.string.horizon_buds_title),null,null,rows);
+    }
+
+    private static String capability(Context c, int[] values) {
+        String result = HorizonBudsPolicy.positiveValues(values);
+        return result.isEmpty() ? c.getString(R.string.horizon_audio_unavailable) : result;
     }
 
     private static void showEffects(ConsoleActivity a) {
