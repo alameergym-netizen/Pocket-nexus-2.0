@@ -16,6 +16,18 @@ public final class HorizonLaunchTarget {
         return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.PC_STREAM,
                 uuid == null ? "" : uuid, Integer.toString(appId));
     }
+    /** Shortcut host/UUID identity without conflating UUID-only games with numeric app IDs. */
+    public static HorizonLaunchTarget pcShortcut(String host, String appUuid, int appId, String appName) {
+        if (appUuid == null || appUuid.isEmpty()) {
+            if (appId > 0) return pc(host, appId);
+        }
+        String h = host == null ? "" : host;
+        if (appUuid != null && !appUuid.isEmpty()) {
+            return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.PC_STREAM, h, "uuid", appUuid);
+        }
+        return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.PC_STREAM, h,
+                "shortcut", appName == null ? "" : appName);
+    }
     public static HorizonLaunchTarget cloud(String service, String url) {
         return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.CLOUD,
                 service == null ? "" : service, url == null ? "" : url);
