@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_dsp_title">Nexus stream EQ</string>
+    <string name="horizon_dsp_sub">Optional stereo-only software EQ for PC streaming, applied on the next stream. Uses gentle cuts and headroom, not a system-wide equalizer. Bypassed when external audio effects are enabled.</string>
+    <string name="horizon_dsp_bass">Bass restraint</string>
+    <string name="horizon_dsp_dialogue">Dialogue clarity</string>
+    <string name="horizon_dsp_treble">Soft treble</string>
+</resources>

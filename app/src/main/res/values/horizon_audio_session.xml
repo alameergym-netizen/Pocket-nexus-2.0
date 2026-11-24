@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_audio_fx_title">External audio effects session</string>
+    <string name="horizon_audio_fx_sub">Optional Android effect-session handoff for PC streaming. Applies on the next stream. May increase audio latency; effect apps and firmware may not support it.</string>
+    <string name="horizon_audio_effects_inventory">Available Android audio effects</string>
+    <string name="horizon_audio_effects_note">Effect engines reported by Android, not a list of active effects. Detection does not confirm JamesDSP compatibility or FreeBuds control.</string>
+</resources>

@@ -19,6 +19,9 @@ public class AndroidAudioRenderer implements AudioRenderer {
     private final boolean enableAudioFx;
 
     private AudioTrack track;
+    private HorizonStreamDsp dsp;
+    private short[] dspBuffer;
+    private int openedEffectSession = -1;
 
     public AndroidAudioRenderer(Context context, boolean enableAudioFx) {
         this.context = context;
@@ -66,6 +69,8 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public int setup(MoonBridge.AudioConfiguration audioConfiguration, int sampleRate, int samplesPerFrame) {
+        dsp = null;
+        dspBuffer = null;
         int channelConfig;
         int bytesPerFrame;
 
@@ -182,6 +187,18 @@ public class AndroidAudioRenderer implements AudioRenderer {
             return -2;
         }
 
+        // Software EQ is opt-in, stereo only and mutually exclusive with external DSP.
+        if (!enableAudioFx && samplesPerFrame > 0 && samplesPerFrame <= 8192) {
+            String mode = "off";
+            try {
+                mode = com.limelight.pocket.PocketPrefs.prefs(context)
+                        .getString(HorizonStreamDsp.KEY_PROFILE, "off");
+            } catch (ClassCastException ignored) {
+                // A malformed imported preference must never prevent stream startup.
+            }
+            dsp = HorizonStreamDsp.create(mode, sampleRate, audioConfiguration.channelCount);
+            if (dsp != null) { dspBuffer = new short[samplesPerFrame * 2]; }
+        }
         return 0;
     }
 
@@ -192,42 +209,78 @@ public class AndroidAudioRenderer implements AudioRenderer {
             // This will block until the write is completed. That can cause a backlog
             // of pending audio data, so we do the above check to be able to bound
             // latency at 40 ms in that situation.
-            track.write(audioData, 0, audioData.length);
+            AudioTrack output = track;
+            if (output == null || audioData == null) { return; }
+            short[] pcm = audioData;
+            HorizonStreamDsp eq = dsp;
+            short[] scratch = dspBuffer;
+            if (eq != null && scratch != null) {
+                if (eq.process(audioData,scratch)) { pcm = scratch; }
+                else { eq.reset(); } // Unexpected frame shape: bypass and clear filter history.
+            }
+            output.write(pcm, 0, audioData.length);
         }
         else {
+            // A dropped PCM block is a discontinuity; avoid reusing stale filter history.
+            HorizonStreamDsp eq = dsp;
+            if (eq != null) { eq.reset(); }
             LimeLog.info("Too much pending audio data: " + MoonBridge.getPendingAudioDuration() +" ms");
         }
     }
 
     @Override
     public void start() {
-        if (enableAudioFx) {
-            // Open an audio effect control session to allow equalizers to apply audio effects
-            Intent i = new Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION);
-            i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, track.getAudioSessionId());
-            i.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.getPackageName());
-            i.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_GAME);
-            context.sendBroadcast(i);
+        if (enableAudioFx && track != null && openedEffectSession < 0) {
+            int session = track.getAudioSessionId();
+            if (session <= 0) { return; }
+            try {
+                Intent i = new Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION);
+                i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, session);
+                i.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.getPackageName());
+                i.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_GAME);
+                context.sendBroadcast(i);
+                openedEffectSession = session;
+            } catch (RuntimeException e) {
+                LimeLog.info("Audio effect session could not be opened");
+            }
         }
     }
 
     @Override
     public void stop() {
-        if (enableAudioFx) {
-            // Close our audio effect control session when we're stopping
+        closeEffectSession();
+    }
+
+    private void closeEffectSession() {
+        int session = openedEffectSession;
+        openedEffectSession = -1;
+        if (session <= 0) { return; }
+        try {
             Intent i = new Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION);
-            i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, track.getAudioSessionId());
+            i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, session);
             i.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.getPackageName());
             context.sendBroadcast(i);
+        } catch (RuntimeException e) {
+            LimeLog.info("Audio effect session could not be closed");
         }
     }
 
     @Override
     public void cleanup() {
-        // Immediately drop all pending data
-        track.pause();
-        track.flush();
-
-        track.release();
+        closeEffectSession();
+        // Immediately drop pending data, even if setup did not finish.
+        AudioTrack closing = track;
+        track = null;
+        dsp = null;
+        dspBuffer = null;
+        if (closing != null) {
+            try {
+                closing.pause();
+                closing.flush();
+            } catch (RuntimeException ignored) {
+            } finally {
+                closing.release();
+            }
+        }
     }
 }
