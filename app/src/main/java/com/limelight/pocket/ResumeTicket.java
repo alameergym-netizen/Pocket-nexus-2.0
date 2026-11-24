@@ -46,7 +46,8 @@ public final class ResumeTicket {
     private static final long QUALITY_MAX_AGE_MS = 60 * 1000L;
 
     private static Bundle memoryExtras;
-    private static long stopStartedAt;
+    private static final com.limelight.pocket.core.HorizonShutdownBarrier SHUTDOWN =
+            new com.limelight.pocket.core.HorizonShutdownBarrier();
 
     private static SharedPreferences prefs(Context c) {
         return c.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -164,17 +165,17 @@ public final class ResumeTicket {
 
     // ---- The previous stream's shutdown (so the next one doesn't race it) ----------------
 
-    public static void markStopStarted() {
-        stopStartedAt = SystemClock.elapsedRealtime();
+    public static long markStopStarted() {
+        return SHUTDOWN.begin(SystemClock.elapsedRealtime());
     }
 
-    public static void markStopFinished() {
-        stopStartedAt = 0;
+    public static void markStopFinished(long owner) {
+        SHUTDOWN.finish(owner);
     }
 
-    /** True while the last stream is still saying goodbye to the PC (at most a few seconds). */
+    /** Bounded UI wait only; native connection exclusivity is enforced separately. */
     public static boolean isPreviousStreamStopping() {
-        return stopStartedAt != 0 && SystemClock.elapsedRealtime() - stopStartedAt < 5000;
+        return SHUTDOWN.waiting(SystemClock.elapsedRealtime());
     }
 
     // ---- Storage ------------------------------------------------------------------------
