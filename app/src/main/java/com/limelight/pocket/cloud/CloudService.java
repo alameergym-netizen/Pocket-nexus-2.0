@@ -60,18 +60,8 @@ public final class CloudService {
             R.string.pocket_cloud_boosteroid_about, "https://cloud.boosteroid.com",
             new String[] {"com.boosteroid.streaming"}, CloudPlayerActivity.Boosteroid.class, 0xFF5B3CC4);
 
-    // The apps' own web clients (theirs, not remade): signed in once, each in its own process
-    public static final CloudService DISCORD = new CloudService("discord", R.string.pocket_cloud_discord,
-            R.string.pocket_cloud_discord_about, "https://discord.com/app",
-            new String[] {"com.discord"}, CloudPlayerActivity.Discord.class, 0xFF5865F2, true, "CHAT");
-    public static final CloudService YT_MUSIC = new CloudService("ytmusic", R.string.pocket_cloud_ytmusic,
-            R.string.pocket_cloud_ytmusic_about, "https://music.youtube.com",
-            new String[] {"com.google.android.apps.youtube.music"}, CloudPlayerActivity.YtMusic.class, 0xFFE01B1B, true, "MUSIC");
-    public static final CloudService SPOTIFY = new CloudService("spotify", R.string.pocket_cloud_spotify,
-            R.string.pocket_cloud_spotify_about, "https://open.spotify.com",
-            new String[] {"com.spotify.music"}, CloudPlayerActivity.Spotify.class, 0xFF1DB954, true, "MUSIC");
-
-    public static final CloudService[] ALL = {XCLOUD, GFN, BOOSTEROID, DISCORD, YT_MUSIC, SPOTIFY};
+    /** Cloud gaming only (media and chat apps are the Apps section's Media shelf: their own apps). */
+    public static final CloudService[] ALL = {XCLOUD, GFN, BOOSTEROID};
 
     public static CloudService byId(String id) {
         for (CloudService s : ALL) {

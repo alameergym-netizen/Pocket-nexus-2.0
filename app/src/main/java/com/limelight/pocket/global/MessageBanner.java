@@ -129,6 +129,71 @@ public final class MessageBanner {
         MAIN.postDelayed(HIDE, SHOW_MS);
     }
 
+    private static final String IN_APP = "pocket.inapp.banner";
+
+    /**
+     * The same card inside one of this app's screens (no overlay needed): any notification while
+     * a console screen is up, whole (the system's little toast cut it to the app and a title).
+     * Pressing it opens what it's about; it leaves by itself.
+     */
+    public static void showIn(final android.app.Activity a, final PocketNotifications.Note n) {
+        if (a == null || n == null || a.isFinishing()) {
+            return;
+        }
+        final ViewGroup content = a.findViewById(android.R.id.content);
+        if (content == null) {
+            return;
+        }
+        final float d = a.getResources().getDisplayMetrics().density;
+        View old = content.findViewWithTag(IN_APP);
+        if (old != null) {
+            content.removeView(old);
+        }
+        final View v = build(a, n, d, false);
+        v.setTag(IN_APP);
+        v.setElevation(60 * d);
+        v.setClickable(true);
+        v.setOnClickListener(x -> {
+            content.removeView(v);
+            if (n.canReply()) {
+                QuickReplyActivity.open(a, n);
+            }
+            else {
+                PocketNotifications.open(a, n);
+            }
+        });
+        int w = Math.min(Math.round(520 * d), a.getResources().getDisplayMetrics().widthPixels - Math.round(32 * d));
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        lp.topMargin = Math.round(10 * d);
+        content.addView(v, lp);
+        final View inner = ((ViewGroup) v).getChildAt(0);
+        final boolean motion = PocketPrefs.animationsEnabled(a);
+        if (motion) {
+            inner.setTranslationY(-90 * d);
+            inner.setAlpha(0f);
+            inner.setScaleX(0.94f);
+            inner.setScaleY(0.94f);
+            inner.animate().translationY(0).alpha(1f).scaleX(1f).scaleY(1f).setDuration(420)
+                    .setInterpolator(Spring.POP).start();
+        }
+        // Long ones stay a little longer: time to read them
+        long ms = SHOW_MS - 2000 + Math.min(4000, (n.title.length() + n.text.length()) * 25L);
+        v.postDelayed(() -> {
+            if (v.getParent() == null) {
+                return;
+            }
+            if (motion) {
+                inner.animate().translationY(-90 * d).alpha(0f).setDuration(260)
+                        .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                        .withEndAction(() -> content.removeView(v)).start();
+            }
+            else {
+                content.removeView(v);
+            }
+        }, ms);
+    }
+
     public static void hide(boolean animate) {
         MAIN.removeCallbacks(HIDE);
         final View v = card;
@@ -245,7 +310,7 @@ public final class MessageBanner {
         title.setTypeface(PocketFonts.semibold());
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f);
         title.setTextColor(0xFFFFFFFF);
-        title.setMaxLines(1);
+        title.setMaxLines(2);
         title.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -256,7 +321,8 @@ public final class MessageBanner {
         text.setTypeface(PocketFonts.regular());
         text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         text.setTextColor(0xD9FFFFFF);
-        text.setMaxLines(2);
+        // The whole message, not its first line: up to five lines (a long one ends in "...")
+        text.setMaxLines(5);
         text.setEllipsize(TextUtils.TruncateAt.END);
         text.setLineSpacing(0, 1.12f);
         words.addView(text);

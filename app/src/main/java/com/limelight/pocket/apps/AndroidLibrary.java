@@ -32,11 +32,14 @@ public final class AndroidLibrary {
         public final String packageName;
         public final String label;
         public final int type;
+        /** Music, video, streaming or chat (the Apps section's Media shelf). */
+        public final boolean media;
 
-        InstalledApp(String packageName, String label, int type) {
+        InstalledApp(String packageName, String label, int type, boolean media) {
             this.packageName = packageName;
             this.label = label;
             this.type = type;
+            this.media = media;
         }
     }
 
@@ -92,8 +95,9 @@ public final class AndroidLibrary {
             }
             CharSequence label = ri.loadLabel(pm);
             ApplicationInfo ai = ri.activityInfo.applicationInfo;
-            out.add(new InstalledApp(pkg, label != null ? label.toString() : pkg,
-                    AndroidAppsActivity.typeOf(pkg, label, ai)));
+            int type = AndroidAppsActivity.typeOf(pkg, label, ai);
+            out.add(new InstalledApp(pkg, label != null ? label.toString() : pkg, type,
+                    AndroidAppsActivity.isMedia(pkg, label, ai, type)));
         }
         return out;
     }

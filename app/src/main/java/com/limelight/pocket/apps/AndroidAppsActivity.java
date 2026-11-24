@@ -75,7 +75,10 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     private static final int FILTER_SETTINGS = 3;
     /** Pocket Nexus's own apps (Music, Files, the browser ...). */
     private static final int FILTER_NEXUS = 4;
-    private static final int FILTER_COUNT = 4;
+    /** Music, video and chat apps installed on the handheld (SimpMusic, StreamTube, Discord...). */
+    private static final int FILTER_MEDIA = 5;
+    /** What L2 / R2 step through, in order. */
+    private static final int[] FILTER_CYCLE = {FILTER_ALL, FILTER_MEDIA, FILTER_GAMES, FILTER_EMULATORS, FILTER_SETTINGS};
 
     static final int TYPE_APP = 0;
     static final int TYPE_GAME = 1;
@@ -87,6 +90,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     private static final String DRAWER = "pocket:all_apps";
     /** The card that shows Pocket Nexus's own apps (the Nexus filter). */
     private static final String NEXUS_GROUP = "pocket:nexus";
+    /** The card that opens the Media shelf. */
+    private static final String MEDIA_GROUP = "pocket:media";
     private static final String NEXUS = "nexus:";
 
     public static void open(Activity from) {
@@ -103,6 +108,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         final String settingsAction;
         final int settingsIcon;
         long used;
+        /** On the Media shelf (every installed media app, picked for the library or not). */
+        boolean media;
 
         Entry(String key, String label, int type, String packageName, String settingsAction, int settingsIcon) {
             this.key = key;
@@ -277,6 +284,21 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 }
                 return a.label.compareToIgnoreCase(b.label);
             });
+            // The Media shelf: every music, video and chat app on the handheld, last used first
+            List<Entry> media = new ArrayList<>();
+            for (AndroidLibrary.InstalledApp a : AndroidLibrary.installed(this)) {
+                if (!a.media) {
+                    continue;
+                }
+                Entry e = new Entry("media:" + a.packageName, PocketPrefs.customName(this, AndroidLibrary.UUID,
+                        AndroidLibrary.idFor(a.packageName), a.label), TYPE_APP, a.packageName, null, 0);
+                e.media = true;
+                e.used = PocketPrefs.prefs(this).getLong(KEY_USED + a.packageName, 0);
+                media.add(e);
+            }
+            Collections.sort(media, (a, b) -> a.used != b.used ? Long.compare(b.used, a.used)
+                    : a.label.compareToIgnoreCase(b.label));
+            apps.addAll(media);
             apps.addAll(settingsEntries());
             // (Pocket Nexus's own apps live on Home's dock, not here)
             main.post(() -> {
@@ -309,6 +331,50 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             "com.mobilegame", "info.cemu", "com.seleuco.mame4droid", "org.devmiyax.yabasanshiro",
             "com.reicast", "com.virtualapplications.play", "io.github.mandarine3ds", "org.panda3ds",
     };
+
+    /** Music, video, live streaming and chat apps (by package, Android's category or the name). */
+    private static final String[] MEDIA_PACKAGES = {
+            "com.maxrave.simpmusic", "org.schabi.newpipe", "org.polymorphicshade.tubular", "com.github.libretube",
+            "jp.nonbili.noutube", "com.liskovsoft.smarttubetv", "app.revanced.android.youtube",
+            "app.revanced.android.apps.youtube.music", "app.rvx.android.youtube", "com.google.android.youtube",
+            "com.google.android.apps.youtube.music", "com.spotify.music", "com.discord", "tv.twitch.android.app",
+            "com.netflix.mediaclient", "com.amazon.avod.thirdpartyclient", "com.disney.disneyplus", "com.plexapp.android",
+            "org.jellyfin.mobile", "org.jellyfin.androidtv", "org.xbmc.kodi", "org.videolan.vlc", "is.xyz.mpv",
+            "com.mxtech.videoplayer", "com.crunchyroll.crunchyroid", "com.apple.android.music", "deezer.android.app",
+            "com.soundcloud.android", "com.anghami", "net.mbc.shahid", "com.stremio.one", "com.zionhuang.music",
+            "it.vfsfitvnm.vimusic", "com.metrolist.music", "com.dd3boh.outertune", "org.telegram.messenger",
+            "com.whatsapp", "com.google.android.apps.youtube.kids", "com.kick.mobile", "com.hbo.hbonow",
+            "com.wbd.stream", "com.osnplus.mobile",
+    };
+    private static final String[] MEDIA_WORDS = {"tube", "music", "stream", "radio", "podcast", "player", "anime", "tv"};
+
+    static boolean isMedia(String pkg, CharSequence label, ApplicationInfo ai, int type) {
+        if (type == TYPE_GAME || type == TYPE_EMULATOR) {
+            return false;
+        }
+        String p = pkg.toLowerCase(Locale.ROOT);
+        for (String m : MEDIA_PACKAGES) {
+            if (p.startsWith(m)) {
+                return true;
+            }
+        }
+        if (ai != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && (ai.category == ApplicationInfo.CATEGORY_AUDIO || ai.category == ApplicationInfo.CATEGORY_VIDEO
+                || ai.category == ApplicationInfo.CATEGORY_SOCIAL)) {
+            return true;
+        }
+        String l = label != null ? label.toString().toLowerCase(Locale.ROOT) : "";
+        if (p.contains("moonlight") || p.contains("artemis") || p.contains("steamlink") || p.contains("chiaki")
+                || p.contains("xstreaming") || p.contains("gamepass") || p.contains("geforcenow")) {
+            return false; // game streaming: not media
+        }
+        for (String w : MEDIA_WORDS) {
+            if (w.equals("tv") ? l.matches(".*\\btv\\b.*") : l.contains(w)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     static int typeOf(String pkg, CharSequence label, ApplicationInfo ai) {
         String p = pkg.toLowerCase(Locale.ROOT);
@@ -369,6 +435,12 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     }
 
     private boolean matches(Entry e) {
+        if (filter == FILTER_MEDIA) {
+            return e.media;
+        }
+        if (e.media) {
+            return false;
+        }
         switch (filter) {
             case FILTER_NEXUS:
                 return e.type == TYPE_NEXUS;
@@ -392,6 +464,16 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
             }
         }
         if (filter == FILTER_ALL) {
+            int mediaCount = 0;
+            for (Entry e : all) {
+                if (e.media) {
+                    mediaCount++;
+                }
+            }
+            if (mediaCount > 0) {
+                shown.add(new Entry("mediagroup", getString(R.string.pocket_apps_media_card, mediaCount), TYPE_SETTING,
+                        null, MEDIA_GROUP, android.R.drawable.ic_media_play));
+            }
             shown.add(new Entry("drawer", getString(R.string.pocket_drawer_title), TYPE_SETTING, null, DRAWER,
                     R.drawable.ic_pocket_all_apps));
         }
@@ -465,6 +547,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 return R.string.pocket_apps_filter_settings;
             case FILTER_NEXUS:
                 return R.string.pocket_apps_filter_nexus;
+            case FILTER_MEDIA:
+                return R.string.pocket_apps_filter_media;
             default:
                 return R.string.pocket_apps_filter_all;
         }
@@ -675,7 +759,11 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
         if (e == null) {
             return;
         }
-        if (e.packageName != null && e.type != TYPE_SETTING && e.type != TYPE_NEXUS) {
+        if (e.media) {
+            // A media app: straight in (its page is still on Start / the menu)
+            open(e);
+        }
+        else if (e.packageName != null && e.type != TYPE_SETTING && e.type != TYPE_NEXUS) {
             openPage(e);
         }
         else {
@@ -707,6 +795,12 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                 return;
             }
             if (e.type == TYPE_SETTING) {
+                if (MEDIA_GROUP.equals(e.settingsAction)) {
+                    filter = FILTER_MEDIA;
+                    PocketSounds.play(this, PocketSounds.NAV);
+                    show();
+                    return;
+                }
                 if (NEXUS_GROUP.equals(e.settingsAction)) {
                     // The Nexus filter: Pocket Nexus's own apps
                     filter = FILTER_NEXUS;
@@ -860,7 +954,13 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     /** L2 / R2: what the row shows (all, games, emulators, the device's settings). */
     @Override
     protected boolean onTrigger(int direction) {
-        filter = (filter + direction + FILTER_COUNT) % FILTER_COUNT;
+        int at = 0;
+        for (int i = 0; i < FILTER_CYCLE.length; i++) {
+            if (FILTER_CYCLE[i] == filter) {
+                at = i;
+            }
+        }
+        filter = FILTER_CYCLE[(at + direction + FILTER_CYCLE.length) % FILTER_CYCLE.length];
         PocketSounds.play(this, PocketSounds.NAV);
         show();
         TextView section = findViewById(R.id.pocketSectionTitle);

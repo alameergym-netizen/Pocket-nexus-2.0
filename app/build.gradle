@@ -189,6 +189,8 @@ dependencies {
     implementation 'androidx.media3:media3-session:1.5.1'
     // Pocket Nexus: cloud gaming and sign-ins in a real browser tab (Google's sign-in, the mic)
     implementation 'androidx.browser:browser:1.8.0'
+    // Better xCloud runs from the very start of xbox.com's pages (a document-start script)
+    implementation 'androidx.webkit:webkit:1.11.0'
 
     // Unit test dependencies
     testImplementation 'junit:junit:4.13.2'

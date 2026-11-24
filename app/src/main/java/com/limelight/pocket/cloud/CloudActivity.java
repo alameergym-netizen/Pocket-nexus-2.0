@@ -265,6 +265,40 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
         return false;
     }
 
+    /**
+     * Better xCloud (redphx's, MIT) in the built-in player: on or off, fetched again on request,
+     * the version kept, and where its own settings are.
+     */
+    private void addBetterXcloud(List<StreamMenuView.Item> items, final CloudService s) {
+        items.add(StreamMenuView.Item.value(getString(R.string.pocket_bx_title), onOff(BetterXcloud.enabled(this)),
+                direction -> {
+                    boolean on = !BetterXcloud.enabled(this);
+                    BetterXcloud.setEnabled(this, on);
+                    PocketSounds.play(this, on ? PocketSounds.TOGGLE_ON : PocketSounds.TOGGLE_OFF);
+                    if (on && BetterXcloud.version(this) == null) {
+                        BetterXcloud.fetch(this, null);
+                    }
+                    if (s.isRunning(this)) {
+                        Toast.makeText(this, R.string.pocket_bx_next_start, Toast.LENGTH_LONG).show();
+                    }
+                    heroPos = -1;
+                    updateHero(Math.max(0, java.util.Arrays.asList(CloudService.ALL).indexOf(s)));
+                    return onOff(on);
+                }).withIcon("SPARKLE"));
+        items.add(StreamMenuView.Item.action(getString(R.string.pocket_bx_update), () -> {
+            Toast.makeText(this, R.string.pocket_bx_fetching, Toast.LENGTH_SHORT).show();
+            BetterXcloud.fetch(this, ok -> Toast.makeText(this, ok
+                    ? getString(R.string.pocket_bx_updated, String.valueOf(BetterXcloud.version(this)))
+                    : getString(R.string.pocket_bx_fetch_failed), Toast.LENGTH_LONG).show());
+        }));
+        String v = BetterXcloud.version(this);
+        items.add(StreamMenuView.Item.note(getString(R.string.pocket_bx_note, v != null ? v : "\u2014")));
+    }
+
+    private String onOff(boolean on) {
+        return getString(on ? R.string.pocket_on : R.string.pocket_off);
+    }
+
     /** Which way it's played, picked from what's on the handheld. */
     private void pushClients(final CloudService s) {
         List<StreamMenuView.Item> items = new ArrayList<>();
@@ -308,6 +342,7 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
                 hideConsolePanel();
                 CloudGamesActivity.open(this);
             }).withIcon("GAMEPAD"));
+            addBetterXcloud(items, s);
         }
         items.add(StreamMenuView.Item.submenu(getString(R.string.pocket_cloud_play_with), () -> pushClients(s))
                 .withValue(CloudClients.preferred(this, s).label));

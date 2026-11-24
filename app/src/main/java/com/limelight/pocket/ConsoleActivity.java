@@ -132,7 +132,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                 && getIntent() != null && Intent.ACTION_MAIN.equals(getIntent().getAction());
         if (bootOnLaunch) {
             // A fresh launch of the app: the boot plays once (on whichever screen comes up first)
-            introShown = false;
+            bootPending = true;
         }
         PocketSounds.preload(this);
         applyFullscreenWindow(this);
@@ -518,8 +518,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         // A notification that comes in while a console screen is up: a short note about it
         com.limelight.pocket.device.PocketNotifications.setListener(note -> {
             if (!isFinishing() && PocketPrefs.prefs(this).getBoolean("pocket_announce_notifications", true)) {
-                String line = note.app + ": " + (note.title.isEmpty() ? note.text : note.title);
-                android.widget.Toast.makeText(this, line, android.widget.Toast.LENGTH_SHORT).show();
+                // The whole notification, in the console's own card (a toast cut it short)
+                com.limelight.pocket.global.MessageBanner.showIn(this, note);
             }
         });
         if ((createdWithScale != 0 && createdWithScale != PocketPrefs.uiScalePercent(this))
@@ -885,7 +885,13 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     // ---- Boot sequence (once per app start) -----------------------------------------------
 
-    private static boolean introShown;
+    /**
+     * The app was just launched (its icon, the device's home): the boot is owed once. Nothing
+     * else plays it: not a section opening, not a screen Android brings back after it closed the
+     * app in the background to free memory (a new process, where a plain "not shown yet" flag
+     * would be false again and the boot would replay over Streaming).
+     */
+    private static boolean bootPending;
     /** This screen was just launched fresh (from the app icon): it opens with the boot sequence. */
     private boolean bootOnLaunch;
     private com.limelight.pocket.ui.BootOverlay bootOverlay;
@@ -898,10 +904,10 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     private void maybeShowIntro() {
         // Once per launch of the app, on the first screen that stays; never again when coming
         // back to a screen (a section, a game, a menu)
-        if (introShown || !allowsAutoResume() || deferIntro() || PreviewSeed.skipsBoot(this)) {
+        if (!bootPending || !allowsAutoResume() || deferIntro() || PreviewSeed.skipsBoot(this)) {
             return;
         }
-        introShown = true;
+        bootPending = false;
         bootOnLaunch = false;
         if (!PocketPrefs.introAnimation(this) || !PocketPrefs.animationsEnabled(this)) {
             return;

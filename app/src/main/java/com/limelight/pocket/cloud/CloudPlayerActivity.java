@@ -67,31 +67,10 @@ public abstract class CloudPlayerActivity extends Activity {
         }
     }
 
-    /** Discord's own web client (chat and voice). */
-    public static final class Discord extends CloudPlayerActivity {
-        @Override
-        protected CloudService service() {
-            return CloudService.DISCORD;
-        }
-    }
-
-    /** YouTube Music's own web player. */
-    public static final class YtMusic extends CloudPlayerActivity {
-        @Override
-        protected CloudService service() {
-            return CloudService.YT_MUSIC;
-        }
-    }
-
-    /** Spotify's own web player. */
-    public static final class Spotify extends CloudPlayerActivity {
-        @Override
-        protected CloudService service() {
-            return CloudService.SPOTIFY;
-        }
-    }
-
     protected abstract CloudService service();
+
+    /** Better xCloud for a WebView too old to run it at each page's start: run as each starts. */
+    private String[] lateScripts;
 
     /** An app's web client: a pointer for the controller (null for game streams). */
     private com.limelight.pocket.browser.WebPointer pointer;
@@ -151,14 +130,41 @@ public abstract class CloudPlayerActivity extends Activity {
             pointer = new com.limelight.pocket.browser.WebPointer(this, web);
             root.addView(pointer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
-            // Music keeps playing and voice keeps talking while a game is played
-            WebClientKeepAlive.start(this, service());
         }
         setContentView(root);
         configure();
         String start = getIntent() != null ? getIntent().getStringExtra(EXTRA_URL) : null;
+        final String first = start != null && !start.isEmpty() ? start : service().url;
+        // Xbox Cloud Gaming with Better xCloud: it runs from the very start of each page
+        boolean better = service() == CloudService.XCLOUD && BetterXcloud.enabled(this);
+        String script = better ? BetterXcloud.cached(this) : null;
+        if (script != null && !BetterXcloud.install(web, script)) {
+            lateScripts = BetterXcloud.lateScripts(script);
+        }
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) {
-            web.loadUrl(start != null && !start.isEmpty() ? start : service().url);
+            if (better && script == null) {
+                // The first time: fetched from its official releases first (a few seconds)
+                Toast.makeText(this, R.string.pocket_bx_fetching, Toast.LENGTH_SHORT).show();
+                BetterXcloud.fetch(this, ok -> {
+                    if (isFinishing() || web == null) {
+                        return;
+                    }
+                    String got = ok ? BetterXcloud.cached(this) : null;
+                    if (got != null && !BetterXcloud.install(web, got)) {
+                        lateScripts = BetterXcloud.lateScripts(got);
+                    }
+                    if (got == null) {
+                        Toast.makeText(this, R.string.pocket_bx_fetch_failed, Toast.LENGTH_LONG).show();
+                    }
+                    web.loadUrl(first);
+                });
+            }
+            else {
+                web.loadUrl(first);
+            }
+        }
+        if (script != null) {
+            BetterXcloud.refreshIfOld(this);
         }
         web.requestFocus();
         Toast.makeText(this, service().app ? R.string.pocket_cloud_app_tip : R.string.pocket_cloud_menu_tip,
@@ -222,6 +228,17 @@ public abstract class CloudPlayerActivity extends Activity {
             }
         });
         web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                String[] late = lateScripts;
+                if (late != null && BetterXcloud.isItsPage(url)) {
+                    for (String js : late) {
+                        view.evaluateJavascript(js, null);
+                    }
+                }
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri u = request.getUrl();
@@ -375,7 +392,6 @@ public abstract class CloudPlayerActivity extends Activity {
             web = null;
         }
         if (service().app) {
-            WebClientKeepAlive.stop(this);
         }
         super.onDestroy();
         if (closing) {

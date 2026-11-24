@@ -1787,4 +1787,14 @@
     <string name="pocket_set_signin_helper">Start at the Windows sign-in screen</string>
     <string name="pocket_set_signin_helper_sub">Off (recommended): every stream goes straight to the virtual display, as in Artemis. On: when the PC seems to be at its sign-in screen, the stream shows its own screen first and moves to the virtual display after you sign in.</string>
     <string name="pocket_header_app_about">About</string>
+    <string name="pocket_bx_title">Better xCloud</string>
+    <string name="pocket_bx_update">Get the newest Better xCloud</string>
+    <string name="pocket_bx_fetching">Getting Better xCloud from its official GitHub releases…</string>
+    <string name="pocket_bx_fetch_failed">Couldn\'t get Better xCloud (no connection?). Xbox Cloud Gaming opens without it this time.</string>
+    <string name="pocket_bx_updated">Better xCloud %1$s is ready (used from the next start)</string>
+    <string name="pocket_bx_next_start">Takes effect the next time Xbox Cloud Gaming starts (close it from this menu first)</string>
+    <string name="pocket_bx_note">Better xCloud %1$s, by redphx (MIT license), fetched from its official GitHub releases and kept up to date by itself. It runs in the built-in player; its own settings (resolution, codec, bit rate, sharpness, stats, controller) are behind its button at the top of xCloud\'s page.</string>
+    <string name="pocket_cloud_with_builtin_bx">Pocket Nexus player + Better xCloud</string>
+    <string name="pocket_apps_filter_media">Media</string>
+    <string name="pocket_apps_media_card">Media · %1$d apps</string>
 </resources>

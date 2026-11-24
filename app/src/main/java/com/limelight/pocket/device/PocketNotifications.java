@@ -34,7 +34,7 @@ public class PocketNotifications extends NotificationListenerService {
         public final String packageName;
         public final String app;
         public final String title;
-        public final String text;
+        public String text;
         public final long when;
         public final boolean clearable;
         final PendingIntent open;
@@ -217,8 +217,29 @@ public class PocketNotifications extends NotificationListenerService {
         Bundle extras = n.extras;
         CharSequence title = extras != null ? extras.getCharSequence(Notification.EXTRA_TITLE) : null;
         CharSequence text = extras != null ? extras.getCharSequence(Notification.EXTRA_TEXT) : null;
-        if (extras != null && text == null) {
-            text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT);
+        if (extras != null) {
+            // The whole of it: the expanded title and text (what the shade shows when opened),
+            // or an inbox's lines, rather than the one-line summary the collapsed view shows
+            CharSequence bigTitle = extras.getCharSequence(Notification.EXTRA_TITLE_BIG);
+            if (longer(bigTitle, title)) {
+                title = bigTitle;
+            }
+            CharSequence big = extras.getCharSequence(Notification.EXTRA_BIG_TEXT);
+            if (longer(big, text)) {
+                text = big;
+            }
+            CharSequence[] lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
+            if (lines != null && lines.length > 0) {
+                StringBuilder all = new StringBuilder();
+                for (CharSequence l : lines) {
+                    if (l != null && l.length() > 0) {
+                        all.append(all.length() > 0 ? "\n" : "").append(l);
+                    }
+                }
+                if (longer(all, text)) {
+                    text = all.toString();
+                }
+            }
         }
         if (title == null && text == null) {
             return null;
@@ -269,6 +290,10 @@ public class PocketNotifications extends NotificationListenerService {
                 }
                 if (!msgs.isEmpty()) {
                     androidx.core.app.NotificationCompat.MessagingStyle.Message last = msgs.get(msgs.size() - 1);
+                    // The newest message whole (the summary line can be cut or say "2 new messages")
+                    if (last.getText() != null && last.getText().length() > 0) {
+                        note.text = last.getText().toString();
+                    }
                     note.fromMe = last.getPerson() == null
                             || (ms.getUser() != null && ms.getUser().getName() != null && last.getPerson().getName() != null
                             && ms.getUser().getName().toString().equals(last.getPerson().getName().toString())
@@ -278,6 +303,10 @@ public class PocketNotifications extends NotificationListenerService {
         } catch (RuntimeException ignored) {
         }
         return note;
+    }
+
+    private static boolean longer(CharSequence a, CharSequence b) {
+        return a != null && a.toString().trim().length() > (b != null ? b.toString().trim().length() : 0);
     }
 
     /** The notifications now, newest first (empty without access). */

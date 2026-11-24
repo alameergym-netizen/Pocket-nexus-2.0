@@ -79,7 +79,7 @@ public final class CloudClients {
         if (browser != null) {
             out.add(new Client(BROWSER, browser, c.getString(R.string.pocket_cloud_with_browser, label(pm, browser))));
         }
-        out.add(new Client(BUILT_IN, null, c.getString(R.string.pocket_cloud_with_builtin)));
+        out.add(builtIn(c, s));
         return out;
     }
 
@@ -121,6 +121,10 @@ public final class CloudClients {
                 }
             }
         }
+        if (s == CloudService.XCLOUD && BetterXcloud.enabled(c)) {
+            // Better xCloud lives in the built-in player: that one, unless another was picked
+            return all.get(all.size() - 1);
+        }
         return all.get(0);
     }
 
@@ -137,6 +141,13 @@ public final class CloudClients {
     /** Pocket Nexus's own player, or Chrome (when Google's sign-in is needed). */
     public static Client builtIn(Context c) {
         return new Client(BUILT_IN, null, c.getString(R.string.pocket_cloud_with_builtin));
+    }
+
+    /** The built-in player, named with Better xCloud for Xbox Cloud Gaming when that's on. */
+    static Client builtIn(Context c, CloudService s) {
+        boolean bx = s == CloudService.XCLOUD && BetterXcloud.enabled(c);
+        return new Client(BUILT_IN, null, c.getString(bx ? R.string.pocket_cloud_with_builtin_bx
+                : R.string.pocket_cloud_with_builtin));
     }
 
     public static Client browserClient(Context c) {
