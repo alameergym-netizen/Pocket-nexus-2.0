@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FILES = (
     "pc-setup/PocketNexus-PC.bat",
     "pc-setup/PocketNexus-PC.ps1",
+    "pc-setup/NexusSecureHost.cs",
     "pc-setup/README.txt",
     "pc-setup/Test-NexusUpgrade.ps1",
     "pc-setup/other-handhelds/ArtemisPocket-USB-Setup.bat",

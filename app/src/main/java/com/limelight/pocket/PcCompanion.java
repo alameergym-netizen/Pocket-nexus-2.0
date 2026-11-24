@@ -398,7 +398,7 @@ public final class PcCompanion {
                     throw new java.net.SocketTimeoutException("Companion frame deadline");
                 }
                 return b;
-            });
+            }, MAX_RESPONSE_BYTES);
             return line;
         } finally {
             if (configured[0] != original && !socket.isClosed()) { socket.setSoTimeout(original); }
@@ -407,10 +407,14 @@ public final class PcCompanion {
 
     /** A long response is one frame, not a series of fabricated messages. */
     static String readLine(InputStream in) throws IOException {
-        return readFrame(in::read);
+        return readLine(in, MAX_RESPONSE_BYTES);
     }
 
-    private static String readFrame(ByteReader in) throws IOException {
+    static String readLine(InputStream in, int maxBytes) throws IOException {
+        return readFrame(in::read, maxBytes);
+    }
+
+    private static String readFrame(ByteReader in, int maxBytes) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
         boolean cr = false;
         while (true) {
@@ -427,7 +431,7 @@ public final class PcCompanion {
             }
             if (cr || b == 0) { throw new IOException("Invalid companion response framing"); }
             if (b == '\r') { cr = true; continue; }
-            if (line.size() >= MAX_RESPONSE_BYTES) { throw new IOException("Companion response too long"); }
+            if (line.size() >= maxBytes) { throw new IOException("Companion response too long"); }
             line.write(b);
         }
     }

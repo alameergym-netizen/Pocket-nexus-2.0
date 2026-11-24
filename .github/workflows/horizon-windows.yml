@@ -30,6 +30,11 @@ jobs:
         run: |
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/PocketNexus-PC.ps1 -SelfTest -WifiPort 47119 2>&1 | Tee-Object -FilePath horizon-windows.log
           exit $LASTEXITCODE
+      - name: Verify pinned TLS, dedicated keys and revocation on loopback
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-SecureHost.ps1
+          exit $LASTEXITCODE
       - name: Test Android upgrade preflight policy
         shell: powershell
         run: |
