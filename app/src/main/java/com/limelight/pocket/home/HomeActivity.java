@@ -159,8 +159,10 @@ public class HomeActivity extends ConsoleActivity {
     private int defaultDescLines = 2;
     /** The description's lines with this logo (a big logo takes one of them). */
     private int descLimit = 4;
-    private ImageView info;
+    private TextView info;
     private ImageView more;
+    private TextView homeBrand, featured, homeSummary;
+    private boolean featuredRoom, summaryRoom;
     private int heroPos = -1;
     private String heroKey;
     private boolean loadedOnce;
@@ -236,6 +238,11 @@ public class HomeActivity extends ConsoleActivity {
         logo = findViewById(R.id.pocketHeroLogo);
         info = findViewById(R.id.homeInfo);
         more = findViewById(R.id.homeMore);
+        homeBrand = findViewById(R.id.horizonHomeBrand);
+        featured = findViewById(R.id.horizonFeatured);
+        homeSummary = findViewById(R.id.horizonHomeSummary);
+        homeBrand.setTextColor(HorizonHomeStyle.lightAccent(com.limelight.pocket.ui.PocketTheme.accent(this),45));
+        featured.setTextColor(HorizonHomeStyle.lightAccent(com.limelight.pocket.ui.PocketTheme.accent(this),45));
         keyArt = KeyArtStage.find(this);
 
         heroView = findViewById(R.id.pocketHero);
@@ -257,8 +264,10 @@ public class HomeActivity extends ConsoleActivity {
         });
         FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 Math.round(HomeDock.HEIGHT_DP * d), Gravity.BOTTOM | Gravity.START);
-        dlp.setMarginStart(Math.round(32 * d));
-        dlp.bottomMargin = Math.round(14 * d);
+        dlp.setMarginStart(Math.round(24 * d));
+        dlp.setMarginEnd(Math.round(18 * d));
+        // Separate the scrollable Quick Access strip from the bottom-right button hints.
+        dlp.bottomMargin = Math.round(27 * d);
         ((ViewGroup) findViewById(R.id.pocketMain)).addView(dock.view(), dlp);
         dock.refresh();
         widgets = new WidgetShelf(this, () -> dock.focusLast());
@@ -476,6 +485,12 @@ public class HomeActivity extends ConsoleActivity {
         entries.addAll(list);
         entries.add(null); // "Add"
         tiles.notifyDataSetChanged();
+        int pinned=0,played=0;
+        for (HomeStore.Entry entry:list) {
+            if (entry.pinned) { pinned++; if (entry.lastUsed>0) { played++; } }
+        }
+        homeSummary.setText(getString(R.string.horizon_home_summary,pinned,played));
+        homeSummary.setVisibility(summaryRoom?View.VISIBLE:View.GONE);
         rowLabel.setText(list.isEmpty() ? getString(R.string.pocket_home_row)
                 : getString(R.string.pocket_home_row) + "  ·  " + list.size());
         int target = list.isEmpty() ? 0 : -1;
@@ -806,6 +821,7 @@ public class HomeActivity extends ConsoleActivity {
         boolean changed = !key.equals(heroKey);
         heroPos = position;
         heroKey = key;
+        featured.setVisibility(e!=null && featuredRoom?View.VISIBLE:View.GONE);
         if (e == null) {
             boolean empty = entries.size() <= 1;
             setMeta(null, null);
@@ -1391,7 +1407,7 @@ public class HomeActivity extends ConsoleActivity {
             rlp.topMargin = 0;
             // Clear of the button hints under it, and of the dock (the round buttons) when it's there
             boolean withDock = dock != null && !portal;
-            int bottom = withDock ? 92 : 40;
+            int bottom = withDock ? 99 : 40;
             if (dock != null) {
                 dock.view().setVisibility(withDock ? View.VISIBLE : View.GONE);
             }
@@ -1409,7 +1425,7 @@ public class HomeActivity extends ConsoleActivity {
             row.setHorizontalFadingEdgeEnabled(true);
             row.setFadingEdgeLength(Math.round(26 * d));
             hlp.gravity = Gravity.BOTTOM | Gravity.START;
-            hlp.width = Math.round(440 * d);
+            hlp.width = Math.round(Math.min(440,screenW/d*0.48f)*d);
             hlp.setMarginStart(Math.round(30 * d));
             hlp.setMarginEnd(0);
             rowLabel.setVisibility(View.VISIBLE);
@@ -1476,6 +1492,23 @@ public class HomeActivity extends ConsoleActivity {
         }
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
+        float widthDp=screenW/d;
+        float heightDp=getResources().getDisplayMetrics().heightPixels/d;
+        int brandMode=HorizonHomeStyle.brandMode(widthDp);
+        homeBrand.setText(brandMode==2?R.string.horizon_home_brand:R.string.horizon_home_mark);
+        homeBrand.setVisibility(brandMode==0?View.GONE:View.VISIBLE);
+        summaryRoom=HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
+        homeSummary.setVisibility(summaryRoom && loadedOnce?View.VISIBLE:View.GONE);
+        homeSummary.setBackground(HorizonHomeStyle.glass(d,com.limelight.pocket.ui.PocketTheme.accent(this),false));
+        featuredRoom=shelf && !portal && heroRoom>=190;
+        featured.setVisibility(featuredRoom && entryAt(heroPos)!=null?View.VISIBLE:View.GONE);
+        if (featuredRoom) { heroRoom-=19; }
+        boolean detailLabel=hlp.width/d>=335;
+        info.setText(detailLabel?getString(R.string.pocket_hint_details):"");
+        ViewGroup.LayoutParams infoLp=info.getLayoutParams();
+        infoLp.width=detailLabel?ViewGroup.LayoutParams.WRAP_CONTENT:Math.round(40*d);
+        info.setLayoutParams(infoLp);
+        info.setPadding(Math.round((detailLabel?12:10)*d),0,Math.round((detailLabel?15:10)*d),0);
         if (shelf) {
             // The logo first, the description in what it leaves: two lines when there's room
             // for both, else one, else none (a console's home shows the logo, not a blurb)
@@ -1529,12 +1562,25 @@ public class HomeActivity extends ConsoleActivity {
         play.setFocusable(true);
         // Focused, Play wears a white ring a little apart from it
         {
-            LayerDrawable focused = new LayerDrawable(new Drawable[]{PocketUi.playFace(d),
-                    com.limelight.pocket.ui.SoftRing.forTheme(this, 0, true)});
-            StateListDrawable states = new StateListDrawable();
-            states.addState(new int[]{android.R.attr.state_focused}, focused);
-            states.addState(new int[]{}, PocketUi.playFace(d));
+            int accent=com.limelight.pocket.ui.PocketTheme.accent(this);
+            LayerDrawable focused=new LayerDrawable(new Drawable[]{HorizonHomeStyle.play(d,accent),
+                    new com.limelight.pocket.ui.SoftRing(d,0,true,accent,true)});
+            StateListDrawable states=new StateListDrawable();
+            states.addState(new int[]{android.R.attr.state_focused},focused);
+            states.addState(new int[]{},HorizonHomeStyle.play(d,accent));
             play.setBackground(states);
+            StateListDrawable detail=new StateListDrawable();
+            detail.addState(new int[]{android.R.attr.state_focused},HorizonHomeStyle.glass(d,accent,true));
+            detail.addState(new int[]{},HorizonHomeStyle.glass(d,accent,false));
+            info.setBackground(detail);
+            Drawable glyph=getDrawable(R.drawable.ic_pocket_info);
+            if(glyph!=null) {
+                glyph=glyph.mutate();
+                glyph.setTint(0xFFFFFFFF);
+                int size=Math.round(18*d);
+                glyph.setBounds(0,0,size,size);
+            }
+            info.setCompoundDrawablesRelative(glyph,null,null,null);
         }
         setPlayIcon(false);
         play.setOnClickListener(v -> {
@@ -2616,7 +2662,8 @@ public class HomeActivity extends ConsoleActivity {
         }
         if (h.ringRadius != tileRadius) {
             h.ringRadius = tileRadius;
-            h.ring.setBackground(com.limelight.pocket.ui.SoftRing.forTheme(this, tileRadius, false));
+            h.ring.setBackground(new com.limelight.pocket.ui.SoftRing(d,tileRadius,false,
+                    com.limelight.pocket.ui.PocketTheme.accent(this),true));
         }
         // Scaled around the art itself (in a list the frame is the whole line)
         if (list) {

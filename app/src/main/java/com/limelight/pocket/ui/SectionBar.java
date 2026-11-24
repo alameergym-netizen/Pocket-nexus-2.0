@@ -115,9 +115,18 @@ public final class SectionBar {
         tab.setShadowLayer(on ? 10 * d : 6 * d, 0, 0, on ? 0x59FFFFFF : 0x99000000);
         tab.setPadding(Math.round(9 * d), 0, Math.round(9 * d), 0);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                Math.round(28 * d));
+                Math.round(25 * d));
         lp.gravity = Gravity.CENTER_VERTICAL;
+        lp.setMarginEnd(Math.round(2*d));
         tab.setLayoutParams(lp);
+        if(on) {
+            int accent=PocketTheme.accent(activity);
+            GradientDrawable selected=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{(accent&0x00FFFFFF)|0x99000000,(accent&0x00FFFFFF)|0x33000000});
+            selected.setCornerRadius(100*d);
+            selected.setStroke(Math.max(1,Math.round(d)),accent);
+            tab.setBackground(selected);
+        }
         if (on && PocketPrefs.animationsEnabled(activity)) {
             tab.setAlpha(0.6f);
             tab.animate().alpha(1f).setDuration(260).setInterpolator(PocketMotion.DECELERATE).start();
