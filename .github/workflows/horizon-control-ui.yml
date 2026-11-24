@@ -7,6 +7,9 @@ on:
       - 'app/src/main/java/com/limelight/pocket/global/ControlCenterActivity.java'
       - 'app/src/main/java/com/limelight/pocket/global/HorizonControlLayout.java'
       - 'app/src/main/res/values/horizon_control_workspace.xml'
+      - 'app/src/main/java/com/limelight/pocket/QuickSettingsActivity.java'
+      - 'app/src/main/java/com/limelight/pocket/apps/HomeScreen.java'
+      - 'app/src/main/res/values/horizon_recovery.xml'
       - '.github/tests/control_workspace.py'
       - '.github/workflows/horizon-control-ui.yml'
 permissions:
