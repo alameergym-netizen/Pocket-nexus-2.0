@@ -85,6 +85,55 @@ public class HorizonBackupTest {
         org.mockito.Mockito.verify(editor).remove("bad");
     }
 
+    @Test public void actualLegacyFileImportAndV2ExportPreservePortableSettings() throws Exception {
+        android.content.Context c = org.robolectric.RuntimeEnvironment.getApplication();
+        java.io.File legacy = java.io.File.createTempFile("nexus-legacy-", ".json", c.getCacheDir());
+        java.io.File exported = java.io.File.createTempFile("nexus-export-", ".json", c.getCacheDir());
+        android.content.SharedPreferences main = PocketPrefs.prefs(c);
+        android.content.SharedPreferences games = c.getSharedPreferences("pocket_game_profiles", 0);
+        android.content.SharedPreferences cloud = c.getSharedPreferences("pocket_cloud_clients", 0);
+        main.edit().clear().putString("pocket_companion_token_demo", "local-secret").commit();
+        games.edit().clear().commit();
+        cloud.edit().clear().commit();
+        try {
+            JSONObject root = backup("{}");
+            JSONObject files = root.getJSONObject("files");
+            JSONObject values = files.getJSONObject("main");
+            values.put("pocket_home_pins", new JSONObject().put("s", "nexus\tMusic\tmusic\t\t\t0"));
+            values.put("pocket_key_back", new JSONObject().put("s", "k:4"));
+            values.put("pocket_companion_token_demo", new JSONObject().put("s", "foreign-secret"));
+            values.put("pocket_home_widgets", new JSONObject().put("s", "clock,aw:12,device"));
+            files.put("pocket_game_profiles", new JSONObject().put("demo_fps", new JSONObject().put("i", 120)));
+            files.put("pocket_cloud_clients", new JSONObject().put("demo_client", new JSONObject().put("s", "browser")));
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(legacy)) {
+                out.write(root.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            assertEquals(5, SettingsBackup.read(c, android.net.Uri.fromFile(legacy)));
+            assertEquals("nexus\tMusic\tmusic\t\t\t0", main.getString("pocket_home_pins", null));
+            assertEquals("k:4", main.getString("pocket_key_back", null));
+            assertEquals("clock,device", main.getString("pocket_home_widgets", null));
+            assertEquals("local-secret", main.getString("pocket_companion_token_demo", null));
+            assertEquals(120, games.getInt("demo_fps", 0));
+            assertEquals("browser", cloud.getString("demo_client", null));
+            assertEquals(5, SettingsBackup.write(c, android.net.Uri.fromFile(exported)));
+            String json = new String(java.nio.file.Files.readAllBytes(exported.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            assertFalse(json.contains("local-secret"));
+            assertFalse(json.contains("foreign-secret"));
+            JSONObject exportedRoot = new JSONObject(json);
+            assertEquals(2, exportedRoot.getInt("version"));
+            assertEquals("Pocket Nexus 2.0", exportedRoot.getString("app"));
+            main.edit().clear().commit(); games.edit().clear().commit(); cloud.edit().clear().commit();
+            assertEquals(5, SettingsBackup.read(c, android.net.Uri.fromFile(exported)));
+            assertEquals(120, games.getInt("demo_fps", 0));
+            assertEquals("browser", cloud.getString("demo_client", null));
+            assertEquals("clock,device", main.getString("pocket_home_widgets", null));
+            assertFalse(main.contains("pocket_companion_token_demo"));
+        } finally {
+            main.edit().clear().commit(); games.edit().clear().commit(); cloud.edit().clear().commit();
+            legacy.delete(); exported.delete();
+        }
+    }
+
     @Test public void acceptsNewVersion() throws Exception {
         JSONObject root = backup("{\"x\":{\"i\":42}}").put("version",2).put("app","Pocket Nexus 2.0");
         assertEquals(42, SettingsBackup.decode(root).get("main").get("x"));

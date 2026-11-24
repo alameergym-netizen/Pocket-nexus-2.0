@@ -38,7 +38,7 @@ public final class HomeLauncher {
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final com.limelight.pocket.core.HorizonLaunchRequests REQUESTS =
-            new com.limelight.pocket.core.HorizonLaunchRequests();
+            com.limelight.pocket.core.HorizonLaunchRequests.shared();
 
     /** Starts it (true when it went; a message says why not otherwise). */
     public static void launch(final Activity a, final HomeItem item) {

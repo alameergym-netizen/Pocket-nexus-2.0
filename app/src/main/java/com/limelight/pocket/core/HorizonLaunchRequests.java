@@ -2,6 +2,8 @@ package com.limelight.pocket.core;
 
 /** Serial ownership for launcher dispatch, not proof of an active external game/session. */
 public final class HorizonLaunchRequests {
+    private static final HorizonLaunchRequests SHARED = new HorizonLaunchRequests();
+    public static HorizonLaunchRequests shared() { return SHARED; }
     static final long REPEAT_MS = 650L;
     static final long ASYNC_LIMIT_MS = 15000L;
     private long sequence, issuedAt;
