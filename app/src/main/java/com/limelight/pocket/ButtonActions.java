@@ -30,8 +30,8 @@ public final class ButtonActions {
     private static final String[] GESTURE_KEYS = {"tap", "double", "hold"};
 
     private static final PocketAction[][] DEFAULTS = {
-            // Back: tap = Xbox Guide, double = quick menu, hold = radial menu
-            {PocketAction.GUIDE, PocketAction.QUICK_MENU, PocketAction.RADIAL},
+            // Back: the local stream controls, never a duplicate Xbox Guide.
+            {PocketAction.QUICK_MENU, PocketAction.NONE, PocketAction.NONE},
             // Home: a real Xbox Guide button (tap and long press both reach the PC as they are)
             {PocketAction.GUIDE, PocketAction.NONE, PocketAction.GUIDE},
             // M1 (the menu button): quick menu / radial

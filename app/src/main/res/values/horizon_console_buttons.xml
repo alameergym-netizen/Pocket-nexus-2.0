@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_console_buttons">Console button layout</string>
+    <string name="horizon_console_buttons_sub">Back opens controls. Home sends Xbox Guide during streaming. Outside streaming, Guide opens Quick Resume.</string>
+    <string name="horizon_console_buttons_confirm">Replace Back and Home/Guide tap, double and hold actions? Back opens the stream controls or device controls. Home sends a live Xbox Guide press in streams; outside streaming it opens Quick Resume or the radial menu on hold. Your calibrated keys, M1/M2 and other settings stay unchanged. The accessibility service may be needed for physical system keys.</string>
+    <string name="horizon_console_buttons_apply">Apply layout</string>
+    <string name="horizon_console_buttons_active">Console actions</string>
+    <string name="horizon_console_buttons_custom">Custom actions</string>
+</resources>

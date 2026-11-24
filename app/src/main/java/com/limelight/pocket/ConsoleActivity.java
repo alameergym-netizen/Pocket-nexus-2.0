@@ -1432,6 +1432,18 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             }
             return true;
         }
+        if (com.limelight.pocket.global.GlobalButtons.enabled(this)
+                && com.limelight.pocket.global.GlobalButtons.get(this,
+                        com.limelight.pocket.global.GlobalButtons.BACK,
+                        com.limelight.pocket.global.GlobalButtons.TAP)
+                        == com.limelight.pocket.global.GlobalButtons.Action.CONTROL
+                && PocketPrefs.matchesBack(PocketPrefs.getBackKey(this),event)
+                && event.getKeyCode() != KeyEvent.KEYCODE_BUTTON_B) {
+            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                com.limelight.pocket.global.ControlCenterActivity.open(this);
+            }
+            return true;
+        }
         if (heroFocus != null && heroFocus.handleKey(event)) {
             return true;
         }
