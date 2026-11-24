@@ -96,6 +96,17 @@ public class HorizonLaunchRequestsTest {
         assertFalse(q.current(request,101));
         assertTrue(q.beginPc(HorizonLaunchTarget.pc("pc",1),102)>request);
     }
+    @Test public void missingUuidsDoNotMatchDifferentRunningGames() {
+        assertFalse(HorizonLaunchTarget.sameRunningPcApp(17, null, 18, null));
+        assertFalse(HorizonLaunchTarget.sameRunningPcApp(17, "", 18, ""));
+        assertFalse(HorizonLaunchTarget.sameRunningPcApp(-1, null, -1, null));
+        assertTrue(HorizonLaunchTarget.sameRunningPcApp(17, null, 17, ""));
+    }
+    @Test public void nonemptyUuidTakesPrecedenceOverNumericFallback() {
+        assertTrue(HorizonLaunchTarget.sameRunningPcApp(17, "ABC", -1, "abc"));
+        assertFalse(HorizonLaunchTarget.sameRunningPcApp(17, "abc", 17, "def"));
+        assertTrue(HorizonLaunchTarget.sameRunningPcApp(17, "abc", 17, null));
+    }
     @Test public void numericShortcutSharesOrdinaryPcTarget() {
         assertEquals(HorizonLaunchTarget.pc("pc", 17),
                 HorizonLaunchTarget.pcShortcut("pc", null, 17, "renamed"));
