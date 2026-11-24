@@ -450,18 +450,22 @@
                 android:src="@drawable/ic_help"
                 android:tint="@color/pocket_icon_tint" />
 
-            <!-- Pocket Nexus: the handheld's own apps, games and emulators -->
-            <ImageButton
-                android:id="@+id/pocketAppsButton"
-                android:layout_width="30dp"
+            <TextView
+                android:id="@+id/horizonConnectRemote"
+                android:layout_width="wrap_content"
                 android:layout_height="30dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/pocket_icon_button_bg"
-                android:contentDescription="@string/pocket_apps_title"
-                android:padding="7.5dp"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_pocket_apps"
-                android:tint="@color/pocket_icon_tint" />
+                android:background="@drawable/pocket_pill_button_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFamily="@font/inter_medium"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingStart="9dp"
+                android:paddingEnd="9dp"
+                android:text="@string/horizon_remote_title"
+                android:textColor="@color/pocket_row_text"
+                android:textSize="11sp" />
 
             <TextView
                 android:id="@+id/profilesButton"

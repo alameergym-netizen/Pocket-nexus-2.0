@@ -5,6 +5,7 @@ on:
     branches: [horizon-foundation]
     paths:
       - 'app/src/main/java/com/limelight/pocket/music/**'
+      - 'app/src/main/java/com/limelight/pocket/streaming/HorizonRemotePlay.java'
       - 'app/src/main/java/com/limelight/PcView.java'
       - 'app/src/main/java/com/limelight/preferences/AddComputerManually.java'
       - 'app/src/main/res/layout/activity_pc_view.xml'

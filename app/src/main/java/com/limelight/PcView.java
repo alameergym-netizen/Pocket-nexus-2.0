@@ -296,11 +296,8 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         });
         // Streaming | Android at the top: always clear which games are where
         com.limelight.pocket.ui.SectionBar.attach(this, com.limelight.pocket.ui.SectionBar.STREAMING);
-        View appsButton = findViewById(R.id.pocketAppsButton);
-        if (appsButton != null) {
-            // The Android section is a tab now
-            appsButton.setVisibility(View.GONE);
-        }
+        findViewById(R.id.horizonConnectRemote).setOnClickListener(
+                v -> com.limelight.pocket.streaming.HorizonRemotePlay.show(this));
 
         // Amazon review didn't like the help button because the wiki was not entirely
         // navigable via the Fire TV remote (though the relevant parts were). Let's hide
