@@ -1,0 +1,8 @@
+88:C/C++: /usr/local/lib/android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/bits/fortify/fcntl.h:72:9: note: from 'diagnose_if' attribute on 'open':
+93:C/C++: /usr/local/lib/android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/sys/cdefs.h:150:54: note: expanded from macro '__clang_warning_if'
+171:Note: Some input files use or override a deprecated API.
+172:Note: Recompile with -Xlint:deprecation for details.
+173:Note: Some input files use unchecked or unsafe operations.
+174:Note: Recompile with -Xlint:unchecked for details.
+313:Note: Some input files use or override a deprecated API.
+314:Note: Recompile with -Xlint:deprecation for details.
