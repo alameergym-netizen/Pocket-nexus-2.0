@@ -51,17 +51,11 @@ def open_library():
     return controls.wait_for("Library with fixtures", library_with_games)
 
 
-def show_details():
-    def detail_open(tree):
-        if resource(tree, GRID) is not None:
-            return False
-        activities = controls.adb("shell", "dumpsys", "activity", "activities")
-        return any(
-            b"mResumedActivity" in line and b"com.limelight.pocket.GamePageActivity" in line
-            for line in activities.splitlines()
-        )
-
-    controls.wait_for("game detail activity", detail_open)
+def show_details(title):
+    controls.wait_for(
+        "details for " + title,
+        lambda t: resource(t, "pagePlay") is not None and controls.has(t, title),
+    )
 
 
 def main(apk):
@@ -93,7 +87,7 @@ def main(apk):
     controls.key("DPAD_RIGHT")
     controls.wait_for("second game controller focus", lambda t: game_has_focus(t, SECOND))
     controls.key("BUTTON_X")
-    show_details()
+    show_details(SECOND)
     controls.capture("02-controller-game-details")
     controls.key("BUTTON_B")
     controls.wait_for("B returns to Library", library_with_games)
@@ -118,7 +112,7 @@ def main(apk):
     compact = controls.wait_for("B closes options", lambda t: library_with_games(t)
                                 and not controls.has(t, "Collections"))
     tap(resource(compact, DETAILS))
-    show_details()
+    show_details(FIRST)
     controls.capture("05-touch-game-details")
     print("PASS: compact stacked layout and touch options and game details", flush=True)
 
