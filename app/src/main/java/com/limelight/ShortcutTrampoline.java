@@ -76,7 +76,7 @@ public class ShortcutTrampoline extends AppCompatActivity {
 
     /** Only the UI thread owns binding/polling transitions. */
     private void releaseBinding() {
-        if (polling && managerBinder != null) managerBinder.stopPolling();
+        if (polling && managerBinder != null) managerBinder.stopPolling(this);
         polling = false;
         managerBinder = null;
         if (bound) {
@@ -125,7 +125,7 @@ public class ShortcutTrampoline extends AppCompatActivity {
                 main.post(() -> {
                     if (!ownsShortcut() || managerBinder != localBinder || discoveryHandled) return;
                     polling = true;
-                    localBinder.startPolling(details -> {
+                    localBinder.startPolling(ShortcutTrampoline.this, details -> {
                         if (!ownsShortcut() || discoveryHandled || !details.uuid.equalsIgnoreCase(uuidString)
                                 || !updateQueued.compareAndSet(false, true)) return;
                         // The initial update can arrive synchronously on UI. Never send WOL there.

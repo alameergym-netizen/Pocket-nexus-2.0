@@ -218,7 +218,7 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
             return;
         }
 
-        managerBinder.startPolling(new ComputerManagerListener() {
+        managerBinder.startPolling(this, new ComputerManagerListener() {
             @Override
             public void notifyComputerUpdated(final ComputerDetails details) {
                 // Do nothing if updates are suspended
@@ -305,7 +305,7 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
         }
 
         if (managerBinder != null) {
-            managerBinder.stopPolling();
+            managerBinder.stopPolling(this);
         }
 
         if (appGridAdapter != null) {
