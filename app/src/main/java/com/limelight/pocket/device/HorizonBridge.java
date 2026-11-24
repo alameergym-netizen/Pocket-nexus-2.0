@@ -19,10 +19,14 @@ public final class HorizonBridge {
 
     private static String read(File file) {
         try (FileInputStream in = new FileInputStream(file)) {
-            byte[] data = new byte[256];
-            int n = in.read(data);
-            if (n <= 0 || n == data.length) { return null; }
-            return new String(data, 0, n, StandardCharsets.UTF_8).trim();
+            java.io.ByteArrayOutputStream data = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[512];
+            int n;
+            while ((n = in.read(chunk)) != -1) {
+                if (data.size() + n > 4096) { return null; }
+                data.write(chunk,0,n);
+            }
+            return data.size() == 0 ? null : new String(data.toByteArray(), StandardCharsets.UTF_8).trim();
         } catch (Exception e) { return null; }
     }
 
@@ -97,6 +101,34 @@ public final class HorizonBridge {
         }, "HorizonCpuPreview").start();
     }
 
+    private static String gpuMhz(Context c, long hz) {
+        return hz <= 0 ? c.getString(R.string.horizon_bridge_unknown)
+                : String.format(Locale.ROOT, "%.0f MHz", hz / 1000000.0);
+    }
+
+    private static void previewGpu(ConsoleActivity a) {
+        new Thread(() -> {
+            List<StreamMenuView.Item> rows = new ArrayList<>();
+            rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_gpu_preview_note)));
+            // devfreq uses Hz. Do not mix a KGSL maximum with a devfreq minimum.
+            File devfreq = new File("/sys/class/kgsl/kgsl-3d0/devfreq");
+            long min = HorizonBridgePolicy.parseFrequency(read(new File(devfreq,"min_freq")));
+            long max = HorizonBridgePolicy.parseFrequency(read(new File(devfreq,"max_freq")));
+            long[] steps = HorizonCpuPlan.parseSteps(read(new File(devfreq,"available_frequencies")), 10000000000L);
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_cpu_baseline),
+                    gpuMhz(a,min)+" – "+gpuMhz(a,max)));
+            for (HorizonCpuPlan.Mode mode : HorizonCpuPlan.Mode.values()) {
+                rows.add(StreamMenuView.Item.info(mode.name(),gpuMhz(a,
+                        HorizonCpuPlan.capWithin(mode,min,max,steps,10000000000L))));
+            }
+            a.runOnUiThread(() -> {
+                if (!a.isFinishing() && !a.isDestroyed()) {
+                    a.showConsolePanel(a.getString(R.string.horizon_gpu_preview),null,null,rows);
+                }
+            });
+        }, "HorizonGpuPreview").start();
+    }
+
     public static void show(ConsoleActivity a) {
         List<StreamMenuView.Item> rows = new ArrayList<>();
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_identity)));
@@ -111,6 +143,8 @@ public final class HorizonBridge {
                 () -> probe(a)));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_cpu_preview),
                 () -> preview(a)));
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_gpu_preview),
+                () -> previewGpu(a)));
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_bridge_read_only)));
 
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_cpu)));

@@ -70,3 +70,6 @@ Independent Home card density and corner preferences preserve existing presets; 
 
 ## PServer discovery and CPU preview candidate
 The explicit PServer probe checks Android service visibility and binder liveness without launching a host or invoking the vendor command transaction. Hidden API restrictions may prevent discovery; a responsive binder is not proof of write access. CPU preview derives selectable Eco/Balanced/Performance limits from the observed current range and readable steps only. No writes, root prompt, or automatic application. The next privileged milestone must include authenticated host lifecycle, identity, transaction journal, readback and rollback. Architecture reference: https://github.com/AurelioB/ClusterTune/blob/f2bcccadd10d9daebb38d0900b185b8265cb4779/docs/execution-methods-plan.md ; independently implemented probe and preview; no upstream code incorporated.
+
+## Performance safety candidate
+GPU preview uses a single readable KGSL devfreq range and available steps in Hz; CPU remains kHz. Bounded full reads prevent truncated frequency lists. The transaction simulation exercises multi-domain downclock planning, reverse-order rollback and indeterminate rollback failure using in-memory maps only. It is not a real privileged host, persistent journal, thermal controller or kernel writer. No operation changes hardware.

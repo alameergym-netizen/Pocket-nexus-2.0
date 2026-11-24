@@ -12,11 +12,15 @@ public final class HorizonCpuPlan {
     }
 
     public static long[] parse(String values) {
-        if (values == null || values.length() > 4096 || values.trim().isEmpty()) { return new long[0]; }
+        return parseSteps(values,10000000L);
+    }
+
+    static long[] parseSteps(String values, long upperBound) {
+        if (upperBound <= 0 || values == null || values.length() > 4096 || values.trim().isEmpty()) { return new long[0]; }
         TreeSet<Long> sorted = new TreeSet<>();
         for (String token : values.trim().split("\\s+")) {
             long value = HorizonBridgePolicy.parseFrequency(token);
-            if (value < 0 || value > 10000000L || sorted.size() >= 256) { return new long[0]; }
+            if (value < 0 || value > upperBound || (sorted.size() >= 256 && !sorted.contains(value))) { return new long[0]; }
             sorted.add(value);
         }
         long[] result = new long[sorted.size()];
@@ -29,7 +33,11 @@ public final class HorizonCpuPlan {
      * Never suggest above the observed maximum or below the current minimum.
      */
     public static long cap(Mode mode, long min, long max, long[] steps) {
-        if (mode == null || min <= 0 || max < min || max > 10000000L || steps == null || steps.length == 0) {
+        return capWithin(mode,min,max,steps,10000000L);
+    }
+
+    static long capWithin(Mode mode, long min, long max, long[] steps, long upperBound) {
+        if (mode == null || min <= 0 || max < min || max > upperBound || upperBound > 10000000000L || steps == null || steps.length == 0) {
             return -1;
         }
         long target = Math.max(min, max * mode.percent / 100);
