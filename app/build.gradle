@@ -166,6 +166,11 @@ android {
 
     testOptions {
         unitTests.includeAndroidResources = true
+        // Robolectric's runtime Maven resolver is separate from Gradle's resolver.
+        // Use the canonical Maven Central endpoint; retain all unit tests.
+        unitTests.all {
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
     }
 }
 

@@ -70,3 +70,14 @@ Independent Home card density and corner preferences preserve existing presets; 
 
 ## Theme Studio candidate
 Three local versioned custom-look slots save/restore accent, material, backdrop, sound set, Home layout, focus, card density/corners and artwork motion/color/live-glass preferences. Confirm before applying, replacing or deleting. No UI scale, volume, streaming, credentials or controller settings are included. A separate candidate branch preserves the Alpha 2 CI run; integration and device tests remain required.
+
+## PServer discovery and CPU preview candidate
+The explicit PServer probe checks Android service visibility and binder liveness without launching a host or invoking the vendor command transaction. Hidden API restrictions may prevent discovery; a responsive binder is not proof of write access. CPU preview derives selectable Eco/Balanced/Performance limits from the observed current range and readable steps only. No writes, root prompt, or automatic application. The next privileged milestone must include authenticated host lifecycle, identity, transaction journal, readback and rollback. Architecture reference: https://github.com/AurelioB/ClusterTune/blob/f2bcccadd10d9daebb38d0900b185b8265cb4779/docs/execution-methods-plan.md ; independently implemented probe and preview; no upstream code incorporated.
+
+## Performance safety candidate
+GPU preview uses a single readable KGSL devfreq range and available steps in Hz; CPU remains kHz. Bounded full reads prevent truncated frequency lists. The transaction simulation exercises multi-domain downclock planning, reverse-order rollback and indeterminate rollback failure using in-memory maps only. It is not a real privileged host, persistent journal, thermal controller or kernel writer. No operation changes hardware.
+
+The CPU-only candidate passed CI independently. This integrated candidate adds GPU preview and simulated rollback on top of the verified Theme Studio baseline; the combined build must pass before merge.
+
+## Integrated CI dependency recovery
+Run 45410368931 assembled successfully but Robolectric failed to download its Android 14 instrumented runtime from repo1.maven.org (HTTP 429), preventing three test classes from running. Use the official alternate Maven Central endpoint through Robolectric's documented runtime property; do not disable or filter tests. See https://robolectric.org/configuring/ . A successful rerun is required before merge.

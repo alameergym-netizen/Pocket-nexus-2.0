@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_gpu_preview">GPU profile preview</string>
+    <string name="horizon_gpu_preview_note">Read-only preview based on one KGSL devfreq range and its supported frequency steps in Hz. Missing or restricted data is shown as unavailable. No setting is changed.</string>
+</resources>
