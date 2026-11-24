@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_quick_access">Quick Access</string>
+    <string name="horizon_home_brand">POCKET NEXUS</string>
+    <string name="horizon_home_mark">N</string>
+    <string name="horizon_featured">FEATURED GAME</string>
+    <string name="horizon_home_summary">%1$d pinned · %2$d played</string>
+</resources>

@@ -104,6 +104,17 @@
             android:paddingStart="14dp"
             android:paddingEnd="18dp">
 
+            <TextView
+                android:id="@+id/horizonHomeBrand"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:fontFamily="@font/inter_bold"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.09"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:id="@+id/pocketSectionHost"
                 android:layout_width="wrap_content"
@@ -151,6 +162,23 @@
                 android:textSize="12.5sp" />
         </LinearLayout>
 
+        <!-- Real counts of pinned entries, not the whole library. -->
+        <TextView
+            android:id="@+id/horizonHomeSummary"
+            android:layout_width="wrap_content"
+            android:layout_height="42dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="54dp"
+            android:layout_marginEnd="24dp"
+            android:fontFamily="@font/inter_medium"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:paddingStart="15dp"
+            android:paddingEnd="15dp"
+            android:textSize="12sp"
+            android:textColor="#FFFFFFFF"
+            android:visibility="gone" />
+
         <!-- The focused game -->
         <LinearLayout
             android:id="@+id/pocketHero"
@@ -161,6 +189,18 @@
             android:clipChildren="false"
             android:clipToPadding="false"
             android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/horizonFeatured"
+                android:layout_width="wrap_content"
+                android:layout_height="15dp"
+                android:layout_marginBottom="4dp"
+                android:fontFamily="@font/inter_semibold"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.12"
+                android:text="@string/horizon_featured"
+                android:textSize="10sp"
+                android:visibility="gone" />
 
             <!-- A box of one size: the logo inside is measured by what's drawn and scaled to it
                  (bigger or smaller with the logo size setting), at its bottom start -->
@@ -291,17 +331,21 @@
                     android:textColor="#FF0B0B0D"
                     android:textSize="14sp" />
 
-                <ImageView
+                <TextView
                     android:id="@+id/homeInfo"
-                    android:layout_width="40dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="40dp"
                     android:layout_marginStart="10dp"
-                    android:background="@drawable/pocket_round_button"
                     android:contentDescription="@string/pocket_hint_details"
                     android:focusable="true"
-                    android:padding="11dp"
-                    android:src="@drawable/ic_pocket_info"
-                    android:tint="@color/pocket_round_icon" />
+                    android:clickable="true"
+                    android:fontFamily="@font/inter_semibold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:drawablePadding="7dp"
+                    android:singleLine="true"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="13sp" />
 
                 <ImageView
                     android:id="@+id/homeMore"

@@ -27,12 +27,16 @@ public final class SoftRing extends Drawable {
 
     /** Around something with rounded corners (radius in px); pill: fully round ends. */
     public SoftRing(float density, float radius, boolean pill, int glowColor) {
-        this.out = 4f * density;
+        this(density,radius,pill,glowColor,false);
+    }
+
+    public SoftRing(float density,float radius,boolean pill,int glowColor,boolean horizon) {
+        this.out = (horizon?3f:4f) * density;
         this.radius = radius + out;
         this.pill = pill;
         line.setStyle(Paint.Style.STROKE);
-        line.setStrokeWidth(2.4f * density);
-        line.setColor(0xF2FFFFFF);
+        line.setStrokeWidth((horizon?2.8f:2.4f) * density);
+        line.setColor(horizon?mixWhite(glowColor):0xF2FFFFFF);
         halo.setStyle(Paint.Style.STROKE);
         halo.setStrokeWidth(5f * density);
         halo.setColor((glowColor & 0x00FFFFFF) | 0x52000000); // a third less glow than it was
@@ -40,6 +44,11 @@ public final class SoftRing extends Drawable {
             line.setMaskFilter(new BlurMaskFilter(0.9f * density, BlurMaskFilter.Blur.NORMAL));
             halo.setMaskFilter(new BlurMaskFilter(9f * density, BlurMaskFilter.Blur.NORMAL));
         }
+    }
+
+    private static int mixWhite(int color) {
+        int r=((color>>>16)&255),g=((color>>>8)&255),b=color&255;
+        return 0xFF000000 | ((r+255)/2)<<16 | ((g+255)/2)<<8 | ((b+255)/2);
     }
 
     public static SoftRing forTheme(android.content.Context c, float radius, boolean pill) {
