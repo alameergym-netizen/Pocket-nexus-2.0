@@ -1,0 +1,3 @@
+# Interrupted ROM scan protection
+
+Track observed directory enumeration failures, missing/unreadable game files, interruption and per-system scan limit. Do not overwrite the per-source index when a scan reports incomplete; use the existing readable cached index when possible and show a warning in RetroActivity. Four new pure unit tests. Intentional depth and noload rules remain. This is best-effort detection, not a filesystem snapshot: media removal, metadata read failure or mount changes can still escape detection. No simultaneous multi-root library or changes to game IDs. Physical device testing required.

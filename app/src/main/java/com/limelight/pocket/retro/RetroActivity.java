@@ -373,15 +373,18 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 }
             }
             final RetroLibrary.Library fresh = RetroLibrary.scan(this, root);
+            final RetroLibrary.Library fallback = fresh.complete ? null : RetroLibrary.cached(this,root);
             main.post(() -> {
                 if (isFinishing()) {
                     return;
                 }
                 cfg = c;
-                lib = fresh;
+                lib = fallback != null ? fallback : fresh;
                 CARDS.evictAll();
                 showEntries();
-                if (rescan) {
+                if (!fresh.complete) {
+                    Toast.makeText(this,R.string.horizon_retro_scan_incomplete,Toast.LENGTH_LONG).show();
+                } else if (rescan) {
                     Toast.makeText(this, getString(R.string.pocket_retro_found, fresh.gameCount(), fresh.games.size()),
                             Toast.LENGTH_SHORT).show();
                 }

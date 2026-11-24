@@ -304,6 +304,8 @@ public final class RetroLibrary {
     /** What's in the ROM folder. */
     public static final class Library {
         public final File root;
+        /** False if an observed read failure, interruption or scan limit prevented enumeration. */
+        public boolean complete = true;
         /** System name -> its games, systems in ES-DE's order. */
         public final Map<String, List<RomScanner.Rom>> games = new LinkedHashMap<>();
         /** ES-DE's emulator picks: by system, and by game key (system/path). */
@@ -345,8 +347,11 @@ public final class RetroLibrary {
 
     /** The system folders under the root, by lower case name (drives may differ in case). */
     private static Map<String, File> folders(File root) {
+        return folders(root.listFiles());
+    }
+
+    private static Map<String,File> folders(File[] list) {
         Map<String, File> out = new HashMap<>();
-        File[] list = root.listFiles();
         if (list != null) {
             for (File f : list) {
                 if (f.isDirectory()) {
@@ -372,20 +377,24 @@ public final class RetroLibrary {
     public static Library scan(Context context, File root) {
         EsdeConfig cfg = config(context);
         Library lib = new Library(root);
-        Map<String, File> folders = folders(root);
-        for (EsdeConfig.SystemDef s : cfg.systems()) {
-            File dir = folderOf(s, root, folders);
-            if (dir == null) {
-                continue;
-            }
-            List<RomScanner.Rom> roms = RomScanner.scan(s, dir);
-            if (!roms.isEmpty()) {
-                lib.games.put(s.name, roms);
+        File[] children = null;
+        try { children = root.listFiles(); } catch (SecurityException ignored) {}
+        lib.complete = children != null;
+        Map<String, File> folders = folders(children);
+        if (children != null) {
+            for (EsdeConfig.SystemDef s : cfg.systems()) {
+                if (Thread.currentThread().isInterrupted()) { lib.complete=false; break; }
+                File dir = folderOf(s, root, folders);
+                if (dir == null || s.absolute && !dir.exists()) { continue; }
+                RomScanner.ScanResult result = RomScanner.scanChecked(s,dir);
+                lib.complete &= result.complete;
+                if (!result.games.isEmpty()) { lib.games.put(s.name,result.games); }
             }
         }
+        if (!root.isDirectory() || !root.canRead()) { lib.complete=false; }
         applyGamelists(lib);
         applyCustomNames(context, lib);
-        saveCache(context, lib);
+        if (lib.complete) { saveCache(context, lib); }
         return lib;
     }
 
