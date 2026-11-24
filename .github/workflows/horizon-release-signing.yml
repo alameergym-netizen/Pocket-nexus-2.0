@@ -1,0 +1,104 @@
+name: Horizon release signing validation
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [horizon-foundation]
+    paths:
+      - 'app/build.gradle'
+      - '.github/workflows/horizon-release-signing.yml'
+      - '.github/tests/horizon-release-signing.sh'
+permissions:
+  contents: read
+concurrency:
+  group: horizon-release-signing-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  signing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Prepare SDK and verify fail-closed release guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1"
+          mkdir -p release-test-evidence
+          if env -u NEXUS_KEYSTORE -u NEXUS_STORE_PASSWORD -u NEXUS_KEY_ALIAS -u NEXUS_KEY_PASSWORD -u NEXUS_VERSION_CODE \
+            bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameRelease --dry-run > release-test-evidence/unsigned-guard.log 2>&1; then
+            echo "FAIL: release task graph accepted absent signing configuration"
+            exit 1
+          fi
+          grep -F 'Release packaging requires private Nexus signing configuration and explicit version code' release-test-evidence/unsigned-guard.log
+      - name: Build two release APKs with a temporary test-only signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d "$RUNNER_TEMP/nexus-sign-test.XXXXXXXX")"
+          trap 'rm -rf "$tmp"' EXIT
+          export NEXUS_KEYSTORE="$tmp/test.p12"
+          export NEXUS_KEY_ALIAS=nexus-ci-test-only
+          export NEXUS_STORE_PASSWORD="$(openssl rand -hex 24)"
+          export NEXUS_KEY_PASSWORD="$NEXUS_STORE_PASSWORD"
+          echo "::add-mask::$NEXUS_STORE_PASSWORD"
+          keytool -genkeypair -alias "$NEXUS_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 30 \
+            -dname "CN=Nexus CI Test Only" -storetype PKCS12 -keystore "$NEXUS_KEYSTORE" \
+            -storepass:env NEXUS_STORE_PASSWORD -keypass:env NEXUS_KEY_PASSWORD
+          mkdir -p release-test-apks release-test-evidence
+          NEXUS_VERSION_CODE=910000 bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameRelease
+          cp app/build/outputs/apk/nonRoot_game/release/*.apk release-test-apks/before.apk
+          NEXUS_VERSION_CODE=910001 bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameRelease
+          cp app/build/outputs/apk/nonRoot_game/release/*.apk release-test-apks/after.apk
+          signer="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
+          aapt="$(dirname "$signer")/aapt"
+          for version in before after; do
+            "$signer" verify --print-certs "release-test-apks/$version.apk" > "release-test-evidence/$version-signers.txt"
+            "$aapt" dump badging "release-test-apks/$version.apk" | grep '^package:' > "release-test-evidence/$version-package.txt"
+          done
+          grep -F "name='com.pocketnexus.console' versionCode='910000'" release-test-evidence/before-package.txt
+          grep -F "name='com.pocketnexus.console' versionCode='910001'" release-test-evidence/after-package.txt
+          diff <(grep 'certificate SHA-256 digest:' release-test-evidence/before-signers.txt) <(grep 'certificate SHA-256 digest:' release-test-evidence/after-signers.txt)
+          keytool -genkeypair -alias wrong-test -keyalg RSA -keysize 2048 -validity 30 \
+            -dname "CN=Wrong CI Test Only" -storetype PKCS12 -keystore "$tmp/wrong.p12" \
+            -storepass:env NEXUS_STORE_PASSWORD -keypass:env NEXUS_KEY_PASSWORD
+          "$signer" sign --ks "$tmp/wrong.p12" --ks-key-alias wrong-test \
+            --ks-pass env:NEXUS_STORE_PASSWORD --key-pass env:NEXUS_KEY_PASSWORD \
+            --out release-test-apks/wrong.apk release-test-apks/after.apk
+          "$signer" verify --print-certs release-test-apks/wrong.apk > release-test-evidence/wrong-signers.txt
+          if diff <(grep 'certificate SHA-256 digest:' release-test-evidence/after-signers.txt) <(grep 'certificate SHA-256 digest:' release-test-evidence/wrong-signers.txt); then
+            echo "FAIL: wrong signer not distinct"
+            exit 1
+          fi
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Test release package upgrade and wrong signer rejection
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        timeout-minutes: 12
+        with:
+          api-level: 33
+          arch: x86_64
+          target: default
+          ram-size: 2560M
+          heap-size: 512M
+          disk-size: 6000M
+          emulator-options: -no-window -no-snapshot -gpu guest -feature -Vulkan -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 300
+          script: bash .github/tests/horizon-release-signing.sh
+      - name: Delete temporary APKs
+        if: always()
+        run: rm -rf release-test-apks
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Horizon-release-signing-evidence
+          path: release-test-evidence/
+          if-no-files-found: warn
+          retention-days: 7
