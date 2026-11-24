@@ -38,24 +38,26 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
     private final ArrayList<AbstractController> controllers = new ArrayList<>();
 
-    private UsbDriverListener listener;
-    private UsbDriverStateListener stateListener;
+    private volatile UsbDriverListener listener;
+    private volatile UsbDriverStateListener stateListener;
     private int nextDeviceId;
 
     @Override
     public void reportControllerState(int controllerId, int buttonFlags, float leftStickX, float leftStickY,
                                       float rightStickX, float rightStickY, float leftTrigger, float rightTrigger) {
         // Call through to the client's listener
-        if (listener != null) {
-            listener.reportControllerState(controllerId, buttonFlags, leftStickX, leftStickY, rightStickX, rightStickY, leftTrigger, rightTrigger);
+        UsbDriverListener current = listener;
+        if (current != null) {
+            current.reportControllerState(controllerId, buttonFlags, leftStickX, leftStickY, rightStickX, rightStickY, leftTrigger, rightTrigger);
         }
     }
 
     @Override
     public void reportControllerMotion(int controllerId, byte motionType, float motionX, float motionY, float motionZ) {
         // Call through to the client's listener
-        if (listener != null) {
-            listener.reportControllerMotion(controllerId, motionType, motionX, motionY, motionZ);
+        UsbDriverListener current = listener;
+        if (current != null) {
+            current.reportControllerMotion(controllerId, motionType, motionX, motionY, motionZ);
         }
     }
 
@@ -65,16 +67,18 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         controllers.remove(controller);
 
         // Call through to the client's listener
-        if (listener != null) {
-            listener.deviceRemoved(controller);
+        UsbDriverListener current = listener;
+        if (current != null) {
+            current.deviceRemoved(controller);
         }
     }
 
     @Override
     public void deviceAdded(AbstractController controller) {
         // Call through to the client's listener
-        if (listener != null) {
-            listener.deviceAdded(controller);
+        UsbDriverListener current = listener;
+        if (current != null) {
+            current.deviceAdded(controller);
         }
     }
 
@@ -107,8 +111,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 
                 // Permission dialog is now closed
-                if (stateListener != null) {
-                    stateListener.onUsbPermissionPromptCompleted();
+                UsbDriverStateListener currentState = stateListener;
+                if (currentState != null) {
+                    currentState.onUsbPermissionPromptCompleted();
                 }
 
                 // If we got this far, we've already found we're able to handle this device
@@ -158,8 +163,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 // Let's ask for permission
                 try {
                     // Tell the state listener that we're about to display a permission dialog
-                    if (stateListener != null) {
-                        stateListener.onUsbPermissionPromptStarting();
+                    UsbDriverStateListener currentState = stateListener;
+                    if (currentState != null) {
+                        currentState.onUsbPermissionPromptStarting();
                     }
 
                     int intentFlags = 0;
@@ -182,8 +188,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                     usbManager.requestPermission(device, PendingIntent.getBroadcast(UsbDriverService.this, 0, i, intentFlags));
                 } catch (SecurityException e) {
                     Toast.makeText(this, this.getText(R.string.error_usb_prohibited), Toast.LENGTH_LONG).show();
-                    if (stateListener != null) {
-                        stateListener.onUsbPermissionPromptCompleted();
+                    UsbDriverStateListener currentState = stateListener;
+                    if (currentState != null) {
+                        currentState.onUsbPermissionPromptCompleted();
                     }
                 }
                 return;
