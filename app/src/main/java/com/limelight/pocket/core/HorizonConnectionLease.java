@@ -14,6 +14,10 @@ public final class HorizonConnectionLease {
         nativeOwner = true;
         return true;
     }
+    /** Stop queued or negotiating work before scheduling any native cleanup off the UI thread. */
+    public synchronized void cancelBeforeNative() {
+        if (!nativeOwner) cancelled = true;
+    }
     /** Interrupt while holding ownership, so failure/release cannot hand off mid-interrupt. */
     public synchronized boolean requestStop(Runnable interrupt) {
         if (cancelled) return false;

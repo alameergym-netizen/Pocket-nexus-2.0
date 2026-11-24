@@ -14,4 +14,5 @@
     <string name="horizon_pc_unavailable">Unavailable</string>
     <string name="horizon_pc_retest">Run again</string>
     <string name="horizon_pc_legacy">Legacy helper protocol is not encrypted. Use USB or a trusted encrypted network. Helper round trip is not streaming latency.</string>
+    <string name="horizon_pc_game_identity_unknown">The host did not identify the running game. End it from the host or reconnect from the original device.</string>
 </resources>

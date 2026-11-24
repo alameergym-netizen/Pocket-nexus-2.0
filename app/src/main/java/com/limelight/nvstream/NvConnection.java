@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
-import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Semaphore;
@@ -32,6 +31,7 @@ import javax.crypto.SecretKey;
 import org.xmlpull.v1.XmlPullParserException;
 
 import com.limelight.LimeLog;
+import com.limelight.R;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -42,6 +42,7 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.pocket.core.HorizonLaunchTarget;
 
 public class NvConnection {
     // Context parameters
@@ -88,6 +89,10 @@ public class NvConnection {
     
     private static int generateRiKeyId() {
         return new SecureRandom().nextInt();
+    }
+
+    public void cancelBeforeNative() {
+        lease.cancelBeforeNative();
     }
 
     public void stop() {
@@ -324,19 +329,24 @@ public class NvConnection {
             }
         }
         
-        // If there's a game running, resume it
-        if (h.getCurrentGame(serverInfo) != 0 || (h.getCurrentGameUUID(serverInfo) != null && !h.getCurrentGameUUID(serverInfo).isEmpty())) {
+        if (lease.cancelled()) return false;
+        HorizonLaunchTarget.PcAppMatch match = HorizonLaunchTarget.compareRunningPcApp(
+                details.runningGameId, details.runningGameUUID, app.getAppId(), app.getAppUUID());
+        if (match != HorizonLaunchTarget.PcAppMatch.IDLE) {
             try {
-                if (h.getCurrentGame(serverInfo) == app.getAppId() || Objects.equals(h.getCurrentGameUUID(serverInfo), app.getAppUUID())) {
+                if (match == HorizonLaunchTarget.PcAppMatch.SAME) {
                     if (!h.launchApp(context, "resume", app.getAppUUID(), app.getAppId(), context.negotiatedHdr)) {
                         context.connListener.displayMessage("Failed to resume existing session");
                         return false;
                     }
-                } else if (Objects.equals(NvApp.REMOTE_INPUT_UUID, app.getAppUUID())) {
-                    // When launching InputOnly, we shouldn't try terminating the current running app
-                    return launchNotRunningApp(h, context);
+                } else if (NvApp.REMOTE_INPUT_UUID.equalsIgnoreCase(app.getAppUUID())) {
+                    // InputOnly must never quit another title already running on the PC.
+                    return launchNotRunningApp(h, app);
+                } else if (match == HorizonLaunchTarget.PcAppMatch.DIFFERENT) {
+                    return quitAndLaunch(h, app);
                 } else {
-                    return quitAndLaunch(h, context);
+                    context.connListener.displayMessage(appContext.getString(R.string.horizon_pc_game_identity_unknown));
+                    return false;
                 }
             } catch (HostHttpResponseException e) {
                 if (e.getErrorCode() == 470) {
@@ -360,12 +370,13 @@ public class NvConnection {
             return true;
         }
         else {
-            return launchNotRunningApp(h, context);
+            return launchNotRunningApp(h, app);
         }
     }
 
-    protected boolean quitAndLaunch(NvHTTP h, ConnectionContext context) throws IOException,
+    private boolean quitAndLaunch(NvHTTP h, NvApp app) throws IOException,
             XmlPullParserException {
+        if (lease.cancelled()) return false;
         try {
             if (!h.quitApp()) {
                 context.connListener.displayMessage("Failed to quit previous session! You must quit it manually");
@@ -388,7 +399,7 @@ public class NvConnection {
         // fail with error -1, so wait until it reports nothing running, then launch, trying again
         // a few times while it still isn't ready.
         waitUntilNothingRuns(h, 12000);
-        return launchWithRetries(h, context, 4);
+        return launchWithRetries(h, app, 4);
     }
 
     private static void sleepQuietly(long ms) {
@@ -400,8 +411,9 @@ public class NvConnection {
     }
 
     private void waitUntilNothingRuns(NvHTTP h, long timeoutMs) {
-        long end = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < end && !Thread.currentThread().isInterrupted()) {
+        long start = android.os.SystemClock.elapsedRealtime();
+        while (!lease.cancelled() && !Thread.currentThread().isInterrupted()
+                && android.os.SystemClock.elapsedRealtime() - start < timeoutMs) {
             try {
                 String info = h.getServerInfo(true);
                 String uuid = h.getCurrentGameUUID(info);
@@ -414,15 +426,15 @@ public class NvConnection {
             sleepQuietly(400);
         }
         // Its display and audio settle right after the game is gone
-        sleepQuietly(700);
+        if (!lease.cancelled()) sleepQuietly(700);
     }
 
-    private boolean launchWithRetries(NvHTTP h, ConnectionContext context, int tries)
+    private boolean launchWithRetries(NvHTTP h, NvApp app, int tries)
             throws IOException, XmlPullParserException {
         for (int attempt = 0; ; attempt++) {
+            if (lease.cancelled()) return false;
             try {
-                if (h.launchApp(context, "launch", context.streamConfig.getApp().getAppUUID(),
-                        context.streamConfig.getApp().getAppId(), context.negotiatedHdr)) {
+                if (h.launchApp(context, "launch", app.getAppUUID(), app.getAppId(), context.negotiatedHdr)) {
                     LimeLog.info("Launched new game session" + (attempt > 0 ? " (try " + (attempt + 1) + ")" : ""));
                     return true;
                 }
@@ -442,10 +454,10 @@ public class NvConnection {
         }
     }
     
-    private boolean launchNotRunningApp(NvHTTP h, ConnectionContext context)
+    private boolean launchNotRunningApp(NvHTTP h, NvApp app)
             throws IOException, XmlPullParserException {
-        // Launch the app since it's not running
-        if (!h.launchApp(context, "launch", context.streamConfig.getApp().getAppUUID(), context.streamConfig.getApp().getAppId(), context.negotiatedHdr)) {
+        if (lease.cancelled()) return false;
+        if (!h.launchApp(context, "launch", app.getAppUUID(), app.getAppId(), context.negotiatedHdr)) {
             context.connListener.displayMessage("Failed to launch application");
             return false;
         }
@@ -486,13 +498,16 @@ public class NvConnection {
                     boolean retry = false;
                     try {
                         if (!startApp()) {
+                            if (lease.cancelled()) return;
                             retry = context.connListener.stageFailed(appName, 0, 0);
                             if (!retry) {
                                 return;
                             }
                         }
+                        if (lease.cancelled()) return;
                         context.connListener.stageComplete(appName);
                     } catch (HostHttpResponseException e) {
+                        if (lease.cancelled()) return;
                         e.printStackTrace();
                         context.connListener.displayMessage(e.getMessage());
                         retry = context.connListener.stageFailed(appName, 0, e.getErrorCode());
@@ -500,6 +515,7 @@ public class NvConnection {
                             return;
                         }
                     } catch (XmlPullParserException | IOException e) {
+                        if (lease.cancelled()) return;
                         e.printStackTrace();
                         context.connListener.displayMessage(e.getMessage());
                         retry = context.connListener.stageFailed(appName, MoonBridge.ML_PORT_FLAG_TCP_47984 | MoonBridge.ML_PORT_FLAG_TCP_47989, tryCount < 2 ? 0 : -408);

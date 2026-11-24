@@ -28,12 +28,24 @@ public final class HorizonLaunchTarget {
         return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.PC_STREAM, h,
                 "shortcut", appName == null ? "" : appName);
     }
+    public enum PcAppMatch { IDLE, SAME, DIFFERENT, UNKNOWN }
+
     /** A missing UUID is not an identity. Positive numeric IDs remain a legacy fallback. */
-    public static boolean sameRunningPcApp(int runningId, String runningUuid, int requestedId, String requestedUuid) {
+    public static PcAppMatch compareRunningPcApp(int runningId, String runningUuid, int requestedId, String requestedUuid) {
         boolean runningHasUuid = runningUuid != null && !runningUuid.trim().isEmpty();
         boolean requestedHasUuid = requestedUuid != null && !requestedUuid.trim().isEmpty();
-        if (runningHasUuid && requestedHasUuid) return runningUuid.equalsIgnoreCase(requestedUuid);
-        return runningId > 0 && requestedId > 0 && runningId == requestedId;
+        if (runningId == 0 && !runningHasUuid) return PcAppMatch.IDLE;
+        if (runningHasUuid && requestedHasUuid) {
+            return runningUuid.equalsIgnoreCase(requestedUuid) ? PcAppMatch.SAME : PcAppMatch.DIFFERENT;
+        }
+        if (runningId > 0 && requestedId > 0) {
+            return runningId == requestedId ? PcAppMatch.SAME : PcAppMatch.DIFFERENT;
+        }
+        return PcAppMatch.UNKNOWN;
+    }
+
+    public static boolean sameRunningPcApp(int runningId, String runningUuid, int requestedId, String requestedUuid) {
+        return compareRunningPcApp(runningId, runningUuid, requestedId, requestedUuid) == PcAppMatch.SAME;
     }
     public static HorizonLaunchTarget cloud(String service, String url) {
         return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.CLOUD,
