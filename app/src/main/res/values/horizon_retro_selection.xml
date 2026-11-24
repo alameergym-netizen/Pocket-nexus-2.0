@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_retro_source_changed">Game source changed or is unavailable. Refreshing the library.</string>
+</resources>
