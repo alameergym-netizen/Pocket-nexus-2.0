@@ -38,6 +38,10 @@ Read docs/HORIZON_SYSTEM_BLUEPRINT.md, HORIZON.md and HORIZON_FOUNDATION_GATE.md
 - Ludusavi v0.31.0 is MIT. The CLI offers JSON backup and restore previews, explicit game selection and backup IDs. Prefer a local opt-in preview against selected games and show conflicts before offering any restore. Compare the documented cloud conflict behavior and avoid silently forcing a write. [Ludusavi CLI](https://github.com/mtkennerly/ludusavi/blob/v0.31.0/docs/cli.md)
 - RomM 5.4.1 is an AGPL-3.0 self-hosted manager with an OpenAPI implementation. Evaluate a separately configured read-only catalog client, user-owned storage and stable source identity. Keep local Retro roots usable independently. [RomM release](https://github.com/rommapp/romm/releases/tag/5.4.1) · [API source](https://github.com/rommapp/romm/blob/5.4.1/backend/utils/openapi.py)
 
+## Official console Remote Play
+
+Microsoft documents the Xbox browser route for games installed on the owner's console. Sony documents the separate PS Remote Play app for Android and requires the user's own console and account. The Connect workspace dispatches to the fixed Xbox site or the Sony app. Its Sony fallback opens the official store listing. The existing cloud gaming clients remain available independently. Login and gameplay are managed by the official clients, and dispatch alone supplies no evidence of sign-in, controller compatibility or a running game. [Xbox Remote Play](https://www.xbox.com/en-US/consoles/remote-play) · [PlayStation mobile instructions](https://www.playstation.com/en-us/support/games/playstation-remote-play-on-mobile-devices/) · [Official app](https://play.google.com/store/apps/details?id=com.playstation.remoteplay)
+
 ## Historical checkpoints
 
 ### Verified foundation
