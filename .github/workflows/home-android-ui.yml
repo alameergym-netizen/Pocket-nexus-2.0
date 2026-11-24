@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/home-android-ui.yml'
       - '.github/tests/home_shortcuts.py'
+      - '.github/tests/run_home_shortcuts.sh'
       - 'app/src/main/java/com/limelight/pocket/home/HomeActivity.java'
       - 'app/src/main/java/com/limelight/pocket/device/HorizonAudio.java'
       - 'app/src/main/java/com/limelight/pocket/global/ControlCenterActivity.java'
@@ -33,36 +34,21 @@ jobs:
         shell: bash
         run: |
           sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "$sdk" --install "platform-tools" "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1" "emulator" "system-images;android-33;google_apis;x86_64"
+          "$sdk" --install "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1"
           bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameDebug
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
       - name: Test the Home controls on Android 13
-        shell: bash
-        run: |
-          export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          export ANDROID_USER_HOME="$RUNNER_TEMP/nexus-android"
-          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
-          mkdir -p "$ANDROID_AVD_HOME" home-ui-results
-          sudo chmod 666 /dev/kvm
-          "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n nexus-home -p "$ANDROID_AVD_HOME/nexus-home.avd" -k 'system-images;android-33;google_apis;x86_64' --device pixel_2 --force
-          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx nexus-home
-          "$ANDROID_HOME/emulator/emulator" -avd nexus-home -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > home-ui-results/emulator.log 2>&1 &
-          emulator_pid=$!
-          trap 'adb emu kill >/dev/null 2>&1 || true' EXIT
-          for attempt in {1..120}; do
-            if ! kill -0 "$emulator_pid" 2>/dev/null; then cat home-ui-results/emulator.log; exit 1; fi
-            if adb devices | grep -Eq '^emulator-[0-9]+[[:space:]]+device'; then break; fi
-            sleep 2
-          done
-          timeout 10 adb wait-for-device
-          timeout 240 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-          set -o pipefail
-          result=0
-          python3 .github/tests/home_shortcuts.py app/build/outputs/apk/nonRoot_game/debug/*.apk 2>&1 | tee home-ui-results/result.log || result=$?
-          adb logcat -b crash -d > home-ui-results/crash.log || true
-          exit "$result"
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        timeout-minutes: 12
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 300
+          script: bash .github/tests/run_home_shortcuts.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
