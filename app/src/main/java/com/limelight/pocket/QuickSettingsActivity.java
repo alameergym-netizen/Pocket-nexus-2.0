@@ -508,6 +508,26 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> PocketPrefs.adaptiveStream(this),
                 value -> prefs().edit().putBoolean(PocketPrefs.KEY_ADAPTIVE, value).apply());
 
+        {
+            // Home and away: what a stream starts with away from home (VPN, mobile data)
+            final int[] steps = PocketAdaptive.AWAY_STEPS;
+            String[] labels = new String[steps.length];
+            for (int i = 0; i < steps.length; i++) {
+                labels[i] = steps[i] == 0 ? getString(R.string.pocket_away_same) : (steps[i] / 1000) + " Mbps";
+            }
+            addChoice(getString(R.string.pocket_away_title), getString(R.string.pocket_away_sub), labels,
+                    () -> {
+                        int now = PocketAdaptive.awayKbps(this);
+                        for (int i = 0; i < steps.length; i++) {
+                            if (steps[i] == now) {
+                                return i;
+                            }
+                        }
+                        return 3;
+                    },
+                    index -> prefs().edit().putInt(PocketAdaptive.KEY_AWAY_KBPS, steps[index]).apply(), null);
+        }
+
         addToggle(getString(R.string.pocket_set_resume), getString(R.string.pocket_set_resume_sub),
                 () -> PocketPrefs.seamlessResume(this),
                 value -> prefs().edit().putBoolean(PocketPrefs.KEY_SEAMLESS_RESUME, value).apply());

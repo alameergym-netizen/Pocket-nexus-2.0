@@ -14,8 +14,34 @@ public final class PocketAdaptive {
 
     public static final int MIN_KBPS = 5000;
 
+    /** Away from home (a VPN such as Tailscale, or mobile data): the most a stream starts with. */
+    public static final String KEY_AWAY_KBPS = "pocket_away_kbps";
+    public static final int[] AWAY_STEPS = {0, 10000, 15000, 20000, 30000, 40000};
+
+    public static int awayKbps(Context context) {
+        return PocketPrefs.prefs(context).getInt(KEY_AWAY_KBPS, 20000);
+    }
+
+    /** Playing away from home now: through a VPN or on mobile data (not the home Wi-Fi). */
+    public static boolean away(Context context) {
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager)
+                    context.getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+            android.net.NetworkCapabilities nc = cm != null ? cm.getNetworkCapabilities(cm.getActiveNetwork()) : null;
+            return nc != null && (nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+                    || nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     /** The bitrate to start a Wi-Fi stream with, never above what the player chose. */
     public static int startBitrate(Context context, int configuredKbps) {
+        // Home and away: away from home, the internet in between carries less than the home Wi-Fi
+        int awayCap = awayKbps(context);
+        if (awayCap > 0 && away(context)) {
+            configuredKbps = Math.min(configuredKbps, awayCap);
+        }
         if (!PocketPrefs.adaptiveStream(context)) {
             return configuredKbps;
         }

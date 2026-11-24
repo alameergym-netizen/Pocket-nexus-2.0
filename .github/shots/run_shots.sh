@@ -206,8 +206,21 @@ fi
 if scene surprise; then
   key KEYCODE_BUTTON_THUMBL gamepad 7; shot 27_surprise
 fi
+if scene library; then
+  key KEYCODE_DPAD_DOWN dpad 2
+  key KEYCODE_BUTTON_A gamepad 6; shot 34_library
+  key KEYCODE_DPAD_RIGHT dpad 1.5; shot 34_library_next
+  key KEYCODE_BUTTON_Y gamepad 2; shot 34_library_options
+  key KEYCODE_BUTTON_B gamepad 1.5
+  key KEYCODE_BUTTON_R1 gamepad 2
+  key KEYCODE_BUTTON_R1 gamepad 2
+  key KEYCODE_BUTTON_R1 gamepad 2
+  key KEYCODE_BUTTON_R1 gamepad 2
+  key KEYCODE_BUTTON_R1 gamepad 2; shot 34_library_android
+fi
 if scene music; then
   key KEYCODE_DPAD_DOWN dpad 2
+  key KEYCODE_DPAD_RIGHT dpad 1.5
   key KEYCODE_BUTTON_A gamepad 5; shot 28_music
 fi
 if scene settings_home; then

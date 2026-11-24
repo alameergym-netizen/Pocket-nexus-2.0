@@ -40,6 +40,7 @@ public final class NexusApps {
     private static final String KEY_ART = "pocket_nexus_art_v";
 
     public static final String MUSIC = "music";
+    public static final String LIBRARY = "library";
     public static final String FILES = "files";
     public static final String BROWSER = "browser";
     public static final String SEARCH = "search";
@@ -67,6 +68,7 @@ public final class NexusApps {
     }
 
     public static final App[] ALL = {
+            new App(LIBRARY, R.string.pocket_ul_title, R.string.pocket_ul_about, "GAMEPAD", 0xFF8AB4FF, 0xFF27358F),
             new App(MUSIC, R.string.pocket_nexus_music, R.string.pocket_nexus_music_about, "MUSIC", 0xFFFF5C8A, 0xFF6D28D9),
             new App(FILES, R.string.pocket_nexus_files, R.string.pocket_nexus_files_about, "FOLDER", 0xFFFFB547, 0xFFD9480F),
             new App(BROWSER, R.string.pocket_nexus_browser, R.string.pocket_nexus_browser_about, "GLOBE", 0xFF4CB6FF, 0xFF1D3FD1),
@@ -99,6 +101,9 @@ public final class NexusApps {
     /** Opens it. False when it's not one of them. */
     public static boolean open(Activity from, String id) {
         switch (id) {
+            case LIBRARY:
+                com.limelight.pocket.library.LibraryActivity.open(from);
+                return true;
             case MUSIC:
                 com.limelight.pocket.music.MusicActivity.open(from);
                 return true;

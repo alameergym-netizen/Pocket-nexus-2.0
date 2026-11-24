@@ -57,7 +57,7 @@ final class HomeDock {
     static final String WIDGETS = "widgets";
     private static final String NEXUS = "nexus:";
     private static final String APP = "app:";
-    private static final String DEFAULT = "nexus:music,nexus:files,nexus:browser,nexus:search,nexus:stats,"
+    private static final String DEFAULT = "nexus:library,nexus:music,nexus:files,nexus:browser,nexus:search,nexus:stats,"
             + "nexus:apps,nexus:surprise,widgets,nexus:settings";
 
     private final HomeActivity activity;
@@ -139,8 +139,18 @@ final class HomeDock {
             }
             out.add(e);
         }
+        // The Library came later: it joins a dock arranged before it, once, at the front
+        if (!PocketPrefs.prefs(activity).getBoolean(KEY_LIBRARY_ADDED, false)) {
+            PocketPrefs.prefs(activity).edit().putBoolean(KEY_LIBRARY_ADDED, true).apply();
+            if (!out.contains(NEXUS + "library")) {
+                out.add(0, NEXUS + "library");
+                save(out);
+            }
+        }
         return out;
     }
+
+    private static final String KEY_LIBRARY_ADDED = "pocket_dock_library_added";
 
     private void save(List<String> list) {
         PocketPrefs.prefs(activity).edit().putString(KEY, TextUtils.join(",", list)).apply();

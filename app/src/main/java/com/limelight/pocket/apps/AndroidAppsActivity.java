@@ -80,8 +80,8 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
     /** What L2 / R2 step through, in order. */
     private static final int[] FILTER_CYCLE = {FILTER_ALL, FILTER_MEDIA, FILTER_GAMES, FILTER_EMULATORS, FILTER_SETTINGS};
 
-    static final int TYPE_APP = 0;
-    static final int TYPE_GAME = 1;
+    public static final int TYPE_APP = 0;
+    public static final int TYPE_GAME = 1;
     static final int TYPE_EMULATOR = 2;
     static final int TYPE_SETTING = 3;
     static final int TYPE_NEXUS = 4;
