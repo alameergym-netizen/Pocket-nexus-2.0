@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_pserver_probe">Check PServer availability</string>
+    <string name="horizon_pserver_alive">Service visible and responding</string>
+    <string name="horizon_pserver_not_visible">Not visible or not responding</string>
+    <string name="horizon_pserver_restricted">Discovery unavailable / restricted</string>
+    <string name="horizon_pserver_probe_limit">Service liveness does not establish permission to launch a privileged host or change clocks. No command was sent.</string>
+    <string name="horizon_cpu_preview">CPU profile preview</string>
+    <string name="horizon_cpu_preview_note">Read-only calculation from current limits and available frequency steps. Eco and Balanced target 60% and 80% of the observed ceiling; Performance does not raise it. These are not measured optimal values. No profile is applied.</string>
+    <string name="horizon_cpu_baseline">Observed current range</string>
+</resources>
