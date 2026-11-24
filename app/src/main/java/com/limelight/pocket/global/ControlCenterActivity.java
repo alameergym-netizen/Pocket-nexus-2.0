@@ -59,6 +59,16 @@ public class ControlCenterActivity extends Activity {
     private static final Handler AFTER = new Handler(Looper.getMainLooper());
     private static final int INK = 0xFF111114;
 
+    private static int accent(Context c) {
+        return com.limelight.pocket.ui.PocketTheme.accent(c);
+    }
+
+    private static void paintSurface(View v, GradientDrawable bg, boolean focused, boolean on, float d) {
+        int tint = accent(v.getContext());
+        bg.setColor(focused ? HorizonControls.focusColor(tint) : on ? (tint & 0xFFFFFF) | 0x66000000 : 0x1FFFFFFF);
+        bg.setStroke(Math.max(1, Math.round(d)), focused ? 0xFFFFFFFF : on ? (tint & 0xFFFFFF) | 0xCC000000 : 0x28FFFFFF);
+    }
+
     private float d;
     private FrameLayout root;
     private LinearLayout panel;
@@ -167,7 +177,8 @@ public class ControlCenterActivity extends Activity {
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
         TextView name = text(getString(R.string.pocket_nc_title).toUpperCase(Locale.ROOT), 10f, 0x8CFFFFFF, PocketFonts.bold());
-        name.setLetterSpacing(0.22f);
+        name.setLetterSpacing(0.16f);
+        name.setTextColor(HorizonControls.focusColor(accent(this)));
         titles.addView(name, wrap());
         clock = text("", 24f, 0xFFFFFFFF, PocketFonts.display());
         clock.setIncludeFontPadding(false);
@@ -624,7 +635,7 @@ public class ControlCenterActivity extends Activity {
 
     /** Apple TV's focus: the tile turns white (its icon and words dark) and lifts a little. */
     private static void focusLook(View v, GradientDrawable bg, boolean has, boolean on, float d) {
-        bg.setColor(has ? 0xFFFFFFFF : on ? 0x3DFFFFFF : 0x1FFFFFFF);
+        paintSurface(v, bg, has, on, d);
         v.animate().cancel();
         boolean motion = PocketPrefs.animationsEnabled(v.getContext());
         v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).translationZ(has ? 8 * d : 0)
@@ -678,6 +689,7 @@ public class ControlCenterActivity extends Activity {
             state.setEllipsize(TextUtils.TruncateAt.END);
             addView(state, new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             paint(false);
+            paintSurface(this, bg, false, false, d);
             setOnFocusChangeListener((v, has) -> {
                 if (has) {
                     PocketSounds.play(getContext(), PocketSounds.NAV);
@@ -691,7 +703,7 @@ public class ControlCenterActivity extends Activity {
         void setOn(boolean on) {
             this.on = on;
             paint(hasFocus());
-            bg.setColor(hasFocus() ? 0xFFFFFFFF : on ? 0x3DFFFFFF : 0x1FFFFFFF);
+            paintSurface(this, bg, hasFocus(), on, d);
         }
 
         void setState(String s) {
@@ -718,6 +730,7 @@ public class ControlCenterActivity extends Activity {
         private final String iconName;
         private final TextView label;
         private final Track track;
+        private final TextView value;
         private final float d;
         Stepper stepper;
 
@@ -749,7 +762,17 @@ public class ControlCenterActivity extends Activity {
             addView(label, ll);
             track = new Track(c);
             addView(track, new LayoutParams(0, Math.round(16 * d), 1f));
+            value = new TextView(c);
+            value.setText("—");
+            value.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            value.setTypeface(PocketFonts.medium());
+            value.setSingleLine(true);
+            value.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+            LayoutParams vl = new LayoutParams(Math.round(40 * d), ViewGroup.LayoutParams.WRAP_CONTENT);
+            vl.setMarginStart(Math.round(6 * d));
+            addView(value, vl);
             paint(false);
+            paintSurface(this, bg, false, false, d);
             setOnFocusChangeListener((v, has) -> {
                 if (has) {
                     PocketSounds.play(getContext(), PocketSounds.NAV);
@@ -761,7 +784,8 @@ public class ControlCenterActivity extends Activity {
         }
 
         void setValue(float v) {
-            track.target = Math.max(0f, Math.min(1f, v));
+            track.target = HorizonControls.clampLevel(v);
+            value.setText(java.text.NumberFormat.getPercentInstance().format(track.target));
             track.invalidate();
         }
 
@@ -784,6 +808,7 @@ public class ControlCenterActivity extends Activity {
             int ink = focused ? INK : 0xFFFFFFFF;
             icon.setImageDrawable(PocketIcons.drawable(iconName, Math.round(18 * d), ink));
             label.setTextColor(ink);
+            value.setTextColor(ink);
             track.focused = focused;
             track.invalidate();
         }
@@ -795,9 +820,13 @@ public class ControlCenterActivity extends Activity {
             float target;
             float shown = -1f;
             boolean focused;
+            private final boolean motion;
+            private final int fill;
 
             Track(Context c) {
                 super(c);
+                motion = PocketPrefs.animationsEnabled(c);
+                fill = HorizonControls.focusColor(accent(c));
             }
 
             @Override
@@ -805,7 +834,7 @@ public class ControlCenterActivity extends Activity {
                 if (shown < 0) {
                     shown = target;
                 }
-                shown += (target - shown) * 0.35f;
+                shown = motion ? shown + (target - shown) * 0.35f : target;
                 if (Math.abs(target - shown) > 0.002f) {
                     postInvalidateOnAnimation();
                 }
@@ -817,9 +846,11 @@ public class ControlCenterActivity extends Activity {
                 r.set(0, top, getWidth(), top + h);
                 paint.setColor(focused ? 0x26111114 : 0x33FFFFFF);
                 c.drawRoundRect(r, h / 2f, h / 2f, paint);
-                r.right = Math.max(h, getWidth() * shown);
-                paint.setColor(focused ? INK : 0xFFFFFFFF);
-                c.drawRoundRect(r, h / 2f, h / 2f, paint);
+                if (shown > 0f) {
+                    r.right = getWidth() * shown;
+                    paint.setColor(focused ? INK : fill);
+                    c.drawRoundRect(r, h / 2f, h / 2f, paint);
+                }
             }
         }
     }

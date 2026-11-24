@@ -823,6 +823,8 @@ public class HomeActivity extends ConsoleActivity {
         heroKey = key;
         featured.setVisibility(e!=null && featuredRoom?View.VISIBLE:View.GONE);
         if (e == null) {
+            main.removeCallbacks(heroMotion);
+            adaptShade(null);
             boolean empty = entries.size() <= 1;
             setMeta(null, null);
             setGlow(0);
@@ -851,10 +853,14 @@ public class HomeActivity extends ConsoleActivity {
             String uuid = artUuid(item);
             boolean hasLogo = uuid != null && PocketArt.has(this, uuid, artId(item), PocketArt.LOGO);
             if (hasLogo) {
-                // Its logo is on the way: no name flashing up before it
-                title.setVisibility(View.GONE);
+                // Keep the selected game's name readable until its actual logo is ready.
+                title.animate().cancel();
+                title.setAlpha(1f);
+                title.setTranslationX(0f);
+                title.setText(name);
+                title.setVisibility(View.VISIBLE);
                 logo.setImageDrawable(null);
-                logo.setVisibility(View.VISIBLE);
+                logo.setVisibility(View.GONE);
             }
             else {
                 title.setVisibility(View.VISIBLE);
@@ -976,10 +982,12 @@ public class HomeActivity extends ConsoleActivity {
     private void showArt(final HomeStore.Entry e) {
         final String uuid = artUuid(e.item);
         final String key = e.item.key();
+        main.removeCallbacks(heroMotion);
         if (uuid == null) {
             if (keyArt != null) {
                 keyArt.show(null);
             }
+            adaptShade(null);
             return;
         }
         final int id = artId(e.item);
@@ -990,7 +998,6 @@ public class HomeActivity extends ConsoleActivity {
             }
         });
         // Its moving background (a video or an animated picture), once you rest on it
-        main.removeCallbacks(heroMotion);
         final java.io.File motion = com.limelight.pocket.ui.MotionArt.file(this, uuid, id, PocketArt.HERO);
         if (motion != null) {
             heroMotion = () -> {
