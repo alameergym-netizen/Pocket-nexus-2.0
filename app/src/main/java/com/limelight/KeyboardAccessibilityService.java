@@ -65,6 +65,12 @@ public class KeyboardAccessibilityService extends AccessibilityService {
             }
         }
 
+        // A stream's dialog/launch overlay can own focus while Game is still visible.
+        // Never fall through to the global radial or quick switch in this interval.
+        if (Game.ownsVisibleStreamInput()) {
+            return super.onKeyEvent(event);
+        }
+
         // Another app in front (an Android game, an emulator): Pocket Nexus's buttons there
         if (global != null && global.onKeyEvent(event)) {
             return true;

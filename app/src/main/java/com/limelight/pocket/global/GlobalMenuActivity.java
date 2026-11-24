@@ -93,6 +93,7 @@ public class GlobalMenuActivity extends Activity {
     }
 
     public static void show(Context c, String mode, String front) {
+        if (com.limelight.Game.ownsVisibleStreamInput()) return;
         try {
             c.startActivity(new Intent(c, GlobalMenuActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION)

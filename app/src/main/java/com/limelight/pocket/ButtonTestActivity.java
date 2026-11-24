@@ -164,7 +164,13 @@ public class ButtonTestActivity extends ConsoleActivity implements KeyboardAcces
         StringBuilder sb = new StringBuilder();
         sb.append("keycode ").append(event.getKeyCode())
                 .append(" · scancode ").append(event.getScanCode())
-                .append("\n").append(deviceName);
+                .append("\n").append(deviceName)
+                .append(" · device ").append(event.getDeviceId())
+                .append("\nsource 0x").append(Integer.toHexString(event.getSource()))
+                .append(" · flags 0x").append(Integer.toHexString(event.getFlags()));
+        if ((event.getFlags() & KeyEvent.FLAG_FALLBACK) != 0) {
+            sb.append(" · fallback");
+        }
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             sb.append(" · virtual key");
         }
@@ -180,7 +186,8 @@ public class ButtonTestActivity extends ConsoleActivity implements KeyboardAcces
             bigName.animate().scaleX(1f).scaleY(1f).setDuration(300).setInterpolator(PocketUi.EASE).start();
         }
 
-        history.addFirst(name + "  (" + event.getKeyCode() + "/" + event.getScanCode() + ")" + (viaService ? "  ⓐ" : ""));
+        history.addFirst(name + "  (" + event.getKeyCode() + "/" + event.getScanCode()
+                + ") f=0x" + Integer.toHexString(event.getFlags()) + (viaService ? "  ⓐ" : ""));
         while (history.size() > 6) {
             history.removeLast();
         }
