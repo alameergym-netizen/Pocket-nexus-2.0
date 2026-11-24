@@ -1,0 +1,400 @@
+E/BpTransactionCompletedListener(  433): Failed to transact (-32)
+I/ActivityManager(  553): Force stopping com.artemispocket appid=10126 user=0: from pid 8243
+D/CarrierSvcBindHelper(  986): onHandleForceStop: [com.artemispocket]
+I/ActivityTaskManager(  553): START u0 {act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10000000 cmp=com.artemispocket/com.limelight.PcView} from uid 2000
+D/CoreBackPreview(  553): Window{9f415aa u0 Splash Screen com.artemispocket}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@7953d38, mPriority=0}
+I/ActivityManager(  553): Start proc 8259:com.artemispocket/u0a126 for next-top-activity {com.artemispocket/com.limelight.PcView}
+V/GraphicsEnvironment( 8259): ANGLE Developer option for 'com.artemispocket' set to: 'default'
+V/GraphicsEnvironment( 8259): ANGLE GameManagerService for com.artemispocket: false
+I/ActivityTaskManager(  553): START u0 {cmp=com.artemispocket/com.limelight.pocket.home.HomeActivity} from uid 10126
+D/CoreBackPreview(  553): Window{a71e1b0 u0 com.artemispocket/com.limelight.PcView}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@fb587ae, mPriority=0}
+E/SQLiteLog( 8259): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8259): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers.db) - 
+E/SQLiteDatabase( 8259): Failed to open database '/data/user/0/com.artemispocket/databases/computers.db'.
+E/SQLiteDatabase( 8259): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers.db doesn't exist
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.LegacyDatabaseReader.migrateAllComputers(SourceFile:90)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:70)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerManagerService.onCreate(SourceFile:726)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.handleCreateService(ActivityThread.java:4485)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.-$$Nest$mhandleCreateService(Unknown Source:0)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2161)
+E/SQLiteDatabase( 8259): 	at android.os.Handler.dispatchMessage(Handler.java:106)
+E/SQLiteDatabase( 8259): 	at android.os.Looper.loopOnce(Looper.java:201)
+E/SQLiteDatabase( 8259): 	at android.os.Looper.loop(Looper.java:288)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.main(ActivityThread.java:7872)
+E/SQLiteDatabase( 8259): 	at java.lang.reflect.Method.invoke(Native Method)
+E/SQLiteDatabase( 8259): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+E/SQLiteDatabase( 8259): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:936)
+E/SQLiteDatabase( 8259): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8259): 	... 22 more
+E/SQLiteLog( 8259): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8259): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers2.db) - 
+E/SQLiteDatabase( 8259): Failed to open database '/data/user/0/com.artemispocket/databases/computers2.db'.
+E/SQLiteDatabase( 8259): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers2.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers2.db doesn't exist
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.LegacyDatabaseReader2.migrateAllComputers(SourceFile:71)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:74)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerManagerService.onCreate(SourceFile:726)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.handleCreateService(ActivityThread.java:4485)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.-$$Nest$mhandleCreateService(Unknown Source:0)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2161)
+E/SQLiteDatabase( 8259): 	at android.os.Handler.dispatchMessage(Handler.java:106)
+E/SQLiteDatabase( 8259): 	at android.os.Looper.loopOnce(Looper.java:201)
+E/SQLiteDatabase( 8259): 	at android.os.Looper.loop(Looper.java:288)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.main(ActivityThread.java:7872)
+E/SQLiteDatabase( 8259): 	at java.lang.reflect.Method.invoke(Native Method)
+E/SQLiteDatabase( 8259): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+E/SQLiteDatabase( 8259): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:936)
+E/SQLiteDatabase( 8259): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8259): 	... 22 more
+E/SQLiteLog( 8259): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8259): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers3.db) - 
+E/SQLiteDatabase( 8259): Failed to open database '/data/user/0/com.artemispocket/databases/computers3.db'.
+E/SQLiteDatabase( 8259): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers3.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers3.db doesn't exist
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.LegacyDatabaseReader3.migrateAllComputers(SourceFile:110)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:78)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerManagerService.onCreate(SourceFile:726)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.handleCreateService(ActivityThread.java:4485)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.-$$Nest$mhandleCreateService(Unknown Source:0)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2161)
+E/SQLiteDatabase( 8259): 	at android.os.Handler.dispatchMessage(Handler.java:106)
+E/SQLiteDatabase( 8259): 	at android.os.Looper.loopOnce(Looper.java:201)
+E/SQLiteDatabase( 8259): 	at android.os.Looper.loop(Looper.java:288)
+E/SQLiteDatabase( 8259): 	at android.app.ActivityThread.main(ActivityThread.java:7872)
+E/SQLiteDatabase( 8259): 	at java.lang.reflect.Method.invoke(Native Method)
+E/SQLiteDatabase( 8259): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+E/SQLiteDatabase( 8259): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:936)
+E/SQLiteDatabase( 8259): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8259): 	... 22 more
+D/ConnectivityService(  553): requestNetwork for uid/pid:10126/8259 activeRequest: null callbackRequest: 84 [NetworkRequest [ REQUEST id=85, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647
+D/WifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=85, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+D/UntrustedWifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=85, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+D/OemPaidWifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=85, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+D/MultiInternetWifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=85, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+E/SQLiteLog( 8259): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8259): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers.db) - 
+D/CoreBackPreview(  553): Window{de9385e u0 com.artemispocket/com.limelight.pocket.home.HomeActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@be8c10c, mPriority=0}
+E/SQLiteDatabase( 8259): Failed to open database '/data/user/0/com.artemispocket/databases/computers.db'.
+E/SQLiteDatabase( 8259): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers.db doesn't exist
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.LegacyDatabaseReader.migrateAllComputers(SourceFile:90)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:70)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeStore.load(SourceFile:174)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeActivity.$r8$lambda$gnhaL1fW3KKmutnndC_P_G6Dmc8(SourceFile:453)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeActivity$$ExternalSyntheticLambda51.run(SourceFile:0)
+E/SQLiteDatabase( 8259): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1137)
+E/SQLiteDatabase( 8259): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:637)
+E/SQLiteDatabase( 8259): 	at java.lang.Thread.run(Thread.java:1012)
+E/SQLiteDatabase( 8259): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8259): 	... 17 more
+E/SQLiteLog( 8259): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8259): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers2.db) - 
+E/SQLiteDatabase( 8259): Failed to open database '/data/user/0/com.artemispocket/databases/computers2.db'.
+E/SQLiteDatabase( 8259): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers2.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers2.db doesn't exist
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.LegacyDatabaseReader2.migrateAllComputers(SourceFile:71)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:74)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeStore.load(SourceFile:174)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeActivity.$r8$lambda$gnhaL1fW3KKmutnndC_P_G6Dmc8(SourceFile:453)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeActivity$$ExternalSyntheticLambda51.run(SourceFile:0)
+E/SQLiteDatabase( 8259): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1137)
+E/SQLiteDatabase( 8259): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:637)
+E/SQLiteDatabase( 8259): 	at java.lang.Thread.run(Thread.java:1012)
+E/SQLiteDatabase( 8259): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8259): 	... 17 more
+E/SQLiteLog( 8259): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8259): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers3.db) - 
+E/SQLiteDatabase( 8259): Failed to open database '/data/user/0/com.artemispocket/databases/computers3.db'.
+E/SQLiteDatabase( 8259): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers3.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers3.db doesn't exist
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.LegacyDatabaseReader3.migrateAllComputers(SourceFile:110)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:78)
+E/SQLiteDatabase( 8259): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeStore.load(SourceFile:174)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeActivity.$r8$lambda$gnhaL1fW3KKmutnndC_P_G6Dmc8(SourceFile:453)
+E/SQLiteDatabase( 8259): 	at com.limelight.pocket.home.HomeActivity$$ExternalSyntheticLambda51.run(SourceFile:0)
+E/SQLiteDatabase( 8259): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1137)
+E/SQLiteDatabase( 8259): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:637)
+E/SQLiteDatabase( 8259): 	at java.lang.Thread.run(Thread.java:1012)
+E/SQLiteDatabase( 8259): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8259): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8259): 	... 17 more
+I/ActivityTaskManager(  553): Displayed com.artemispocket/com.limelight.pocket.home.HomeActivity: +1s48ms
+D/CoreBackPreview(  553): Window{9f415aa u0 Splash Screen com.artemispocket EXITING}: Setting back callback null
+W/InputManager-JNI(  553): Input channel object '9f415aa Splash Screen com.artemispocket (client)' was disposed without first being removed with the input manager!
+E/TaskPersister(  553): File error accessing recents directory (directory doesn't exist?).
+D/ProfileInstaller( 8259): Skipping profile installation for com.artemispocket
+I/ActivityManager(  553): Force stopping com.artemispocket appid=10126 user=0: from pid 8449
+I/ActivityManager(  553): Killing 8259:com.artemispocket/u0a126 (adj 0): stop com.artemispocket due to from pid 8449
+W/ActivityTaskManager(  553): Force removing ActivityRecord{7d39d7b u0 com.artemispocket/com.limelight.pocket.home.HomeActivity} t30 f}}: app died, no saved state
+W/InputManager-JNI(  553): Input channel object 'de9385e com.artemispocket/com.limelight.pocket.home.HomeActivity (client)' was disposed without first being removed with the input manager!
+W/ActivityTaskManager(  553): Force removing ActivityRecord{434107f u0 com.artemispocket/com.limelight.PcView} t30 f}}: app died, no saved state
+W/InputManager-JNI(  553): Input channel object 'a71e1b0 com.artemispocket/com.limelight.PcView (client)' was disposed without first being removed with the input manager!
+W/UsageStatsService(  553): Unexpected activity event reported! (com.artemispocket/com.limelight.PcView event : 23 instanceId : 233684382)
+D/CarrierSvcBindHelper(  986): onHandleForceStop: [com.artemispocket]
+V/ActivityManager(  553): Got obituary of 8259:com.artemispocket
+D/ConnectivityService(  553): ConnectivityService NetworkRequestInfo binderDied(uid/pid:10126/8259, [NetworkRequest [ REQUEST id=85, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]], android.os.BinderProxy@201eb88)
+D/ConnectivityService(  553): releasing NetworkRequest [ REQUEST id=85, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ] (release request)
+E/WifiMulticastLockManager(  553): Multicaster binderDied
+I/ActivityManager(  553): Force stopping com.artemispocket appid=10126 user=0: from pid 8457
+D/CarrierSvcBindHelper(  986): onHandleForceStop: [com.artemispocket]
+E/ClientCache(  433): failed to get buffer, invalid process token
+E/ClientCache(  433): failed to get buffer, could not retrieve buffer
+E/ClientCache(  433): failed to get buffer, invalid process token
+E/BpTransactionCompletedListener(  433): Failed to transact (-32)
+E/C2SoftAvcEnc(  505): Unable to set air params = 0x1ad
+I/ActivityTaskManager(  553): START u0 {act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10000000 cmp=com.artemispocket/com.limelight.PcView} from uid 2000
+I/ActivityManager(  553): Start proc 8503:com.artemispocket/u0a126 for next-top-activity {com.artemispocket/com.limelight.PcView}
+V/GraphicsEnvironment( 8503): ANGLE Developer option for 'com.artemispocket' set to: 'default'
+V/GraphicsEnvironment( 8503): ANGLE GameManagerService for com.artemispocket: false
+D/CoreBackPreview(  553): Window{67fcdfc u0 Splash Screen com.artemispocket}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@1a92ada, mPriority=0}
+I/ActivityTaskManager(  553): START u0 {cmp=com.artemispocket/com.limelight.pocket.home.HomeActivity} from uid 10126
+D/CoreBackPreview(  553): Window{9a0e406 u0 com.artemispocket/com.limelight.PcView}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@7d138f4, mPriority=0}
+E/SQLiteLog( 8503): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8503): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers.db) - 
+E/SQLiteDatabase( 8503): Failed to open database '/data/user/0/com.artemispocket/databases/computers.db'.
+E/SQLiteDatabase( 8503): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers.db doesn't exist
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.LegacyDatabaseReader.migrateAllComputers(SourceFile:90)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:70)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerManagerService.onCreate(SourceFile:726)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.handleCreateService(ActivityThread.java:4485)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.-$$Nest$mhandleCreateService(Unknown Source:0)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2161)
+E/SQLiteDatabase( 8503): 	at android.os.Handler.dispatchMessage(Handler.java:106)
+E/SQLiteDatabase( 8503): 	at android.os.Looper.loopOnce(Looper.java:201)
+E/SQLiteDatabase( 8503): 	at android.os.Looper.loop(Looper.java:288)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.main(ActivityThread.java:7872)
+E/SQLiteDatabase( 8503): 	at java.lang.reflect.Method.invoke(Native Method)
+E/SQLiteDatabase( 8503): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+E/SQLiteDatabase( 8503): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:936)
+E/SQLiteDatabase( 8503): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8503): 	... 22 more
+E/SQLiteLog( 8503): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8503): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers2.db) - 
+E/SQLiteDatabase( 8503): Failed to open database '/data/user/0/com.artemispocket/databases/computers2.db'.
+E/SQLiteDatabase( 8503): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers2.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers2.db doesn't exist
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.LegacyDatabaseReader2.migrateAllComputers(SourceFile:71)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:74)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerManagerService.onCreate(SourceFile:726)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.handleCreateService(ActivityThread.java:4485)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.-$$Nest$mhandleCreateService(Unknown Source:0)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2161)
+E/SQLiteDatabase( 8503): 	at android.os.Handler.dispatchMessage(Handler.java:106)
+E/SQLiteDatabase( 8503): 	at android.os.Looper.loopOnce(Looper.java:201)
+E/SQLiteDatabase( 8503): 	at android.os.Looper.loop(Looper.java:288)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.main(ActivityThread.java:7872)
+E/SQLiteDatabase( 8503): 	at java.lang.reflect.Method.invoke(Native Method)
+E/SQLiteDatabase( 8503): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+E/SQLiteDatabase( 8503): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:936)
+E/SQLiteDatabase( 8503): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8503): 	... 22 more
+E/SQLiteLog( 8503): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8503): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers3.db) - 
+E/SQLiteDatabase( 8503): Failed to open database '/data/user/0/com.artemispocket/databases/computers3.db'.
+E/SQLiteDatabase( 8503): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers3.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers3.db doesn't exist
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.LegacyDatabaseReader3.migrateAllComputers(SourceFile:110)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:78)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerManagerService.onCreate(SourceFile:726)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.handleCreateService(ActivityThread.java:4485)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.-$$Nest$mhandleCreateService(Unknown Source:0)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2161)
+E/SQLiteDatabase( 8503): 	at android.os.Handler.dispatchMessage(Handler.java:106)
+E/SQLiteDatabase( 8503): 	at android.os.Looper.loopOnce(Looper.java:201)
+E/SQLiteDatabase( 8503): 	at android.os.Looper.loop(Looper.java:288)
+E/SQLiteDatabase( 8503): 	at android.app.ActivityThread.main(ActivityThread.java:7872)
+E/SQLiteDatabase( 8503): 	at java.lang.reflect.Method.invoke(Native Method)
+E/SQLiteDatabase( 8503): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+E/SQLiteDatabase( 8503): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:936)
+E/SQLiteDatabase( 8503): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8503): 	... 22 more
+D/ConnectivityService(  553): requestNetwork for uid/pid:10126/8503 activeRequest: null callbackRequest: 86 [NetworkRequest [ REQUEST id=87, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647
+D/WifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=87, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+D/UntrustedWifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=87, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+D/OemPaidWifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=87, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+D/MultiInternetWifiNetworkFactory(  553): got request NetworkRequest [ REQUEST id=87, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10126 RequestorUid: 10126 RequestorPkg: com.artemispocket UnderlyingNetworks: Null] ]
+E/SQLiteLog( 8503): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8503): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers.db) - 
+E/SQLiteDatabase( 8503): Failed to open database '/data/user/0/com.artemispocket/databases/computers.db'.
+E/SQLiteDatabase( 8503): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers.db doesn't exist
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.LegacyDatabaseReader.migrateAllComputers(SourceFile:90)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:70)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeStore.load(SourceFile:174)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeActivity.$r8$lambda$gnhaL1fW3KKmutnndC_P_G6Dmc8(SourceFile:453)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeActivity$$ExternalSyntheticLambda51.run(SourceFile:0)
+E/SQLiteDatabase( 8503): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1137)
+E/SQLiteDatabase( 8503): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:637)
+E/SQLiteDatabase( 8503): 	at java.lang.Thread.run(Thread.java:1012)
+E/SQLiteDatabase( 8503): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8503): 	... 17 more
+E/SQLiteLog( 8503): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8503): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers2.db) - 
+E/SQLiteDatabase( 8503): Failed to open database '/data/user/0/com.artemispocket/databases/computers2.db'.
+E/SQLiteDatabase( 8503): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers2.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers2.db doesn't exist
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.LegacyDatabaseReader2.migrateAllComputers(SourceFile:71)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:74)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeStore.load(SourceFile:174)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeActivity.$r8$lambda$gnhaL1fW3KKmutnndC_P_G6Dmc8(SourceFile:453)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeActivity$$ExternalSyntheticLambda51.run(SourceFile:0)
+E/SQLiteDatabase( 8503): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1137)
+E/SQLiteDatabase( 8503): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:637)
+E/SQLiteDatabase( 8503): 	at java.lang.Thread.run(Thread.java:1012)
+E/SQLiteDatabase( 8503): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8503): 	... 17 more
+E/SQLiteLog( 8503): (14) cannot open file at line 39583 of [bcd014c473]
+E/SQLiteLog( 8503): (14) os_unix.c:39583: (2) open(/data/user/0/com.artemispocket/databases/computers3.db) - 
+E/SQLiteDatabase( 8503): Failed to open database '/data/user/0/com.artemispocket/databases/computers3.db'.
+E/SQLiteDatabase( 8503): android.database.sqlite.SQLiteCantOpenDatabaseException: Cannot open database '/data/user/0/com.artemispocket/databases/computers3.db' with flags 0x1: File /data/user/0/com.artemispocket/databases/computers3.db doesn't exist
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:262)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:205)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:512)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:210)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:202)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:1085)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:1065)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:956)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:903)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.LegacyDatabaseReader3.migrateAllComputers(SourceFile:110)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.initializeDb(SourceFile:78)
+E/SQLiteDatabase( 8503): 	at com.limelight.computers.ComputerDatabaseManager.<init>(SourceFile:55)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeStore.load(SourceFile:174)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeActivity.$r8$lambda$gnhaL1fW3KKmutnndC_P_G6Dmc8(SourceFile:453)
+E/SQLiteDatabase( 8503): 	at com.limelight.pocket.home.HomeActivity$$ExternalSyntheticLambda51.run(SourceFile:0)
+E/SQLiteDatabase( 8503): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1137)
+E/SQLiteDatabase( 8503): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:637)
+E/SQLiteDatabase( 8503): 	at java.lang.Thread.run(Thread.java:1012)
+E/SQLiteDatabase( 8503): Caused by: android.database.sqlite.SQLiteCantOpenDatabaseException: unknown error (code 14 SQLITE_CANTOPEN): Could not open database
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.nativeOpen(Native Method)
+E/SQLiteDatabase( 8503): 	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:224)
+E/SQLiteDatabase( 8503): 	... 17 more
+D/CoreBackPreview(  553): Window{aaec724 u0 com.artemispocket/com.limelight.pocket.home.HomeActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@61f6c42, mPriority=0}
+I/ActivityTaskManager(  553): Displayed com.artemispocket/com.limelight.pocket.home.HomeActivity: +1s397ms
+D/CoreBackPreview(  553): Window{67fcdfc u0 Splash Screen com.artemispocket EXITING}: Setting back callback null
+W/InputManager-JNI(  553): Input channel object '67fcdfc Splash Screen com.artemispocket (client)' was disposed without first being removed with the input manager!
+E/TaskPersister(  553): File error accessing recents directory (directory doesn't exist?).
+D/ProfileInstaller( 8503): Skipping profile installation for com.artemispocket
