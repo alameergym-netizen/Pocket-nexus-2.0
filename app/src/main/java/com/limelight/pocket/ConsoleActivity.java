@@ -616,6 +616,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     protected void onPause() {
         controlBackPress.clear();
         normalBPress.clear();
+        cancelStreamDispatch(streamDispatchTicket);
         super.onPause();
         DockMode.removeListener(dockListener);
         // The other screens read their own layout (or the shared one)
@@ -824,6 +825,51 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     // ---- Windows sign-in screen -------------------------------------------------------------
 
     private boolean signInChecking;
+    private long signInGeneration;
+    private long streamDispatchTicket;
+    private final com.limelight.pocket.core.HorizonStreamDispatch streamDispatch =
+            com.limelight.pocket.core.HorizonStreamDispatch.shared();
+
+    private long dispatchEpoch() {
+        return com.limelight.pocket.core.HorizonLaunchRequests.shared().generation();
+    }
+
+    /** Reserve one deferred stream dispatch for this screen. UI thread only. */
+    public long beginStreamDispatch() {
+        if (isFinishing() || isDestroyed()) return 0;
+        long now = android.os.SystemClock.elapsedRealtime();
+        long epoch = dispatchEpoch();
+        if (streamDispatch.pending(streamDispatchTicket, epoch, now)) return 0;
+        if (streamDispatchTicket != 0) cancelStreamDispatch(streamDispatchTicket);
+        if (signInChecking) return 0; // do not steal a separate pending resume check
+        final long ticket = streamDispatch.begin(epoch, now);
+        streamDispatchTicket = ticket;
+        if (ticket != 0) statusHandler.postDelayed(() -> cancelStreamDispatch(ticket),
+                com.limelight.pocket.core.HorizonStreamDispatch.LIMIT_MS);
+        return ticket;
+    }
+
+    public boolean arriveStreamDispatch(long ticket, com.limelight.pocket.core.HorizonStreamDispatch.Stage stage) {
+        if (streamDispatchTicket != ticket || ticket == 0) return false;
+        long now = android.os.SystemClock.elapsedRealtime();
+        long epoch = dispatchEpoch();
+        if (isFinishing() || isDestroyed() || !streamDispatch.pending(ticket, epoch, now)) {
+            cancelStreamDispatch(ticket);
+            return false;
+        }
+        if (!streamDispatch.arrive(ticket, stage, epoch, now)) return false;
+        streamDispatchTicket = 0;
+        return true;
+    }
+
+    public void cancelStreamDispatch(long ticket) {
+        if (ticket == 0 || streamDispatchTicket != ticket) return;
+        streamDispatch.cancel(ticket);
+        streamDispatchTicket = 0;
+        signInGeneration++;
+        signInChecking = false;
+        dropLaunchLayer();
+    }
 
     /**
      * Starting a stream while the PC is still at the Windows sign-in screen: Vibepollo/Apollo
@@ -839,7 +885,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         final String uuid = gameIntent.getStringExtra(com.limelight.Game.EXTRA_PC_UUID);
         final String host = gameIntent.getStringExtra(com.limelight.Game.EXTRA_HOST);
         if (signInChecking) {
-            return; // a second press while checking
+            if (onCancel != null) onCancel.run();
+            return;
         }
         // Off unless turned on (Settings, Streaming): a slow answer from the helper (a busy PC, a
         // full-screen app in front) made a stream start on the PC's own screen and only switch
@@ -853,11 +900,13 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             return;
         }
         signInChecking = true;
+        final long check = ++signInGeneration;
         new Thread(() -> {
             final boolean signedIn = PcCompanion.answersQuickly(getApplicationContext(), host, uuid);
             runOnUiThread(() -> {
+                if (check != signInGeneration) return;
                 signInChecking = false;
-                if (isFinishing()) {
+                if (isFinishing() || isDestroyed()) {
                     return;
                 }
                 if (!signedIn) {
@@ -1334,6 +1383,14 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             }
         }
         if (launchLayer != null && blockingCard == null) {
+            if (streamDispatchTicket != 0 && (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B
+                    || event.getKeyCode() == KeyEvent.KEYCODE_BACK)) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                    swallowKeyUp = event.getKeyCode();
+                    cancelStreamDispatch(streamDispatchTicket);
+                }
+                return true;
+            }
             return true; // a game is launching: buttons wait (but never a question on top of it)
         }
         if (quickPanel != null) {

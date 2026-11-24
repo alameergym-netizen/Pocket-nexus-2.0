@@ -44,6 +44,8 @@ public final class HorizonLaunchRequests {
         long age = now - issuedAt;
         return active && ticket > 0 && sequence == ticket && !claimed && age >= 0 && age <= lifetime;
     }
+    /** Process-local generation used by deferred dispatch after a request has been claimed. */
+    public synchronized long generation() { return sequence; }
     public synchronized void cancel(long ticket) {
         if (ticket > 0 && sequence == ticket && !claimed) {
             active = false;

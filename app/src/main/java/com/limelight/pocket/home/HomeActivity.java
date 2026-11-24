@@ -164,6 +164,11 @@ public class HomeActivity extends ConsoleActivity {
     private TextView homeBrand, featured, homeSummary;
     private boolean featuredRoom, summaryRoom;
     private int heroPos = -1;
+    private int focusGeneration;
+    private boolean workspace;
+    private boolean workspaceInitialFocusPending;
+    private boolean workspaceArtPrepared;
+    private int workspaceColumns;
     private String heroKey;
     private boolean loadedOnce;
     private int artVersion = PocketArt.version();
@@ -281,6 +286,8 @@ public class HomeActivity extends ConsoleActivity {
         dock.refresh();
         widgets = new WidgetShelf(this, () -> dock.focusLast());
         applyLayout(false);
+        tiles.setHasStableIds(true);
+        row.setPreserveFocusAfterLayout(true);
         row.setAdapter(tiles);
         setUpActions();
         setHints(hintA(this, R.string.pocket_hero_play),
@@ -312,7 +319,9 @@ public class HomeActivity extends ConsoleActivity {
             main.post(() -> {
                 if (!isFinishing()) {
                     TILE_ART.evictAll();
-                    tiles.notifyDataSetChanged();
+                    workspaceArtPrepared = true;
+                    refreshHomeTiles();
+                    if (workspace && workspaceInitialFocusPending && !entries.isEmpty()) focusAt(0, 0);
                 }
             });
         });
@@ -405,6 +414,7 @@ public class HomeActivity extends ConsoleActivity {
         resumed = false;
         if (pending != null) hideBlockingCard();
         cancelPending();
+        focusGeneration++;
         if (keyArt != null) { keyArt.pauseMotion(); }
         main.removeCallbacks(startAmbient);
         if (ambient != null && ambient.showing()) {
@@ -489,8 +499,29 @@ public class HomeActivity extends ConsoleActivity {
         });
     }
 
+    /** Identical refreshes must not detach the controller's focused RecyclerView child. */
+    private boolean sameWorkspaceEntries(List<HomeStore.Entry> list) {
+        if (!loadedOnce || entries.size() != list.size() + 1) return false;
+        for (int i = 0; i < list.size(); i++) {
+            HomeStore.Entry old = entries.get(i), next = list.get(i);
+            if (old == null || old.lastUsed != next.lastUsed || old.pinned != next.pinned
+                    || !old.pcName.equals(next.pcName)
+                    || !old.item.toLine().equals(next.item.toLine())) return false;
+        }
+        return entries.get(list.size()) == null;
+    }
+
     private void show(List<HomeStore.Entry> list) {
+        if (workspace && sameWorkspaceEntries(list)) {
+            if (workspaceInitialFocusPending) focusAt(0, 0);
+            return;
+        }
+        View previousFocus = getCurrentFocus();
+        boolean previousActions = previousFocus == play || previousFocus == info || previousFocus == more;
+        boolean previousDock = dock != null && dock.hasFocus();
+        boolean firstLoad = !loadedOnce;
         loadedOnce = true;
+        focusGeneration++;
         String keep = heroKey;
         entries.clear();
         entries.addAll(list);
@@ -515,8 +546,20 @@ public class HomeActivity extends ConsoleActivity {
             target = Math.max(0, Math.min(heroPos, entries.size() - 1));
         }
         heroKey = null;
+        if (workspace && firstLoad) {
+            workspaceInitialFocusPending = true;
+            ((ViewGroup) heroView).setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        }
+        if (workspace && workspaceInitialFocusPending) {
+            // Initial focus belongs to the first actual tile, not the empty detail pane.
+            // Keep pending through async list/art refresh until a tile really gains focus.
+            updateHero(0);
+            focusAt(0, 0);
+            return;
+        }
         View focus = getCurrentFocus();
-        boolean onActions = focus != null && (focus == play || focus == info || focus == more);
+        boolean onActions = workspace ? previousActions || previousDock
+                : focus != null && (focus == play || focus == info || focus == more);
         if (onActions) {
             updateHero(target);
         }
@@ -526,33 +569,68 @@ public class HomeActivity extends ConsoleActivity {
     }
 
     private void focusAt(final int position, final int attempt) {
+        focusAt(position, attempt, ++focusGeneration);
+    }
+
+    private void focusAt(final int position, final int attempt, final int generation) {
+        if (generation != focusGeneration || isFinishing() || isDestroyed() || position < 0) return;
         if (attempt == 0) {
             row.scrollToPosition(position);
         }
         row.post(() -> {
-            if (isFinishing() || position >= entries.size() || isConsolePanelShowing()) {
+            if (generation != focusGeneration || isFinishing() || isDestroyed() || position >= entries.size() || isConsolePanelShowing()) {
                 return;
             }
             RecyclerView.ViewHolder holder = row.findViewHolderForAdapterPosition(position);
-            if (holder != null && holder.itemView.requestFocus()) {
-                return;
+            if (holder != null) {
+                View tile = holder.itemView;
+                // Request focus on the actual child; a RecyclerView parent request can
+                // select a different focusable descendant or leave detail focused.
+                // Workspace tiles are touch-mode focusable. Do not change the window's
+                // input mode merely to set an initial controller selection.
+                if (tile.requestFocus() && tile.hasFocus()) {
+                    if (workspace && position == 0 && workspaceArtPrepared && hasWindowFocus()) {
+                        finishWorkspaceInitialFocus();
+                    }
+                    return;
+                }
             }
             if (heroPos != position || heroKey == null) {
                 updateHero(position);
             }
-            if (attempt < 6) {
-                row.postDelayed(() -> focusAt(position, attempt + 1), attempt < 2 ? 16 : 120);
+            if (attempt < 12) {
+                row.postDelayed(() -> focusAt(position, attempt + 1, generation), attempt < 2 ? 16 : 120);
+            } else if (workspace && workspaceInitialFocusPending && hasWindowFocus()) {
+                finishWorkspaceInitialFocus(); // fail open: detail actions must remain reachable
             }
         });
+    }
+
+    private void finishWorkspaceInitialFocus() {
+        if (!workspaceInitialFocusPending) return;
+        workspaceInitialFocusPending = false;
+        ((ViewGroup) heroView).setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+    }
+
+    /** Artwork refresh changes content, not membership/order; retain focused holders. */
+    private void refreshHomeTiles() {
+        if (workspace) {
+            if (!entries.isEmpty()) tiles.notifyItemRangeChanged(0, entries.size());
+        } else {
+            tiles.notifyDataSetChanged();
+        }
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         View focus = getCurrentFocus();
-        boolean inside = focus != null && (row.hasFocus() || focus == play || focus == info || focus == more);
-        if (hasFocus && !inside && !entries.isEmpty() && !isConsolePanelShowing()) {
-            focusAt(heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
+        boolean inside = focus != null && (row.hasFocus() || focus == play || focus == info || focus == more
+                || (dock != null && dock.hasFocus()));
+        if (hasFocus && (!inside || (workspace && workspaceInitialFocusPending))
+                && !entries.isEmpty() && !isConsolePanelShowing()) {
+            focusAt(workspace && workspaceInitialFocusPending ? 0
+                    : heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
         }
     }
 
@@ -1078,7 +1156,7 @@ public class HomeActivity extends ConsoleActivity {
 
     private void refreshArt(String key) {
         TILE_ART.remove(key);
-        tiles.notifyDataSetChanged();
+        refreshHomeTiles();
         if (key.equals(heroKey)) {
             heroKey = null;
             updateHero(heroPos);
@@ -1297,6 +1375,10 @@ public class HomeActivity extends ConsoleActivity {
 
     @Override
     public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+        if (workspaceInitialFocusPending && event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+            finishWorkspaceInitialFocus(); // do not steal a deliberate touch selection
+            focusGeneration++;
+        }
         if (ambient != null && ambient.showing()) {
             if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP) {
                 wakeFromAmbient();
@@ -1378,6 +1460,10 @@ public class HomeActivity extends ConsoleActivity {
      */
     private void applyLayout(boolean relayout) {
         layout = com.limelight.pocket.ui.Layouts.home(this);
+        workspace = com.limelight.pocket.ui.Layouts.HORIZON_WORKSPACE.equals(layout.id)
+                && HorizonHomeWorkspace.supported(getResources().getDisplayMetrics().widthPixels / d,
+                        getResources().getDisplayMetrics().heightPixels / d);
+        focusGeneration++;
         boolean portal = layout.arrange == com.limelight.pocket.ui.Layouts.PORTAL;
         // The Portal layout is a shelf too (one row, side to side), just at the top
         boolean shelf = layout.arrange == com.limelight.pocket.ui.Layouts.SHELF || portal;
@@ -1416,6 +1502,9 @@ public class HomeActivity extends ConsoleActivity {
         // The hero's height from the top bar down to its buttons' step above the row (dp)
         float heroRoom = 260f;
         View sideScrim = findViewById(R.id.homeSideScrim);
+        heroView.setBackground(null);
+        heroView.setPadding(0, 0, 0, 0);
+        row.setBackground(null);
         if (shelf) {
             AnchoredLayoutManager lm = new AnchoredLayoutManager(this);
             row.setLayoutManager(lm);
@@ -1508,20 +1597,54 @@ public class HomeActivity extends ConsoleActivity {
                 sideScrim.setVisibility(View.VISIBLE);
             }
         }
+        if (workspace) {
+            HorizonHomeWorkspace spec = HorizonHomeWorkspace.forWindow(screenW / d,
+                    getResources().getDisplayMetrics().heightPixels / d);
+            workspaceColumns = spec.columns;
+            tileW = Math.round(spec.tile * d);
+            tileH = tileW;
+            tileRadius = com.limelight.pocket.ui.HorizonAppearance.radius(horizonCorners, 12, spec.tile) * d;
+            row.setLayoutManager(new GridLayoutManager(this, spec.columns, RecyclerView.VERTICAL, false));
+            rlp.width = Math.round(spec.gridWidth * d);
+            rlp.height = Math.round(spec.bodyHeight * d);
+            rlp.gravity = Gravity.TOP | Gravity.START;
+            rlp.topMargin = Math.round(spec.bodyTop * d);
+            rlp.bottomMargin = 0;
+            rlp.setMarginStart(Math.round(spec.margin * d));
+            rlp.setMarginEnd(0);
+            row.setPadding(Math.round(6*d), Math.round(6*d), Math.round(6*d), Math.round(12*d));
+            row.setBackground(HorizonHomeWorkspace.surface(d, false));
+            hlp.gravity = Gravity.TOP | Gravity.END;
+            hlp.width = Math.round(spec.detailWidth * d);
+            hlp.topMargin = Math.round(spec.bodyTop * d);
+            hlp.bottomMargin = 0;
+            hlp.setMarginStart(0);
+            hlp.setMarginEnd(Math.round(spec.margin * d));
+            heroView.setBackground(HorizonHomeWorkspace.surface(d, true));
+            heroView.setPadding(Math.round(10*d), Math.round(8*d), Math.round(10*d), Math.round(8*d));
+            heroRoom = spec.bodyHeight - 16;
+            logoMax = spec.logoHeight;
+            descLines = spec.descriptionLines;
+            if (dock != null) dock.view().setVisibility(View.VISIBLE);
+        } else {
+            rlp.setMarginStart(0);
+            rlp.setMarginEnd(0);
+        }
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
+        if (!workspace) finishWorkspaceInitialFocus();
         float widthDp=screenW/d;
         float heightDp=getResources().getDisplayMetrics().heightPixels/d;
         int brandMode=HorizonHomeStyle.brandMode(widthDp);
         homeBrand.setText(brandMode==2?R.string.horizon_home_brand:R.string.horizon_home_mark);
         homeBrand.setVisibility(brandMode==0?View.GONE:View.VISIBLE);
-        summaryRoom=HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
+        summaryRoom=!workspace && HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
         homeSummary.setVisibility(summaryRoom && loadedOnce?View.VISIBLE:View.GONE);
         homeSummary.setBackground(HorizonHomeStyle.glass(d,com.limelight.pocket.ui.PocketTheme.accent(this),false));
-        featuredRoom=shelf && !portal && heroRoom>=190;
+        featuredRoom=(workspace || (shelf && !portal)) && heroRoom>=190;
         featured.setVisibility(featuredRoom && entryAt(heroPos)!=null?View.VISIBLE:View.GONE);
         if (featuredRoom) { heroRoom-=19; }
-        boolean detailLabel=hlp.width/d>=335;
+        boolean detailLabel=hlp.width/d>=(workspace?355:335);
         info.setText(detailLabel?getString(R.string.pocket_hint_details):"");
         ViewGroup.LayoutParams infoLp=info.getLayoutParams();
         infoLp.width=detailLabel?ViewGroup.LayoutParams.WRAP_CONTENT:Math.round(40*d);
@@ -1538,10 +1661,13 @@ public class HomeActivity extends ConsoleActivity {
             logoMax = Math.round(Math.max(56, Math.min(132, room[descLines])));
             logoRoom = room;
         }
+        else if (workspace) {
+            logoRoom = new float[]{logoMax, logoMax, logoMax};
+        }
         else {
             logoRoom = new float[]{150f, 150f, 150f};
         }
-        logoBaseW = shelf ? 340 : 290;
+        logoBaseW = workspace ? Math.max(100, Math.round(hlp.width/d)-20) : shelf ? 340 : 290;
         logoBaseH = logoMax;
         defaultDescLines = descLines;
         HomeStore.Entry shownEntry = entryAt(heroPos);
@@ -1551,7 +1677,7 @@ public class HomeActivity extends ConsoleActivity {
         else {
             applyLogoScale(null);
         }
-        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, shelf ? (logoMax < 80 ? 32f : 38f) : 30f);
+        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, workspace ? 23f : shelf ? (logoMax < 80 ? 32f : 38f) : 30f);
         applyDescLimit();
         if (relayout) {
             TILE_ART.evictAll();
@@ -1628,6 +1754,10 @@ public class HomeActivity extends ConsoleActivity {
                 return true;
             }
             boolean portalRow = layout != null && layout.arrange == com.limelight.pocket.ui.Layouts.PORTAL;
+            if (workspace && keyCode == KeyEvent.KEYCODE_DPAD_DOWN && event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (dock != null) dock.focusLast();
+                return true;
+            }
             if (keyCode == (portalRow ? KeyEvent.KEYCODE_DPAD_UP : KeyEvent.KEYCODE_DPAD_DOWN)
                     && event.getAction() == KeyEvent.ACTION_DOWN) {
                 // To the tiles (under the buttons, or above them in the Portal layout)
@@ -1638,7 +1768,7 @@ public class HomeActivity extends ConsoleActivity {
                     && event.getAction() == KeyEvent.ACTION_DOWN) {
                 return true; // nothing on the other side but the tabs (L1 / R1) or the hints
             }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v == play && event.getAction() == KeyEvent.ACTION_DOWN
+            if (keyCode == (workspace && row.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT) && v == play && event.getAction() == KeyEvent.ACTION_DOWN
                     && layout != null && layout.arrange != com.limelight.pocket.ui.Layouts.SHELF) {
                 focusAt(Math.max(0, heroPos), 0);
                 return true;
@@ -2445,6 +2575,20 @@ public class HomeActivity extends ConsoleActivity {
     }
 
     private final class Tiles extends RecyclerView.Adapter<TileHolder> {
+        private final java.util.Map<String, Long> stableIds = new java.util.HashMap<>();
+        private long nextStableId = 1L;
+
+        @Override public long getItemId(int position) {
+            HomeStore.Entry entry = entries.get(position);
+            if (entry == null) return 0L;
+            String key = entry.item.key();
+            Long id = stableIds.get(key);
+            if (id == null) {
+                id = nextStableId++;
+                stableIds.put(key, id);
+            }
+            return id;
+        }
 
         @NonNull
         @Override
@@ -2520,6 +2664,26 @@ public class HomeActivity extends ConsoleActivity {
                         return true;
                     }
                 }
+                if (workspace && event.getAction() == KeyEvent.ACTION_DOWN) {
+                    int pos = h.getBindingAdapterPosition();
+                    if (pos != RecyclerView.NO_POSITION) {
+                        boolean rtl = row.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+                        int towardDetail = rtl ? KeyEvent.KEYCODE_DPAD_LEFT : KeyEvent.KEYCODE_DPAD_RIGHT;
+                        if (keyCode == towardDetail && (pos % workspaceColumns == workspaceColumns - 1
+                                || pos == entries.size() - 1)) {
+                            play.requestFocus();
+                            return true;
+                        }
+                        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && pos + workspaceColumns >= entries.size()) {
+                            dock.focusLast();
+                            return true;
+                        }
+                        if (keyCode == KeyEvent.KEYCODE_DPAD_UP && pos >= workspaceColumns) {
+                            focusAt(pos - workspaceColumns, 0);
+                            return true;
+                        }
+                    }
+                }
                 boolean shelf = layout == null || layout.arrange == com.limelight.pocket.ui.Layouts.SHELF;
                 if (shelf && keyCode == KeyEvent.KEYCODE_DPAD_UP && event.getAction() == KeyEvent.ACTION_DOWN) {
                     if (play.getVisibility() == View.VISIBLE) {
@@ -2555,6 +2719,11 @@ public class HomeActivity extends ConsoleActivity {
         @Override
         public void onBindViewHolder(@NonNull TileHolder h, int position) {
             HomeStore.Entry e = entries.get(position);
+            // Unlike the old shelf, the workspace starts with a concrete selected tile
+            // even when the system is still in touch mode. Restore the legacy behavior
+            // when the user changes layouts (holders are reused).
+            h.itemView.setFocusableInTouchMode(workspace);
+            h.itemView.setFocusable(true);
             sizeTile(h);
             // A recycled cover must not inherit the previous game's artwork fade.
             h.image.animate().cancel();
@@ -2663,7 +2832,7 @@ public class HomeActivity extends ConsoleActivity {
                     main.post(() -> {
                         if (!isFinishing()) {
                             TILE_ART.remove(key);
-                            tiles.notifyDataSetChanged();
+                            refreshHomeTiles();
                         }
                     });
                 }

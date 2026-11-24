@@ -58,6 +58,8 @@ public final class Layouts {
         }
     }
 
+    public static final String HORIZON_WORKSPACE = "horizon_workspace";
+
     public static final Layout[] ALL = {
             new Layout("tiles", R.string.pocket_layout_tiles, SHELF, LibraryLayout.STYLE_ICON),
             new Layout("covers", R.string.pocket_layout_covers, SHELF, LibraryLayout.STYLE_COVER),
@@ -67,6 +69,7 @@ public final class Layouts {
             new Layout("grid_wide", R.string.pocket_layout_grid_wide, GRID, LibraryLayout.STYLE_WIDE),
             new Layout("list", R.string.pocket_layout_list, LIST, LibraryLayout.STYLE_ICON),
             new Layout("portal", R.string.pocket_layout_portal, PORTAL, LibraryLayout.STYLE_ICON),
+            new Layout(HORIZON_WORKSPACE, R.string.horizon_home_workspace, GRID, LibraryLayout.STYLE_ICON),
     };
 
     // ---- Home --------------------------------------------------------------------------------
@@ -105,6 +108,7 @@ public final class Layouts {
         String style = PocketPrefs.cardStyle(c);
         for (int i = 0; i < ALL.length; i++) {
             Layout l = ALL[i];
+            if (HORIZON_WORKSPACE.equals(l.id)) continue;
             if (l.mode().equals(mode) && (l.arrange == LIST || l.shape.equals(style))) {
                 return i;
             }
@@ -116,7 +120,7 @@ public final class Layouts {
     public static Layout nextLibrary(Context c) {
         int i = (libraryIndex(c) + 1) % ALL.length;
         // The Portal layout is Home's own
-        while (ALL[i].arrange == PORTAL) {
+        while (ALL[i].arrange == PORTAL || HORIZON_WORKSPACE.equals(ALL[i].id)) {
             i = (i + 1) % ALL.length;
         }
         Layout l = ALL[i];
