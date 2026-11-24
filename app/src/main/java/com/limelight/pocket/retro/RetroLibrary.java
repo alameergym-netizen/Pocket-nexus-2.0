@@ -53,7 +53,6 @@ public final class RetroLibrary {
     private static final String KEY_SYS_EMU = "pocket_retro_emu_sys_";
     private static final String KEY_GAME_EMU = "pocket_retro_emu_game_";
     private static final String KEY_SHOW_EMPTY = "pocket_retro_show_empty";
-    private static final String CACHE = "retro_scan.tsv";
     private static final int MAX_RECENT = 40;
 
     private static EsdeConfig config;
@@ -231,6 +230,7 @@ public final class RetroLibrary {
         List<String> roots = rememberedRoots(context);
         roots.remove(normalized);
         PocketPrefs.prefs(context).edit().putString(HorizonRomSources.KEY,HorizonRomSources.encode(roots)).apply();
+        HorizonRetroIndexStore.clear(context,normalized);
     }
 
     /** A folder picked with the system's folder picker, as a path ("primary:ROMs" -> /storage/emulated/0/ROMs). */
@@ -389,67 +389,44 @@ public final class RetroLibrary {
         return lib;
     }
 
-    /** What the last look found (instant, may be out of date), or null. */
+    /** What the last complete scan of this source found (may be out of date), or null. */
     public static Library cached(Context context, File root) {
-        File f = new File(context.getFilesDir(), CACHE);
-        if (!f.isFile()) {
-            return null;
-        }
+        if (root == null || !root.isDirectory() || !root.canRead()) { return null; }
+        List<HorizonRetroIndex.Row> rows = HorizonRetroIndexStore.load(context,root);
+        if (rows == null) { return null; }
         EsdeConfig cfg = config(context);
-        Library lib = null;
-        Map<String, File> folders = null;
-        try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = r.readLine()) != null) {
-                String[] p = line.split("\t", -1);
-                if (p.length >= 2 && "ROOT".equals(p[0])) {
-                    if (!p[1].equals(root.getAbsolutePath())) {
-                        return null;
-                    }
-                    lib = new Library(root);
-                    folders = folders(root);
-                }
-                else if (lib != null && p.length >= 4 && "G".equals(p[0])) {
-                    EsdeConfig.SystemDef s = cfg.system(p[1]);
-                    if (s == null) {
-                        continue;
-                    }
-                    File dir = folderOf(s, root, folders);
-                    if (dir == null) {
-                        continue;
-                    }
-                    List<RomScanner.Rom> list = lib.games.get(s.name);
-                    if (list == null) {
-                        list = new ArrayList<>();
-                        lib.games.put(s.name, list);
-                    }
-                    list.add(new RomScanner.Rom(s.name, p[2], new File(dir, p[2]), "d".equals(p[3])));
-                }
-            }
-        } catch (IOException e) {
-            return null;
+        Library lib = new Library(root);
+        Map<String, File> folders = folders(root);
+        for (HorizonRetroIndex.Row row : rows) {
+            EsdeConfig.SystemDef system = cfg.system(row.system);
+            if (system == null) { continue; }
+            File dir = folderOf(system,root,folders);
+            if (dir == null || !dir.isDirectory()) { continue; }
+            File game = new File(dir,row.relative);
+            // Never follow a cached path outside the current system folder.
+            try {
+                if (!HorizonRetroIndex.inside(dir.getCanonicalPath(),game.getCanonicalPath())) { continue; }
+            } catch (IOException | RuntimeException ignored) { continue; }
+            List<RomScanner.Rom> list = lib.games.get(system.name);
+            if (list == null) { list = new ArrayList<>(); lib.games.put(system.name,list); }
+            list.add(new RomScanner.Rom(system.name,row.relative,game,row.directory));
         }
-        if (lib != null) {
-            applyGamelists(lib);
-            applyCustomNames(context, lib);
-        }
+        applyGamelists(lib);
+        applyCustomNames(context,lib);
         return lib;
     }
 
     private static void saveCache(Context context, Library lib) {
-        File f = new File(context.getFilesDir(), CACHE);
-        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
-            w.write("ROOT\t" + lib.root.getAbsolutePath() + "\n");
-            for (Map.Entry<String, List<RomScanner.Rom>> e : lib.games.entrySet()) {
-                for (RomScanner.Rom r : e.getValue()) {
-                    if (r.relPath.indexOf('\t') >= 0 || r.relPath.indexOf('\n') >= 0) {
-                        continue;
-                    }
-                    w.write("G\t" + e.getKey() + "\t" + r.relPath + "\t" + (r.directory ? "d" : "f") + "\n");
-                }
+        if (lib.root == null || !lib.root.isDirectory() || !lib.root.canRead()) { return; }
+        List<HorizonRetroIndex.Row> rows = new ArrayList<>();
+        for (Map.Entry<String,List<RomScanner.Rom>> entry : lib.games.entrySet()) {
+            for (RomScanner.Rom rom : entry.getValue()) {
+                if (!HorizonRetroIndex.valid(entry.getKey(),rom.relPath)) { continue; }
+                if (rows.size() >= HorizonRetroIndex.MAX_ROWS) { return; }
+                rows.add(new HorizonRetroIndex.Row(entry.getKey(),rom.relPath,rom.directory));
             }
-        } catch (IOException ignored) {
         }
+        HorizonRetroIndexStore.save(context,lib.root,rows);
     }
 
     /** Names given here win over the file's and ES-DE's. */
