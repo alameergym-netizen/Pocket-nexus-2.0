@@ -1309,6 +1309,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         return super.dispatchGenericMotionEvent(event);
     }
 
+    private final HorizonBackKey.Press controlBackPress = new HorizonBackKey.Press();
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         lastInputWasButton = true;
@@ -1437,20 +1439,28 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                         com.limelight.pocket.global.GlobalButtons.BACK,
                         com.limelight.pocket.global.GlobalButtons.TAP)
                         == com.limelight.pocket.global.GlobalButtons.Action.CONTROL
-                && PocketPrefs.matchesBack(PocketPrefs.getBackKey(this),event)
-                && event.getKeyCode() != KeyEvent.KEYCODE_BUTTON_B) {
-            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                && PocketPrefs.matchesBack(PocketPrefs.getBackKey(this),event)) {
+            if (controlBackPress.accept(event)) {
                 com.limelight.pocket.global.ControlCenterActivity.open(this);
             }
             return true;
         }
+        controlBackPress.clear();
         if (heroFocus != null && heroFocus.handleKey(event)) {
             return true;
         }
 
         int keyCode = event.getKeyCode();
         boolean up = event.getAction() == KeyEvent.ACTION_UP;
-        if (up && (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_BUTTON_B)) {
+        // Consume B directly: Android must not synthesize a BACK fallback from an unhandled B.
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_B) {
+            if (up && !event.isCanceled()) {
+                PocketSounds.play(this, PocketSounds.BACK);
+                onBackPressed();
+            }
+            return true;
+        }
+        if (up && keyCode == KeyEvent.KEYCODE_BACK) {
             PocketSounds.play(this, PocketSounds.BACK);
         }
         switch (keyCode) {

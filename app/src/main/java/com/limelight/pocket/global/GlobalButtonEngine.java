@@ -42,6 +42,8 @@ public final class GlobalButtonEngine {
     /** The button being pressed now (-1: none), and how far its press has got. */
     private int down = -1;
     private int downKey;
+    private int downDevice, downScan;
+    private long downTime;
     private boolean held;
     private int pendingTap = -1;
     private int pendingKey;
@@ -136,10 +138,10 @@ public final class GlobalButtonEngine {
         return front != null && front.equals(service.getPackageName());
     }
 
-    private static int buttonOf(int keyCode) {
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_BACK:
-                return GlobalButtons.BACK;
+    private int buttonOf(KeyEvent event) {
+        if (com.limelight.pocket.PocketPrefs.matchesBack(
+                com.limelight.pocket.PocketPrefs.getBackKey(service), event)) return GlobalButtons.BACK;
+        switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_BUTTON_MODE:
             case KeyEvent.KEYCODE_HOME:
                 return GlobalButtons.GUIDE;
@@ -165,7 +167,7 @@ public final class GlobalButtonEngine {
             return keyWhileOpen(event);
         }
         // A message on screen: Guide answers it (as the PS button opens a PS5's)
-        if (buttonOf(event.getKeyCode()) == GlobalButtons.GUIDE
+        if (buttonOf(event) == GlobalButtons.GUIDE
                 && (bannerDown || MessageBanner.canAnswer())) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                 if (event.getRepeatCount() == 0) {
@@ -182,7 +184,7 @@ public final class GlobalButtonEngine {
         if (!GlobalButtons.enabled(service)) {
             return false;
         }
-        int button = buttonOf(event.getKeyCode());
+        int button = buttonOf(event);
         if (button < 0 || !handles(button)) {
             return false;
         }
@@ -202,6 +204,9 @@ public final class GlobalButtonEngine {
             }
             down = button;
             downKey = event.getKeyCode();
+            downDevice = event.getDeviceId();
+            downScan = event.getScanCode();
+            downTime = event.getDownTime();
             held = false;
             main.removeCallbacks(holdFired);
             GlobalButtons.Action hold = GlobalButtons.get(service, button, GlobalButtons.HOLD);
@@ -210,11 +215,14 @@ public final class GlobalButtonEngine {
             }
             return true;
         }
-        if (event.getAction() != KeyEvent.ACTION_UP || down != button) {
-            return true;
+        if (event.getAction() != KeyEvent.ACTION_UP || down != button
+                || downKey != event.getKeyCode() || downDevice != event.getDeviceId()
+                || downScan != event.getScanCode() || downTime != event.getDownTime()) {
+            return false;
         }
         main.removeCallbacks(holdFired);
         down = -1;
+        if (event.isCanceled()) return true;
         if (held) {
             return true;
         }
@@ -248,7 +256,7 @@ public final class GlobalButtonEngine {
      * open) or closes it (pressed again); everything else goes to the menu, none to the game.
      */
     private boolean keyWhileOpen(KeyEvent event) {
-        int button = buttonOf(event.getKeyCode());
+        int button = buttonOf(event);
         if (button < 0 || event.getKeyCode() == KeyEvent.KEYCODE_BACK && down < 0) {
             return false; // the menu's own (Back closes it there)
         }

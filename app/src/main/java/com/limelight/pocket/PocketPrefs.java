@@ -160,22 +160,17 @@ public final class PocketPrefs {
     }
 
     public static void setButtonKey(Context context, String prefKey, KeyEvent event) {
-        prefs(context).edit().putString(prefKey, encodeKey(event)).apply();
+        String value = KEY_BACK_KEY.equals(prefKey) ? HorizonBackKey.encode(event) : encodeKey(event);
+        if (value != null) prefs(context).edit().putString(prefKey, value).apply();
     }
 
     public static void resetButtonKey(Context context, String prefKey) {
         prefs(context).edit().remove(prefKey).apply();
     }
 
-    /** Back: "auto" is Android's Back key (not a mouse's back button). */
+    /** Dedicated Back only; Android fallback, virtual navigation and face buttons are not shortcuts. */
     public static boolean matchesBack(String spec, KeyEvent event) {
-        if (KEY_AUTO.equals(spec)) {
-            int source = event.getSource();
-            boolean fromMouse = (source & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE
-                    || source == InputDevice.SOURCE_MOUSE_RELATIVE;
-            return event.getKeyCode() == KeyEvent.KEYCODE_BACK && !fromMouse;
-        }
-        return matchesHotkey(spec, event);
+        return HorizonBackKey.matches(spec, event);
     }
 
     /**
@@ -201,7 +196,8 @@ public final class PocketPrefs {
         if (KEY_AUTO.equals(spec)) {
             return context.getString(autoLabel);
         }
-        String name = describeHotkey(spec);
+        String name = HorizonBackKey.describe(spec);
+        if (name == null) name = describeHotkey(spec);
         return name != null ? name : context.getString(autoLabel);
     }
 

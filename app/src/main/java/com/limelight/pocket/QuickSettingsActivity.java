@@ -2687,6 +2687,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
                     Toast.makeText(this, R.string.pocket_hotkey_reserved, Toast.LENGTH_SHORT).show();
                     return;
             }
+            if (captureTarget == CAPTURE_BACK && HorizonBackKey.encode(event) == null) {
+                Toast.makeText(this, R.string.horizon_back_key_reserved, Toast.LENGTH_SHORT).show();
+                return;
+            }
             PocketPrefs.setButtonKey(this, prefKey, event);
             PocketSounds.play(this, PocketSounds.SELECT);
             Toast.makeText(this, getString(R.string.pocket_hotkey_assigned,
