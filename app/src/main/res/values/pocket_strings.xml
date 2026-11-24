@@ -1442,6 +1442,7 @@
     <string name="pocket_music_artists">Artists</string>
     <string name="pocket_music_songs">Songs</string>
     <string name="pocket_music_folders">Folders</string>
+    <string name="horizon_music_access_settings">Music access settings</string>
     <string name="pocket_music_need_access">Pocket Nexus needs access to your music.\nAllow it, then come back.</string>
     <string name="pocket_music_loading">Finding your music…</string>
     <string name="pocket_music_empty">No music here yet.\nCopy songs to the Music folder (or anywhere on the SD card) and they show up.</string>

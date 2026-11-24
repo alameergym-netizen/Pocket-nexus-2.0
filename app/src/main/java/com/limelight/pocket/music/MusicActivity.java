@@ -19,7 +19,9 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.net.Uri;
 import android.os.Looper;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -27,10 +29,12 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -102,7 +106,11 @@ public class MusicActivity extends Activity {
     private FrameLayout body;
     private RecyclerView grid;
     private Items gridItems;
+    private LinearLayout emptyPanel;
     private TextView emptyView;
+    private Button audioSettings;
+    private boolean audioGranted;
+    private int scanGeneration;
     private LinearLayout hints;
 
     /** An album, an artist or a folder opened: its own page over the tab. */
@@ -224,14 +232,27 @@ public class MusicActivity extends Activity {
         grid.setAdapter(gridItems);
         body.addView(grid, full());
 
+        emptyPanel = new LinearLayout(this);
+        emptyPanel.setOrientation(LinearLayout.VERTICAL);
+        emptyPanel.setGravity(Gravity.CENTER);
+        emptyPanel.setPadding(dp(20), 0, dp(20), 0);
+        emptyPanel.setVisibility(View.GONE);
+        body.addView(emptyPanel, full());
         emptyView = new TextView(this);
         emptyView.setTypeface(PocketFonts.medium());
         emptyView.setTextColor(0xCCFFFFFF);
         emptyView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         emptyView.setGravity(Gravity.CENTER);
         emptyView.setLineSpacing(0, 1.25f);
-        emptyView.setVisibility(View.GONE);
-        body.addView(emptyView, full());
+        emptyPanel.addView(emptyView, new LinearLayout.LayoutParams(-1, -2));
+        audioSettings = new Button(this);
+        audioSettings.setText(R.string.horizon_music_access_settings);
+        audioSettings.setFocusableInTouchMode(true);
+        audioSettings.setVisibility(View.GONE);
+        audioSettings.setOnClickListener(v -> openAudioSettings());
+        LinearLayout.LayoutParams audioLp = new LinearLayout.LayoutParams(-2, -2);
+        audioLp.topMargin = dp(12);
+        emptyPanel.addView(audioSettings, audioLp);
 
         device = new DevicePlayerView(this, new DevicePlayerView.Host() {
             @Override
@@ -268,7 +289,8 @@ public class MusicActivity extends Activity {
         styleTabs(false);
         updateHints();
         connect();
-        if (hasAccess()) {
+        audioGranted = hasAccess();
+        if (audioGranted) {
             loadLibrary(false);
         }
         else {
@@ -277,9 +299,7 @@ public class MusicActivity extends Activity {
                 requestPermissions(new String[]{audioPermission()}, REQUEST_AUDIO);
             }
         }
-        if (tab == TAB_PLAYING) {
-            showTab(false);
-        }
+        if (tab == TAB_PLAYING || !audioGranted) showTab(false);
     }
 
     private static String audioPermission() {
@@ -293,8 +313,34 @@ public class MusicActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == REQUEST_AUDIO && hasAccess()) {
+        if (requestCode == REQUEST_AUDIO) refreshAudioPermission();
+    }
+
+    private void openAudioSettings() {
+        if (Build.VERSION.SDK_INT >= 23 && shouldShowRequestPermissionRationale(audioPermission())) {
+            requestPermissions(new String[]{audioPermission()}, REQUEST_AUDIO);
+            return;
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", getPackageName(), null)));
+        } catch (RuntimeException e) {
+            Toast.makeText(this, R.string.pocket_music_need_access, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void refreshAudioPermission() {
+        boolean current = hasAccess();
+        if (current == audioGranted) return;
+        audioGranted = current;
+        if (audioGranted) {
             loadLibrary(true);
+        } else {
+            scanGeneration++;
+            lib = null;
+            if (detail != null) closeDetail(false);
+            showEmpty(getString(R.string.pocket_music_need_access));
+            showTab(false);
         }
     }
 
@@ -449,13 +495,12 @@ public class MusicActivity extends Activity {
 
     private void loadLibrary(final boolean fresh) {
         showEmpty(getString(R.string.pocket_music_loading));
+        final int scan = ++scanGeneration;
         final Context app = getApplicationContext();
         new Thread(() -> {
             final MusicLibrary.Snapshot s = MusicLibrary.load(app, fresh);
             main.post(() -> {
-                if (isFinishing()) {
-                    return;
-                }
+                if (isFinishing() || isDestroyed() || scan != scanGeneration || !audioGranted) return;
                 lib = s;
                 if (s.isEmpty()) {
                     showEmpty(getString(R.string.pocket_music_empty));
@@ -468,10 +513,11 @@ public class MusicActivity extends Activity {
 
     private void showEmpty(String text) {
         emptyView.setText(text);
+        audioSettings.setVisibility(audioGranted ? View.GONE : View.VISIBLE);
         if (tab == TAB_PLAYING) {
             return;
         }
-        emptyView.setVisibility(View.VISIBLE);
+        emptyPanel.setVisibility(View.VISIBLE);
         grid.setVisibility(View.INVISIBLE);
     }
 
@@ -490,7 +536,7 @@ public class MusicActivity extends Activity {
         }
         if (playing) {
             countView.setText("");
-            emptyView.setVisibility(View.GONE);
+            emptyPanel.setVisibility(View.GONE);
             grid.setVisibility(View.INVISIBLE);
             device.setVisibility(View.VISIBLE);
             device.start();
@@ -505,12 +551,13 @@ public class MusicActivity extends Activity {
         }
         if (lib == null || lib.isEmpty()) {
             countView.setText("");
-            emptyView.setVisibility(View.VISIBLE);
+            emptyPanel.setVisibility(View.VISIBLE);
             grid.setVisibility(View.INVISIBLE);
+            if (!audioGranted) audioSettings.requestFocus();
             updateHints();
             return;
         }
-        emptyView.setVisibility(View.GONE);
+        emptyPanel.setVisibility(View.GONE);
         grid.setVisibility(View.VISIBLE);
         boolean list = tab == TAB_SONGS || tab == TAB_FOLDERS;
         if (list) {
@@ -915,6 +962,10 @@ public class MusicActivity extends Activity {
 
     private void activateFocused() {
         View f = getCurrentFocus();
+        if (f == audioSettings) {
+            audioSettings.performClick();
+            return;
+        }
         if (f == null) {
             return;
         }
@@ -955,6 +1006,7 @@ public class MusicActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        refreshAudioPermission();
         ConsoleActivity.applyFullscreenWindow(this);
         main.removeCallbacks(tick);
         main.post(tick);

@@ -1,0 +1,60 @@
+name: Horizon Media and Connect UI
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [horizon-foundation]
+    paths:
+      - 'app/src/main/java/com/limelight/pocket/music/**'
+      - 'app/src/main/java/com/limelight/PcView.java'
+      - 'app/src/main/java/com/limelight/preferences/AddComputerManually.java'
+      - 'app/src/main/res/layout/activity_pc_view.xml'
+      - 'app/src/main/res/values/horizon_connect.xml'
+      - '.github/tests/media_connect_workspace.py'
+      - '.github/workflows/horizon-media-connect-ui.yml'
+permissions:
+  contents: read
+concurrency:
+  group: horizon-media-connect-ui-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  media-connect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Build emulator APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1"
+          bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameDebug
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Verify workspace and capture screenshots
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        timeout-minutes: 15
+        with:
+          api-level: 33
+          arch: x86_64
+          target: default
+          ram-size: 2560M
+          heap-size: 512M
+          disk-size: 6000M
+          emulator-options: -no-window -no-snapshot -gpu guest -feature -Vulkan -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 300
+          script: python3 -u .github/tests/media_connect_workspace.py app/build/outputs/apk/nonRoot_game/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Horizon-Media-Connect-evidence
+          path: media-connect-ui-results/
+          if-no-files-found: warn
+          retention-days: 7
