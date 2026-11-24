@@ -1,0 +1,40 @@
+name: Horizon Windows Companion CI
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [horizon-foundation]
+    paths:
+      - 'pc-setup/**'
+      - '.github/workflows/horizon-windows.yml'
+  push:
+    branches: [horizon-foundation]
+    paths:
+      - 'pc-setup/**'
+      - '.github/workflows/horizon-windows.yml'
+permissions:
+  contents: read
+jobs:
+  windows-companion:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate synthetic game-library fixtures
+        shell: pwsh
+        run: python pc-setup/tests/make_fixtures.py
+      - name: Compile and run Windows loopback self-test
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/PocketNexus-PC.ps1 -SelfTest -WifiPort 47119 2>&1 | Tee-Object -FilePath horizon-windows.log
+          exit $LASTEXITCODE
+      - name: Upload Windows diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Horizon-Windows-diagnostics
+          path: horizon-windows.log
+          if-no-files-found: warn
+          retention-days: 7

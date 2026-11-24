@@ -70,7 +70,7 @@ public final class PcCompanion {
         }
 
         public String readLine() throws IOException {
-            return PcCompanion.readLine(in);
+            return PcCompanion.readSocketLine(socket, in);
         }
 
         public OutputStream rawOut() {
@@ -115,8 +115,8 @@ public final class PcCompanion {
             OutputStream out = socket.getOutputStream();
             out.write(encodeCommand("APC1 " + (token != null && !token.isEmpty() ? token : "-")));
             out.flush();
-            String hello = readLine(socket.getInputStream());
-            if (hello == null || !hello.startsWith("OK ")) {
+            String hello = readSocketLine(socket, socket.getInputStream());
+            if (!validHello(hello)) {
                 socket.close();
                 return null;
             }
@@ -150,8 +150,8 @@ public final class PcCompanion {
             OutputStream out = socket.getOutputStream();
             out.write(encodeCommand("APC1 " + (token != null && !token.isEmpty() ? token : "-")));
             out.flush();
-            String hello = readLine(socket.getInputStream());
-            boolean ok = hello != null && hello.startsWith("OK ");
+            String hello = readSocketLine(socket, socket.getInputStream());
+            boolean ok = validHello(hello);
             if (ok) {
                 PocketPrefs.markCompanionSeen(context, pcUuid);
             }
@@ -233,7 +233,8 @@ public final class PcCompanion {
             }
             String reply = session.call(command);
             if (reply != null && reply.startsWith("TOKEN ")) {
-                PocketPrefs.setCompanionToken(context, pcUuid, reply.substring(6).trim());
+                if (!validTokenReply(command, reply)) { return null; }
+                PocketPrefs.setCompanionToken(context, pcUuid, reply.substring(6));
             }
             return reply;
         } catch (IOException e) {
@@ -332,7 +333,7 @@ public final class PcCompanion {
             if (a.isFinishing()) {
                 return;
             }
-            boolean ok = reply != null && reply.startsWith("PONG");
+            boolean ok = "PONG".equals(reply);
             if (ok) {
                 PocketSounds.play(a, PocketSounds.TOGGLE_ON);
             }
@@ -361,21 +362,73 @@ public final class PcCompanion {
         return framed;
     }
 
+    static boolean validHello(String hello) {
+        if (hello == null) { return false; }
+        String[] parts = hello.split(" ",3);
+        return parts.length == 3 && "OK".equals(parts[0])
+                && ("0".equals(parts[1]) || "1".equals(parts[1]))
+                && !parts[2].trim().isEmpty();
+    }
+
+    static boolean validTokenReply(String command,String reply) {
+        return command != null && ("TOKEN".equals(command) || command.matches("PAIR [0-9]{6}"))
+                && reply != null && reply.matches("TOKEN [0-9a-fA-F]{32,128}");
+    }
+
+    private interface ByteReader { int read() throws IOException; }
+
+    /** Total frame deadline, in addition to socket inactivity timeout. */
+    private static String readSocketLine(Socket socket,InputStream in) throws IOException {
+        int original = socket.getSoTimeout();
+        int budget = original > 0 ? original : READ_TIMEOUT_MS;
+        long deadline = System.nanoTime() + budget * 1000000L;
+        final int[] configured = {original};
+        try {
+            String line = readFrame(() -> {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) { throw new java.net.SocketTimeoutException("Companion frame deadline"); }
+                int timeout = (int)Math.max(1L,(remaining + 999999L)/1000000L);
+                // Avoid a socket option syscall for every byte on large library lines.
+                if (configured[0] <= 0 || configured[0] - timeout >= 50 || timeout < 50) {
+                    socket.setSoTimeout(timeout);
+                    configured[0] = timeout;
+                }
+                int b = in.read();
+                if (System.nanoTime() - deadline >= 0) {
+                    throw new java.net.SocketTimeoutException("Companion frame deadline");
+                }
+                return b;
+            });
+            return line;
+        } finally {
+            if (configured[0] != original && !socket.isClosed()) { socket.setSoTimeout(original); }
+        }
+    }
+
     /** A long response is one frame, not a series of fabricated messages. */
     static String readLine(InputStream in) throws IOException {
+        return readFrame(in::read);
+    }
+
+    private static String readFrame(ByteReader in) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
-        int consumed = 0;
+        boolean cr = false;
         while (true) {
             int b = in.read();
             if (b < 0) {
-                if (consumed == 0) { return null; }
+                if (line.size() == 0 && !cr) { return null; }
                 throw new IOException("Incomplete companion response");
             }
-            if (b == '\n') { return line.toString("UTF-8"); }
-            if (++consumed > MAX_RESPONSE_BYTES) {
-                throw new IOException("Companion response too long");
+            if (b == '\n') {
+                return StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                        .decode(java.nio.ByteBuffer.wrap(line.toByteArray())).toString();
             }
-            if (b != '\r') { line.write(b); }
+            if (cr || b == 0) { throw new IOException("Invalid companion response framing"); }
+            if (b == '\r') { cr = true; continue; }
+            if (line.size() >= MAX_RESPONSE_BYTES) { throw new IOException("Companion response too long"); }
+            line.write(b);
         }
     }
 }
