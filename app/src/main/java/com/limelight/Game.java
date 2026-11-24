@@ -220,6 +220,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         return horizonStopOwner;
     }
     private com.limelight.pocket.pclib.HorizonPcLaunchQueue.Ticket horizonPcLaunch;
+    private com.limelight.pocket.core.HorizonProfileOwner horizonProfileOwner;
     private boolean connecting = false;
     public boolean connected = false;
     private boolean autoEnterPip = false;
@@ -499,22 +500,21 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 getIntent().getStringExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN), pocketProfileUuid, pocketProfileApp);
         getIntent().removeExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
         int pocketTicketProfile = horizonPcLaunch != null ? horizonPcLaunch.profile : 0;
-        if (pocketTicketProfile != 0) {
-            pocketProfileApp = pocketTicketProfile;
-        }
-        if (pocketProfileUuid != null && pocketProfileApp != 0) {
-            int profileFps = com.limelight.pocket.GameProfile.fps(this, pocketProfileUuid, pocketProfileApp);
-            if (profileFps > 0) {
-                prefConfig.fps = profileFps;
+        horizonProfileOwner = ResumeTicket.consumeProfileOwner(getIntent(), pocketTicketProfile);
+        pocketProfileApp = horizonProfileOwner.profileId;
+        if (horizonProfileOwner.valid()) {
+            com.limelight.pocket.GameProfile.Snapshot profile =
+                    com.limelight.pocket.GameProfile.snapshot(this, pocketProfileUuid, pocketProfileApp);
+            if (profile.fps > 0) {
+                prefConfig.fps = profile.fps;
             }
-            int[] profileRes = com.limelight.pocket.GameProfile.parseResolution(
-                    com.limelight.pocket.GameProfile.resolution(this, pocketProfileUuid, pocketProfileApp));
+            int[] profileRes = com.limelight.pocket.GameProfile.parseResolution(profile.resolution);
             if (profileRes != null) {
                 prefConfig.width = profileRes[0];
                 prefConfig.height = profileRes[1];
             }
-            pocketProfileBitrate = com.limelight.pocket.GameProfile.bitrateKbps(this, pocketProfileUuid, pocketProfileApp);
-            pocketProfileFrameGen = com.limelight.pocket.GameProfile.frameGen(this, pocketProfileUuid, pocketProfileApp);
+            pocketProfileBitrate = profile.bitrateKbps;
+            pocketProfileFrameGen = profile.frameGen;
         }
         // Artemis Pocket: a quality switch comes back with its own frame rate
         int pocketFpsOverride = getIntent().getIntExtra(ResumeTicket.EXTRA_FPS, 0);
@@ -811,7 +811,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         }
 
         // Artemis Pocket: remember how to start this stream again (seamless resume)
-        ResumeTicket.remember(this, getIntent());
+        ResumeTicket.remember(this, getIntent(), horizonProfileOwner);
 
         // Initialize the MediaCodec helper before creating the decoder
         GlPreferences glPrefs = GlPreferences.readPreferences(this);
@@ -2786,10 +2786,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     /** Frame generation mode for this game: the game's own setting if it has one, else the global one. */
     private void pocketSetFrameGenMode(int profileMode, String globalValue) {
-        String uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
-        int appId = getIntent().getIntExtra(EXTRA_APP_ID, 0);
-        if (pocketProfileFrameGen != com.limelight.pocket.GameProfile.FRAME_GEN_DEFAULT && uuid != null && appId != 0) {
-            com.limelight.pocket.GameProfile.setFrameGen(this, uuid, appId, profileMode);
+        if (pocketProfileFrameGen != com.limelight.pocket.GameProfile.FRAME_GEN_DEFAULT
+                && horizonProfileOwner != null && horizonProfileOwner.valid()) {
+            com.limelight.pocket.GameProfile.setFrameGen(this, horizonProfileOwner.host, horizonProfileOwner.profileId, profileMode);
         }
         else {
             PocketPrefs.prefs(this).edit().putString(PocketPrefs.KEY_FRAME_GEN, globalValue).apply();
@@ -3325,7 +3324,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         Intent next = new Intent(getIntent());
         next.removeExtra(EXTRA_POCKET_SIGNIN);
         next.putExtra(EXTRA_VDISPLAY, true);
-        ResumeTicket.remember(this, next);
+        ResumeTicket.remember(this, next, horizonProfileOwner);
         showPocketToast(getString(R.string.pocket_signin_switch_toast), true, 2500);
         // A fresh start (not a resume), so the PC makes the virtual display now that someone is signed in
         quitOnStop = true;

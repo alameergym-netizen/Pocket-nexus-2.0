@@ -9,6 +9,7 @@ import android.os.SystemClock;
 import android.util.Base64;
 
 import com.limelight.Game;
+import com.limelight.pocket.core.HorizonProfileOwner;
 
 /**
  * Seamless suspend and resume.
@@ -57,13 +58,43 @@ public final class ResumeTicket {
         return c.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    private static final String EXTRA_PROFILE_HOST = "pocket.resume.profile.host";
+    private static final String EXTRA_PROFILE_STREAM = "pocket.resume.profile.stream";
+    private static final String EXTRA_PROFILE_ID = "pocket.resume.profile.id";
+
+    /** Game is private to the app. A freshly validated launch command takes precedence over resume metadata. */
+    public static HorizonProfileOwner consumeProfileOwner(Intent intent, int ticketProfile) {
+        HorizonProfileOwner owner = HorizonProfileOwner.resolve(
+                intent.getStringExtra(Game.EXTRA_PC_UUID), intent.getIntExtra(Game.EXTRA_APP_ID, 0),
+                ticketProfile, intent.getStringExtra(EXTRA_PROFILE_HOST),
+                intent.getIntExtra(EXTRA_PROFILE_STREAM, 0), intent.getIntExtra(EXTRA_PROFILE_ID, 0));
+        intent.removeExtra(EXTRA_PROFILE_HOST);
+        intent.removeExtra(EXTRA_PROFILE_STREAM);
+        intent.removeExtra(EXTRA_PROFILE_ID);
+        return owner;
+    }
+
     /** A stream started: remember how to start it again and forget any older ticket. */
     public static synchronized void remember(Context context, Intent gameIntent) {
+        remember(context, gameIntent, null);
+    }
+
+    public static synchronized void remember(Context context, Intent gameIntent, HorizonProfileOwner owner) {
         CLAIM.invalidate();
         try {
             Bundle extras = gameIntent.getExtras() != null ? new Bundle(gameIntent.getExtras()) : new Bundle();
             extras.remove(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
             extras.remove(EXTRA_CLAIM);
+            extras.remove(EXTRA_PROFILE_HOST);
+            extras.remove(EXTRA_PROFILE_STREAM);
+            extras.remove(EXTRA_PROFILE_ID);
+            // Store identity only, never the launch command or its single-use token.
+            if (owner != null && owner.isOverrideFor(extras.getString(Game.EXTRA_PC_UUID),
+                    extras.getInt(Game.EXTRA_APP_ID, 0))) {
+                extras.putString(EXTRA_PROFILE_HOST, owner.host);
+                extras.putInt(EXTRA_PROFILE_STREAM, owner.streamAppId);
+                extras.putInt(EXTRA_PROFILE_ID, owner.profileId);
+            }
             memoryExtras = extras;
             prefs(context).edit()
                     .putString(KEY_EXTRAS, encode(extras))
