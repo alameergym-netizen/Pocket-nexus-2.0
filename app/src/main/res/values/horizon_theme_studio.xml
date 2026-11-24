@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_studio_title">Theme Studio</string>
+    <string name="horizon_studio_sub">Save and recall your own combinations of Home geometry, color, material, sound and artwork.</string>
+    <string name="horizon_studio_count">%1$d / 3 saved</string>
+    <string name="horizon_studio_note">Three local visual slots. Applying a look changes appearance only, not streaming, controllers, library data, volume or UI scale.</string>
+    <string name="horizon_studio_slot">Custom look %1$d</string>
+    <string name="horizon_studio_empty">Empty slot</string>
+    <string name="horizon_studio_save">Save current look</string>
+    <string name="horizon_studio_replace">Replace with current look</string>
+    <string name="horizon_studio_apply">Apply saved look</string>
+    <string name="horizon_studio_delete">Delete saved look</string>
+    <string name="horizon_studio_saved">Look saved</string>
+    <string name="horizon_studio_error">Could not save this look</string>
+</resources>

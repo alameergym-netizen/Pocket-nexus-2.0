@@ -1213,6 +1213,14 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private void buildLookTab() {
         addHeader(R.string.pocket_header_app);
 
+        addAction(getString(R.string.horizon_studio_title), getString(R.string.horizon_studio_sub),
+                () -> getString(R.string.horizon_studio_count,
+                        com.limelight.pocket.ui.HorizonThemeStudio.count(this)),
+                () -> com.limelight.pocket.ui.HorizonThemeStudio.show(this, () -> {
+                    PocketSounds.reload(this);
+                    getIntent().putExtra("tab", currentTab);
+                    rowsContainer.postDelayed(this::recreate, 300);
+                }));
         String[] densityLabels = {getString(R.string.horizon_density_classic),
                 getString(R.string.horizon_density_compact), getString(R.string.horizon_density_large)};
         addChoice(getString(R.string.horizon_density_title), getString(R.string.horizon_density_sub),
