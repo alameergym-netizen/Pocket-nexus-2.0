@@ -9,11 +9,11 @@ Foundation b80bbeb21112a99cd14c31292584058512b34a54 includes merged PR #24 sessi
 ## Integrated candidate
 This branch combines exact source blobs from independent successful candidates #22 Hero (run 45461431168), #23 Control (45458089143), #25 provider classification (45461504280), #26 Windows Dashboard (Android 45461786231 and Windows 45461786251, 38 checks). Their changed paths do not overlap each other or newer foundation changes. All require new integrated Android and Windows CI before merge. Keep original PRs until integration is confirmed; do not merge them separately afterward. No claim of completed shell redesign or verified desktop GUI.
 
-PR #27 USB/privacy: Windows CI 45462100156 passed; Android 45462100192 was still running at this checkpoint. Keep separate until combined dashboard/USB patch is reconciled and tested. Legacy APC1 remains plaintext; no public internet exposure. Old log/status PIN and token storage remain outstanding.
+PR #27 USB/privacy: Windows CI 45462100156 and Android CI 45462100192 passed independently. This successor branch reconciles the exact USB/log changes with the dashboard from #28, preserving all eleven additional Windows checks. Fresh integrated Android and Windows CI required. Legacy APC1 remains plaintext; no public internet exposure. Old log/status PIN and token storage remain outstanding.
 
 ## Next work in order
 1. Verify integrated candidate CI and foundation head before merge.
-2. Integrate #27 without losing dashboard; confirm both Windows and Android CI.
+2. Verify successor candidate with #27 and dashboard combined; do not merge stale results. Reconcile against current foundation if #28 lands first.
 3. Connect session policy/provider classification to confirmed stream lifecycle with failure and stale-callback handling, then other providers. External activity launch is not confirmation of gameplay.
 4. Build profile policy and full Horizon design system; capture actual screenshots. Do not treat current polish as final redesign.
 5. Windows Host: secure pairing/transport, real desktop dashboard validation, Vibepollo integration and installer; continue alongside Android.
