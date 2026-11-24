@@ -208,11 +208,34 @@ public final class RetroLibrary {
     }
 
     public static void setRoot(Context context, File root) {
-        PocketPrefs.prefs(context).edit().putString(KEY_ROOT, root.getAbsolutePath()).apply();
+        String path = HorizonRomSources.normalize(root.getAbsolutePath());
+        if (path == null) { return; }
+        android.content.SharedPreferences prefs = PocketPrefs.prefs(context);
+        List<String> remembered = HorizonRomSources.decode(prefs.getString(HorizonRomSources.KEY, ""));
+        File previous = romRoot(context);
+        if (previous != null) { remembered = HorizonRomSources.remember(remembered, previous.getAbsolutePath()); }
+        remembered = HorizonRomSources.remember(remembered,path);
+        prefs.edit().putString(KEY_ROOT,path).putString(HorizonRomSources.KEY,HorizonRomSources.encode(remembered)).apply();
+    }
+
+    public static List<String> rememberedRoots(Context context) {
+        List<String> roots = HorizonRomSources.decode(PocketPrefs.prefs(context).getString(HorizonRomSources.KEY,""));
+        File current = romRoot(context);
+        return current == null ? roots : HorizonRomSources.remember(roots,current.getAbsolutePath());
+    }
+
+    public static void forgetRoot(Context context,String path) {
+        File current = romRoot(context);
+        String normalized = HorizonRomSources.normalize(path);
+        if (normalized == null || current != null && normalized.equals(HorizonRomSources.normalize(current.getAbsolutePath()))) { return; }
+        List<String> roots = rememberedRoots(context);
+        roots.remove(normalized);
+        PocketPrefs.prefs(context).edit().putString(HorizonRomSources.KEY,HorizonRomSources.encode(roots)).apply();
     }
 
     /** A folder picked with the system's folder picker, as a path ("primary:ROMs" -> /storage/emulated/0/ROMs). */
     public static File pathOfTree(Uri tree) {
+        if (tree == null || !"com.android.externalstorage.documents".equals(tree.getAuthority())) { return null; }
         String id;
         try {
             id = DocumentsContract.getTreeDocumentId(tree);
@@ -225,9 +248,17 @@ public final class RetroLibrary {
         }
         String volume = id.substring(0, colon);
         String rel = id.substring(colon + 1);
+        if (!"primary".equalsIgnoreCase(volume) && !volume.matches("[A-Za-z0-9_-]{1,80}")) { return null; }
+        if (rel.startsWith("/") || rel.indexOf('\\') >= 0) { return null; }
         File base = "primary".equalsIgnoreCase(volume) ? Environment.getExternalStorageDirectory()
                 : new File("/storage/" + volume);
-        return rel.isEmpty() ? base : new File(base, rel);
+        File candidate = rel.isEmpty() ? base : new File(base, rel);
+        if (HorizonRomSources.normalize(candidate.getAbsolutePath()) == null) { return null; }
+        try {
+            String parent = base.getCanonicalPath();
+            String child = candidate.getCanonicalPath();
+            return child.equals(parent) || child.startsWith(parent + "/") ? candidate : null;
+        } catch (IOException | RuntimeException e) { return null; }
     }
 
     /**

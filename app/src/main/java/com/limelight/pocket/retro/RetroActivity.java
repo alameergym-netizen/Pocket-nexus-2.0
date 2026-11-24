@@ -407,6 +407,8 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             sub = exists ? getString(R.string.pocket_retro_empty_sub, root.getAbsolutePath())
                     : getString(R.string.pocket_retro_no_folder_sub);
             out.add(setup("pick", getString(R.string.pocket_retro_pick_folder), sub, this::pickFolder));
+            out.add(setup("sources",getString(R.string.horizon_rom_sources),getString(R.string.horizon_rom_sources_note),
+                    this::showRomSources));
             final File target = exists ? root : RetroLibrary.defaultRoot();
             out.add(setup("create", getString(R.string.pocket_retro_create_folders),
                     getString(R.string.pocket_retro_create_folders_sub, target.getAbsolutePath()), () -> createFolders(target)));
@@ -449,6 +451,45 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 }
             });
         });
+    }
+
+    private void showRomSources() {
+        List<StreamMenuView.Item> rows=new ArrayList<>();
+        rows.add(StreamMenuView.Item.note(getString(R.string.horizon_rom_sources_note)));
+        File current=RetroLibrary.romRoot(this);
+        String selected=current==null?null:HorizonRomSources.normalize(current.getAbsolutePath());
+        for (String path:RetroLibrary.rememberedRoots(this)) {
+            File folder=new File(path);
+            boolean active=path.equals(selected);
+            boolean readable=folder.isDirectory() && folder.canRead();
+            rows.add(StreamMenuView.Item.header(path));
+            rows.add(StreamMenuView.Item.info(getString(R.string.horizon_rom_source_status),
+                    getString(!readable ? R.string.horizon_rom_source_offline
+                            : active ? R.string.horizon_rom_source_active : R.string.horizon_rom_source_available)));
+            if (!active && readable) {
+                rows.add(StreamMenuView.Item.confirm(getString(R.string.horizon_rom_source_select),() -> {
+                    if (!folder.isDirectory() || !folder.canRead()) {
+                        Toast.makeText(this,R.string.horizon_rom_source_offline,Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    RetroLibrary.setRoot(this,folder);
+                    hideConsolePanel();
+                    lib=null;inSystem=null;
+                    load(true);
+                }));
+            }
+            if (!active) {
+                rows.add(StreamMenuView.Item.confirm(getString(R.string.horizon_rom_source_forget),() -> {
+                    RetroLibrary.forgetRoot(this,path);
+                    showRomSources();
+                }));
+            }
+        }
+        rows.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_pick_folder),() -> {
+            hideConsolePanel();
+            pickFolder();
+        }));
+        showConsolePanel(getString(R.string.horizon_rom_sources),null,null,rows);
     }
 
     private void pickFolder() {
@@ -1537,13 +1578,15 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
         if (requestCode == REQUEST_TREE) {
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
                 File root = RetroLibrary.pathOfTree(data.getData());
-                if (root != null) {
+                if (root != null && root.isDirectory() && root.canRead()) {
                     RetroLibrary.setRoot(this, root);
                     Toast.makeText(this, getString(R.string.pocket_retro_folder_set, root.getAbsolutePath()),
                             Toast.LENGTH_LONG).show();
                     lib = null;
                     inSystem = null;
                     load(true);
+                } else {
+                    Toast.makeText(this,R.string.pocket_retro_cant_pick,Toast.LENGTH_LONG).show();
                 }
             }
             return;
@@ -1763,6 +1806,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             load(true);
         }));
         File root = RetroLibrary.romRoot(this);
+        items.add(StreamMenuView.Item.action(getString(R.string.horizon_rom_sources),this::showRomSources));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_retro_pick_folder), () -> {
             hideConsolePanel();
             pickFolder();

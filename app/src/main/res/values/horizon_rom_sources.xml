@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_rom_sources">ROM storage sources</string>
+    <string name="horizon_rom_sources_note">Remember up to eight folders and explicitly switch between them. One active library at a time; identical relative game paths may share existing artwork, history and favourites. Unavailable folders are retained, not automatically replaced.</string>
+    <string name="horizon_rom_source_status">Folder status</string>
+    <string name="horizon_rom_source_active">Active source</string>
+    <string name="horizon_rom_source_available">Available</string>
+    <string name="horizon_rom_source_offline">Unavailable or unreadable</string>
+    <string name="horizon_rom_source_select">Switch to this source</string>
+    <string name="horizon_rom_source_forget">Forget shortcut (no files deleted)</string>
+</resources>
