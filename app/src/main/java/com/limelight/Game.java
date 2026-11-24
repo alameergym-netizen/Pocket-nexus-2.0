@@ -23,6 +23,7 @@ import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
 import com.limelight.pocket.ResumeTicket;
+import com.limelight.pocket.core.HorizonStreamObserver;
 import com.limelight.pocket.PocketAdaptive;
 import com.limelight.pocket.PcCompanion;
 import com.limelight.pocket.PocketMic;
@@ -205,6 +206,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     public NvConnection conn;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
+    private volatile long horizonStreamTicket;
     private boolean connecting = false;
     public boolean connected = false;
     private boolean autoEnterPip = false;
@@ -1051,6 +1053,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 decoderRenderer.setRenderTarget(streamContainer.getSurface());
 
                 // Starten Sie die NvConnection
+                horizonStreamTicket = HorizonStreamObserver.instance().beginAttempt();
                 conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx),
                         decoderRenderer, Game.this);
             }
@@ -1881,6 +1884,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        HorizonStreamObserver.instance().ended(horizonStreamTicket);
         super.onDestroy();
         com.limelight.pocket.apps.HomeScreen.streaming = false;
 
@@ -1949,6 +1953,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        HorizonStreamObserver.instance().ended(horizonStreamTicket);
         super.onStop();
 
         // Artemis Pocket: the screen went off or the app was left mid-game. The game keeps
@@ -5445,6 +5450,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     spinner = null;
                 }
 
+                HorizonStreamObserver.instance().failed(horizonStreamTicket);
                 if (!displayedFailureDialog && pocketTryDesktopFallback(stage, errorCode)) {
                     displayedFailureDialog = true;
                     LimeLog.warning(stage + " failed: " + errorCode + " (trying through Desktop)");
@@ -5541,6 +5547,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 if (!displayedFailureDialog) {
                     displayedFailureDialog = true;
                     LimeLog.severe("Connection terminated: " + errorCode);
+                    if (errorCode == MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
+                        HorizonStreamObserver.instance().ended(horizonStreamTicket);
+                    } else {
+                        HorizonStreamObserver.instance().failed(horizonStreamTicket);
+                    }
                     stopConnection();
 
                     // Artemis Pocket: a running stream that dropped by itself reconnects
@@ -5650,6 +5661,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 connected = true;
                 connecting = false;
+                HorizonStreamObserver.instance().connected(horizonStreamTicket);
                 pocketSessionStartMs = android.os.SystemClock.elapsedRealtime();
                 pocketLastBatteryAlert = 101;
                 timerHandler.removeCallbacks(pocketBatteryWatch);

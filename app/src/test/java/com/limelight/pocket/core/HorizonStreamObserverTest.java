@@ -1,0 +1,49 @@
+package com.limelight.pocket.core;
+
+import org.junit.Test;
+import static org.junit.Assert.*;
+import static com.limelight.pocket.core.HorizonSession.State.*;
+
+public class HorizonStreamObserverTest {
+    @Test public void attemptRequiresActualConnectedCallback() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        assertEquals(IDLE, observer.snapshot().state);
+        long ticket = observer.beginAttempt();
+        assertEquals(LAUNCHING, observer.snapshot().state);
+        observer.connected(ticket);
+        assertEquals(RUNNING, observer.snapshot().state);
+        observer.ended(ticket);
+        assertEquals(ENDED, observer.snapshot().state);
+    }
+    @Test public void retrySupersedesOlderActivity() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        long first = observer.beginAttempt();
+        observer.connected(first);
+        long retry = observer.beginAttempt();
+        assertTrue(retry > first);
+        observer.failed(first);
+        observer.ended(first);
+        observer.connected(first);
+        assertEquals(retry, observer.snapshot().ticket);
+        assertEquals(LAUNCHING, observer.snapshot().state);
+        observer.connected(retry);
+        assertEquals(RUNNING, observer.snapshot().state);
+    }
+    @Test public void failedAttemptDoesNotBecomeSuccessfulFromLateCallback() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        long ticket = observer.beginAttempt();
+        observer.failed(ticket);
+        observer.connected(ticket);
+        observer.ended(ticket);
+        assertEquals(FAILED, observer.snapshot().state);
+    }
+    @Test public void zeroTicketDoesNotChangeObservation() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        observer.failed(0);
+        assertEquals(IDLE, observer.snapshot().state);
+        long ticket = observer.beginAttempt();
+        observer.ended(0);
+        assertEquals(ticket, observer.snapshot().ticket);
+        assertEquals(LAUNCHING, observer.snapshot().state);
+    }
+}

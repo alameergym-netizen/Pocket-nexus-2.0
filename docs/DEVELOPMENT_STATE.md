@@ -1,26 +1,19 @@
 # Horizon development state — 2026-11-24
 
-## Resume here
-Read docs/HORIZON_SYSTEM_BLUEPRINT.md and docs/HORIZON.md first. Integration branch: horizon-foundation (not repository default ci-logs). Inspect live PRs, actual branch head and workflow results before editing; this file is a dated checkpoint, not live status. Preserve original application, all existing capabilities and user data. Android RP6 and Windows Nexus Host are equal release requirements. Primary host: Vibepollo. Back opens Nexus Control (in-stream menu while streaming); Home during streaming sends Xbox Guide. Preserve existing bindings. No force pushes or untested merges.
+Read HORIZON_SYSTEM_BLUEPRINT.md, HORIZON.md and HORIZON_FOUNDATION_GATE.md (on G01 candidate) before continuing. Integration branch horizon-foundation; default ci-logs is not integration. Inspect live refs and CI. Preserve all prior features, user data, approved distinct Horizon UI, Back/Guide mappings, Android RP6 and Windows Vibepollo. Work in substantial batches toward the next of 14 release gates, not one small PR per user request. Never force push, merge stale/failed CI, expose plaintext APC1 to public internet or require root.
 
 ## Verified baseline
-Foundation b80bbeb21112a99cd14c31292584058512b34a54 includes merged PR #24 session state policy and full-system blueprint. CI 45461259856 passed (five session tests). Game cards #21 and Home #20 already merged. Session policy is not yet wired into runtime.
+PR #29 merged at 98d62c598634749a6da7249e50b6b10f812bee29: 193 Android tests (45462900041), 43 Windows checks (45462900133). Includes Hero/Control polish, provider policy, Windows dashboard and USB/log improvements.
+PR #31 merged at b6467cc113b71e7c4466006f3035ae10168bc344: 201 Android test pass lines and APK build (45463784153). Actual PC-stream attempt observer, per-game preset menu, Device Info diagnostics. No new global session lock or privileged writes. Previous Windows changes retained; no new Windows validation in #31.
 
-## Integrated candidate
-This branch combines exact source blobs from independent successful candidates #22 Hero (run 45461431168), #23 Control (45458089143), #25 provider classification (45461504280), #26 Windows Dashboard (Android 45461786231 and Windows 45461786251, 38 checks). Their changed paths do not overlap each other or newer foundation changes. All require new integrated Android and Windows CI before merge. Keep original PRs until integration is confirmed; do not merge them separately afterward. No claim of completed shell redesign or verified desktop GUI.
+## Current G01 candidate
+PR #32 adds best-effort rollback of touched settings on commit failure (three tests), explicit release version and private signing guard, Android 13 synthetic same-signer package upgrade CI. Rebasing onto merged #31 preserves all its source changes; only overlapping file was this checkpoint. Fresh integrated Android and emulator CI required. See HORIZON_FOUNDATION_GATE.md. No actual signer, private credentials, user data or release publishing. Full gate requires evidence and target-device validation. Never uninstall a user's old app to resolve signature mismatch.
 
-PR #27 USB/privacy: Windows CI 45462100156 and Android CI 45462100192 passed independently. This successor branch reconciles the exact USB/log changes with the dashboard from #28, preserving all eleven additional Windows checks. Fresh integrated Android and Windows CI required. Legacy APC1 remains plaintext; no public internet exposure. Old log/status PIN and token storage remain outstanding.
-
-## Next work in order
-1. Verify integrated candidate CI and foundation head before merge.
-2. Verify successor candidate with #27 and dashboard combined; do not merge stale results. Reconcile against current foundation if #28 lands first.
-3. Connect session policy/provider classification to confirmed stream lifecycle with failure and stale-callback handling, then other providers. External activity launch is not confirmation of gameplay.
-4. Build profile policy and full Horizon design system; capture actual screenshots. Do not treat current polish as final redesign.
-5. Windows Host: secure pairing/transport, real desktop dashboard validation, Vibepollo integration and installer; continue alongside Android.
-6. Track remaining G01–G14 gates in the blueprint. Physical RP6 and Windows tests are required.
+## Next batch
+1. Verify #32 exact latest CI (Android build/unit tests and emulator upgrade), fix failures before merge. Check release signing strategy and actual target migration/upgrade evidence. Do not mark G01 complete based on build alone.
+2. Continue Nexus Core (provider identity, session/task ownership and profile restoration); prioritize structural Horizon UI redesign and screenshots, not mere polish.
+3. Continue Windows Host secure authenticated transport, pairing revocation, desktop GUI and installer, Vibepollo telemetry; preserve existing USB/mic/library/power.
+4. Follow remaining G01–G14 blueprint gates, with honest physical device limitations.
 
 ## Release progress
-0/14 fully accepted gates, not 0% of development effort. Partial foundation, core, shell, gaming, stream, hardware, data, host, audio, connect, services. Automation, optimization/recovery and release remain open. Update this checkpoint after verified integration, retaining links to evidence.
-
-## G01 candidate
-Foundation release-gate work adds rollback-on-commit-failure, explicit release version/signing guard and Android 13 synthetic package upgrade CI. See docs/HORIZON_FOUNDATION_GATE.md. PR #31 remains independent; combine only with fresh CI. No private key is stored or requested in chat. Full release gate remains open pending validation.
+0/14 strict gates accepted; not 0% development. G01, G02, G03 and G08 in active development; other partial systems retained. Physical RP6/Windows verification remains outstanding.
