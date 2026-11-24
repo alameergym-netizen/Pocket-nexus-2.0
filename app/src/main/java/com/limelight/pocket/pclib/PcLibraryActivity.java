@@ -817,9 +817,20 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
      * Apollo's entry for the game when it has one; otherwise Apollo's Desktop, and the stream
      * asks the PC to start the game once it's up (so it opens on the streamed screen).
      */
+    private boolean claimLaunch(PcGame g) {
+        if (isFinishing() || isDestroyed() || g == null) return false;
+        com.limelight.pocket.home.HomeItem item = new com.limelight.pocket.home.HomeItem(
+                com.limelight.pocket.home.HomeItem.PC_LIBRARY_GAME, g.name, uuid,
+                g.launchCommand(), pcName, pageId(g));
+        return com.limelight.pocket.core.HorizonLaunchRequests.shared().begin(
+                com.limelight.pocket.core.HorizonLaunchTarget.from(item),
+                android.os.SystemClock.elapsedRealtime()) != 0L;
+    }
+
     private void play(PcGame g) {
         NvApp app = PcLibrary.apolloAppFor(this, uuid, g);
         if (app != null) {
+            if (!claimLaunch(g)) return;
             finishWithStart(app.getAppId());
             return;
         }
@@ -834,6 +845,7 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
             showConsolePanel(g.name, getString(R.string.pocket_pclib_no_desktop), null, items);
             return;
         }
+        if (!claimLaunch(g)) return;
         PcLaunchTicket.arm(uuid, desktop.getAppId(), g.launchCommand(), g.name, pageId(g));
         finishWithStart(desktop.getAppId());
     }
@@ -851,6 +863,7 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
             explainHelper();
             return;
         }
+        if (!claimLaunch(g)) return;
         PcLibrary.send(this, host, uuid, g.launchCommand(), reply -> {
             if (reply != null && reply.startsWith("OK")) {
                 Toast.makeText(this, getString(R.string.pocket_pclib_started_on_pc, g.name), Toast.LENGTH_SHORT).show();

@@ -177,6 +177,12 @@ android {
         // Use the canonical Maven Central endpoint; retain all unit tests.
         unitTests.all {
             systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+            // CI resolves pinned framework jars ahead of the test JVM, avoiding runtime 429s.
+            def frameworkDir = System.getenv('NEXUS_ROBOLECTRIC_DIR')
+            if (frameworkDir) {
+                systemProperty 'robolectric.dependency.dir', frameworkDir
+                systemProperty 'robolectric.offline', 'true'
+            }
         }
     }
 }

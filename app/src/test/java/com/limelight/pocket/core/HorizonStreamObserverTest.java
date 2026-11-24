@@ -37,6 +37,27 @@ public class HorizonStreamObserverTest {
         observer.ended(ticket);
         assertEquals(FAILED, observer.snapshot().state);
     }
+    @Test public void stopRemainsEndingUntilCleanupCompletes() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        long ticket = observer.beginAttempt();
+        assertTrue(observer.connected(ticket));
+        assertFalse(observer.connected(ticket));
+        observer.stopping(ticket);
+        assertEquals(ENDING, observer.snapshot().state);
+        assertFalse(observer.connected(ticket));
+        observer.ended(ticket);
+        assertEquals(ENDED, observer.snapshot().state);
+    }
+    @Test public void lateCleanupDoesNotEndSuccessor() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        long old = observer.beginAttempt();
+        observer.stopping(old);
+        long next = observer.beginAttempt();
+        observer.ended(old);
+        assertEquals(next, observer.snapshot().ticket);
+        assertTrue(observer.connected(next));
+        assertEquals(RUNNING, observer.snapshot().state);
+    }
     @Test public void zeroTicketDoesNotChangeObservation() {
         HorizonStreamObserver observer = new HorizonStreamObserver();
         observer.failed(0);

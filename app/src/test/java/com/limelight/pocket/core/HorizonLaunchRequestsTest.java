@@ -1,0 +1,68 @@
+package com.limelight.pocket.core;
+import com.limelight.pocket.home.HomeItem;
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+public class HorizonLaunchRequestsTest {
+    private HorizonLaunchTarget item(String kind, String a, String b, String c, int n) {
+        return HorizonLaunchTarget.from(new HomeItem(kind, "Title", a, b, c, n));
+    }
+    @Test public void pcIdentityDoesNotDependOnLabel() {
+        assertEquals(HorizonLaunchTarget.pc("pc", 12),
+                HorizonLaunchTarget.from(new HomeItem(HomeItem.PC, "Renamed", "pc", "", "", 12)));
+        assertNotEquals(HorizonLaunchTarget.pc("pc",12), HorizonLaunchTarget.pc("pc2",12));
+    }
+    @Test public void nativeStoreAndRetroRootAreDistinct() {
+        assertNotEquals(item(HomeItem.NATIVE,"gamenative","STEAM","",7),
+                item(HomeItem.NATIVE,"gamenative","GOG","",7));
+        assertEquals(item(HomeItem.NATIVE,"gamenative","","",7),
+                item(HomeItem.NATIVE,"gamenative","steam","",7));
+        assertNotEquals(item(HomeItem.RETRO,"ps2","game.iso","sd",0),
+                item(HomeItem.RETRO,"ps2","game.iso","usb",0));
+    }
+    @Test public void structuredFieldsAvoidDelimiterCollision() {
+        assertNotEquals(item(HomeItem.RETRO,"a:b","c","",0),
+                item(HomeItem.RETRO,"a","b:c","",0));
+    }
+    @Test public void repeatDoesNotDispatchSecondGame() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        HorizonLaunchTarget t = HorizonLaunchTarget.pc("pc",12);
+        long first = q.begin(t,100);
+        assertTrue(first > 0);
+        assertEquals(0L,q.begin(t,200));
+        assertTrue(q.begin(t,800)>first);
+    }
+    @Test public void newSelectionInvalidatesOldCallback() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long first = q.begin(item(HomeItem.RETRO,"ps2","game.iso","sd",0),100);
+        long next = q.begin(item(HomeItem.NEXUS,"files","","",0),200);
+        assertFalse(q.claim(first,210));
+        assertTrue(q.claim(next,210));
+        assertFalse(q.claim(next,220));
+    }
+    @Test public void expiredAndReversedClockCallbacksRejected() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        long t = q.begin(HorizonLaunchTarget.pc("pc",1),100);
+        assertFalse(q.claim(t,99));
+        assertFalse(q.claim(t,15101));
+    }
+    @Test public void toolsAreNotDebounced() {
+        HorizonLaunchRequests q = new HorizonLaunchRequests();
+        HorizonLaunchTarget t = item(HomeItem.NEXUS,"music","","",0);
+        assertTrue(q.begin(t,100)>0);
+        assertTrue(q.begin(t,101)>0);
+    }
+    @Test public void observationPairsTargetAndTicketAndRejectsStaleCallback() {
+        HorizonStreamObserver o = new HorizonStreamObserver();
+        HorizonLaunchTarget a = HorizonLaunchTarget.pc("pc",1);
+        HorizonLaunchTarget b = HorizonLaunchTarget.pc("pc",2);
+        long old = o.beginAttempt(a);
+        long next = o.beginAttempt(b);
+        o.connected(old);
+        assertEquals(b,o.observation().target);
+        assertEquals(next,o.observation().session.ticket);
+        assertEquals(HorizonSession.State.LAUNCHING,o.observation().session.state);
+        o.connected(next);
+        assertEquals(HorizonSession.State.RUNNING,o.observation().session.state);
+    }
+}

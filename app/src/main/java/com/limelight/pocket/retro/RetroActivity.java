@@ -1475,6 +1475,10 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             return;
         }
         final EsdeConfig.Command cmd = with != null ? with : RetroLibrary.gameCommand(this, lib, s, rom);
+        if (isFinishing() || isDestroyed()
+                || com.limelight.pocket.core.HorizonLaunchRequests.shared().begin(
+                    com.limelight.pocket.core.HorizonLaunchTarget.from(homeItem(rom)),
+                    android.os.SystemClock.elapsedRealtime()) == 0L) return;
         RetroLauncher.Result r = RetroLauncher.launch(this, cfg, cmd, rom.file, lib.root);
         switch (r.status) {
             case RetroLauncher.OK:

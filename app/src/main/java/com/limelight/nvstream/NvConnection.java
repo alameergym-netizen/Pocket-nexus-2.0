@@ -48,7 +48,8 @@ public class NvConnection {
     private LimelightCryptoProvider cryptoProvider;
     private String uniqueId;
     private ConnectionContext context;
-    private static Semaphore connectionAllowed = new Semaphore(1);
+    private static final Semaphore connectionAllowed = new Semaphore(1);
+    private final com.limelight.pocket.core.HorizonConnectionLease lease = new com.limelight.pocket.core.HorizonConnectionLease();
     private final boolean isMonkey;
     private final Context appContext;
 
@@ -90,18 +91,31 @@ public class NvConnection {
     }
 
     public void stop() {
-        // Interrupt any pending connection. This is thread-safe.
-        MoonBridge.interruptConnection();
+        stop(null);
+    }
 
-        // Moonlight-core is not thread-safe with respect to connection start and stop, so
-        // we must not invoke that functionality in parallel.
-        synchronized (MoonBridge.class) {
-            MoonBridge.stopConnection();
-            MoonBridge.cleanupBridge();
+    /**
+     * Optional remote cleanup runs only for the native owner, after native shutdown,
+     * while its global connection permit is still held. Never hold the bridge monitor
+     * across network I/O; queued connections still cannot negotiate until permit release.
+     */
+    public void stop(Runnable remoteCleanup) {
+        if (!lease.requestStop(MoonBridge::interruptConnection)) return;
+        boolean ownsPermit = false;
+        try {
+            synchronized (MoonBridge.class) {
+                if (!lease.leaveNative()) return;
+                ownsPermit = true;
+                try {
+                    MoonBridge.stopConnection();
+                } finally {
+                    MoonBridge.cleanupBridge();
+                }
+            }
+            if (remoteCleanup != null) remoteCleanup.run();
+        } finally {
+            if (ownsPermit) connectionAllowed.release();
         }
-
-        // Now a pending connection can be processed
-        connectionAllowed.release();
     }
 
     private InetAddress resolveServerAddress() throws IOException {
@@ -443,8 +457,21 @@ public class NvConnection {
 
     public void start(final AudioRenderer audioRenderer, final VideoDecoderRenderer videoDecoderRenderer, final NvConnectionListener connectionListener)
     {
+        if (!lease.begin()) return;
         new Thread(new Runnable() {
             public void run() {
+                boolean acquired = false;
+                boolean keepNative = false;
+                try {
+                // Serialize host negotiation as well as the native bridge. Waiting workers
+                // can be cancelled without interrupting the current stream or adding permits.
+                while (!lease.cancelled()) {
+                    if (connectionAllowed.tryAcquire(200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        acquired = true;
+                        break;
+                    }
+                }
+                if (!acquired || lease.cancelled()) return;
                 context.connListener = connectionListener;
                 context.videoCapabilities = videoDecoderRenderer.getCapabilities();
 
@@ -455,6 +482,7 @@ public class NvConnection {
                 int tryCount = 0;
 
                 do {
+                    if (lease.cancelled()) return;
                     boolean retry = false;
                     try {
                         if (!startApp()) {
@@ -480,6 +508,7 @@ public class NvConnection {
                         }
                     }
 
+                    if (lease.cancelled()) return;
                     if (!retry) break;
                     tryCount += 1;
 
@@ -498,20 +527,15 @@ public class NvConnection {
                 ByteBuffer ib = ByteBuffer.allocate(16);
                 ib.putInt(context.riKeyId);
 
-                // Acquire the connection semaphore to ensure we only have one
-                // connection going at once.
-                try {
-                    connectionAllowed.acquire();
-                } catch (InterruptedException e) {
-                    context.connListener.displayMessage(e.getMessage());
-                    context.connListener.stageFailed(appName, 0, 0);
-                    return;
-                }
-
-                // Moonlight-core is not thread-safe with respect to connection start and stop, so
-                // we must not invoke that functionality in parallel.
+                // Native ownership is established only inside the bridge lock.
                 synchronized (MoonBridge.class) {
+                    if (!lease.enterNative()) return;
+                    try {
                     MoonBridge.setupBridge(videoDecoderRenderer, audioRenderer, connectionListener);
+                    if (lease.cancelled()) {
+                        MoonBridge.cleanupBridge();
+                        return;
+                    }
                     int ret = MoonBridge.startConnection(context.serverAddress.address,
                             context.serverAppVersion, context.serverGfeVersion, context.rtspSessionUrl,
                             context.serverCodecModeSupport,
@@ -525,16 +549,20 @@ public class NvConnection {
                             context.videoCapabilities,
                             context.streamConfig.getColorSpace(),
                             context.streamConfig.getColorRange());
-                    if (ret != 0) {
-                        // LiStartConnection() failed, so the caller is not expected
-                        // to stop the connection themselves. We need to release their
-                        // semaphore count for them.
-                        connectionAllowed.release();
-                        return;
+                    if (ret != 0) return;
+                    keepNative = true;
+                    } finally {
+                        if (!keepNative) lease.leaveNative();
                     }
                 }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    if (!lease.cancelled()) connectionListener.stageFailed("connection", 0, 0);
+                } finally {
+                    if (acquired && !keepNative) connectionAllowed.release();
+                }
             }
-        }).start();
+        }, "NexusConnection").start();
     }
 
     public void sendExecServerCmd(final int cmdId) {

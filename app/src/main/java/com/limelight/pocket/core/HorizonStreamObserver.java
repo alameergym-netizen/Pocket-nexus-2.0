@@ -9,23 +9,44 @@ package com.limelight.pocket.core;
 public final class HorizonStreamObserver {
     private static final HorizonStreamObserver INSTANCE = new HorizonStreamObserver();
     private HorizonSession session = HorizonSession.idle();
+    private HorizonLaunchTarget target;
 
     public static HorizonStreamObserver instance() { return INSTANCE; }
 
     public synchronized HorizonSession snapshot() { return session; }
 
+    /** Pair of state and target from the same attempt, not a remote process ID. */
+    public static final class Observation {
+        public final HorizonSession session;
+        public final HorizonLaunchTarget target;
+        private Observation(HorizonSession session, HorizonLaunchTarget target) {
+            this.session = session; this.target = target;
+        }
+    }
+    public synchronized Observation observation() { return new Observation(session, target); }
+
     /** New actual connection attempt supersedes observation of any older attempt. */
-    public synchronized long beginAttempt() {
+    public synchronized long beginAttempt() { return beginAttempt(null); }
+
+    public synchronized long beginAttempt(HorizonLaunchTarget launchTarget) {
         if (session.ticket == Long.MAX_VALUE) return 0L;
         if (!session.terminal()) {
             session = session.transition(session.ticket, HorizonSession.Event.FINISHED);
         }
         session = session.begin(session.ticket + 1L);
+        target = launchTarget;
         return session.ticket;
     }
 
-    public synchronized void connected(long ticket) {
+    /** Accept connection completion exactly once for the current launching attempt. */
+    public synchronized boolean connected(long ticket) {
+        if (ticket <= 0 || session.ticket != ticket || session.state != HorizonSession.State.LAUNCHING) return false;
         apply(ticket, HorizonSession.Event.STARTED);
+        return true;
+    }
+
+    public synchronized void stopping(long ticket) {
+        apply(ticket, HorizonSession.Event.STOP);
     }
 
     public synchronized void failed(long ticket) {

@@ -42,9 +42,18 @@ jobs:
           set -o pipefail
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace assembleNonRoot_gameDebug 2>&1 | tee horizon-build.log
+      - name: Cache pinned Robolectric frameworks
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/nexus-robolectric
+          key: nexus-robolectric-v1-4.16-api33-api34
+      - name: Prepare Robolectric frameworks
+        shell: bash
+        run: bash .github/tests/prepare_robolectric.sh "$RUNNER_TEMP/nexus-robolectric"
       - name: Run Pocket unit tests
         shell: bash
         run: |
+          export NEXUS_ROBOLECTRIC_DIR="$RUNNER_TEMP/nexus-robolectric"
           set -o pipefail
           ./gradlew --no-daemon --stacktrace testNonRoot_gameDebugUnitTest --tests 'com.limelight.pocket.*' 2>&1 | tee horizon-tests.log
       - name: Upload diagnostics even if the build or tests fail

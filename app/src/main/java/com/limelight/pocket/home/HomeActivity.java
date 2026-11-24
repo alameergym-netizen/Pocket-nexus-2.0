@@ -484,7 +484,26 @@ public class HomeActivity extends ConsoleActivity {
         });
     }
 
+    /** Identical refreshes must not detach the controller's focused RecyclerView child. */
+    private boolean sameWorkspaceEntries(List<HomeStore.Entry> list) {
+        if (!loadedOnce || entries.size() != list.size() + 1) return false;
+        for (int i = 0; i < list.size(); i++) {
+            HomeStore.Entry old = entries.get(i), next = list.get(i);
+            if (old == null || old.lastUsed != next.lastUsed || old.pinned != next.pinned
+                    || !old.pcName.equals(next.pcName)
+                    || !old.item.toLine().equals(next.item.toLine())) return false;
+        }
+        return entries.get(list.size()) == null;
+    }
+
     private void show(List<HomeStore.Entry> list) {
+        if (workspace && sameWorkspaceEntries(list)) {
+            if (workspaceInitialFocusPending) focusAt(0, 0);
+            return;
+        }
+        View previousFocus = getCurrentFocus();
+        boolean previousActions = previousFocus == play || previousFocus == info || previousFocus == more;
+        boolean previousDock = dock != null && dock.hasFocus();
         boolean firstLoad = !loadedOnce;
         loadedOnce = true;
         focusGeneration++;
@@ -521,7 +540,8 @@ public class HomeActivity extends ConsoleActivity {
             return;
         }
         View focus = getCurrentFocus();
-        boolean onActions = focus != null && (focus == play || focus == info || focus == more);
+        boolean onActions = workspace ? previousActions || previousDock
+                : focus != null && (focus == play || focus == info || focus == more);
         if (onActions) {
             updateHero(target);
         }
@@ -548,10 +568,10 @@ public class HomeActivity extends ConsoleActivity {
                 View tile = holder.itemView;
                 // Request focus on the actual child; a RecyclerView parent request can
                 // select a different focusable descendant or leave detail focused.
-                boolean focused = workspace && workspaceInitialFocusPending && row.isInTouchMode()
-                        ? tile.requestFocusFromTouch() : tile.requestFocus();
-                if (focused && tile.hasFocus()) {
-                    if (workspace) workspaceInitialFocusPending = false;
+                // Workspace tiles are touch-mode focusable. Do not change the window's
+                // input mode merely to set an initial controller selection.
+                if (tile.requestFocus() && tile.hasFocus()) {
+                    if (workspace && position == 0) workspaceInitialFocusPending = false;
                     return;
                 }
             }
@@ -1571,6 +1591,7 @@ public class HomeActivity extends ConsoleActivity {
         }
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
+        if (!workspace) workspaceInitialFocusPending = false;
         float widthDp=screenW/d;
         float heightDp=getResources().getDisplayMetrics().heightPixels/d;
         int brandMode=HorizonHomeStyle.brandMode(widthDp);
@@ -2601,9 +2622,9 @@ public class HomeActivity extends ConsoleActivity {
             v.setOnFocusChangeListener((view, has) -> {
                 focusLook(h, has, true);
                 if (has) {
-                    if (workspace) workspaceInitialFocusPending = false;
                     int pos = h.getBindingAdapterPosition();
                     if (pos != RecyclerView.NO_POSITION) {
+                        if (workspace && pos == 0) workspaceInitialFocusPending = false;
                         if (pos != heroPos) {
                             PocketUi.tick(HomeActivity.this);
                         }
@@ -2618,6 +2639,11 @@ public class HomeActivity extends ConsoleActivity {
         @Override
         public void onBindViewHolder(@NonNull TileHolder h, int position) {
             HomeStore.Entry e = entries.get(position);
+            // Unlike the old shelf, the workspace starts with a concrete selected tile
+            // even when the system is still in touch mode. Restore the legacy behavior
+            // when the user changes layouts (holders are reused).
+            h.itemView.setFocusableInTouchMode(workspace);
+            h.itemView.setFocusable(true);
             sizeTile(h);
             // A recycled cover must not inherit the previous game's artwork fade.
             h.image.animate().cancel();
