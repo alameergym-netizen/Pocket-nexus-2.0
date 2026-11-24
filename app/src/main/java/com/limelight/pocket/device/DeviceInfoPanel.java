@@ -10,6 +10,8 @@ import android.text.format.Formatter;
 import android.view.Display;
 
 import com.limelight.R;
+import com.limelight.pocket.core.HorizonSession;
+import com.limelight.pocket.core.HorizonStreamObserver;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ui.StreamMenuView;
@@ -133,6 +135,12 @@ public final class DeviceInfoPanel {
         items.add(StreamMenuView.Item.info(a.getString(R.string.horizon_power_title), HorizonPower.batteryPower(a)));
         items.add(StreamMenuView.Item.note(a.getString(R.string.horizon_power_note)));
 
+        HorizonSession stream = HorizonStreamObserver.instance().snapshot();
+        items.add(StreamMenuView.Item.header(a.getString(R.string.horizon_stream_observation)));
+        items.add(StreamMenuView.Item.info(a.getString(R.string.horizon_stream_last_attempt),
+                a.getString(streamStateLabel(stream.state))));
+        items.add(StreamMenuView.Item.note(a.getString(R.string.horizon_stream_observation_note)));
+
         items.add(StreamMenuView.Item.header(a.getString(R.string.pocket_info_tuned)));
         String hw = Build.HARDWARE;
         if (isQualcomm(maker, hw)) {
@@ -144,6 +152,19 @@ public final class DeviceInfoPanel {
         items.add(StreamMenuView.Item.note(a.getString(R.string.pocket_info_tuned_all)));
         PocketSounds.play(a, PocketSounds.OPEN);
         a.showConsolePanel(a.getString(R.string.pocket_info_title), chip != null ? chip : Build.MODEL, null, items);
+    }
+
+    private static int streamStateLabel(HorizonSession.State state) {
+        switch (state) {
+            case LAUNCHING: return R.string.horizon_stream_connecting;
+            case RUNNING: return R.string.horizon_stream_connected;
+            case FAILED: return R.string.horizon_stream_failed;
+            case ENDED: return R.string.horizon_stream_ended;
+            case ENDING: return R.string.horizon_stream_ending;
+            case BACKGROUND: return R.string.horizon_stream_background;
+            case RECONNECTING: return R.string.horizon_stream_reconnecting;
+            default: return R.string.horizon_stream_not_observed;
+        }
     }
 
     /** What the hardware decoders of this type can do: the largest size and frame rate, 10-bit. */

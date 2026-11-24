@@ -4,6 +4,7 @@ import android.content.Context;
 import android.widget.Toast;
 
 import com.limelight.R;
+import com.limelight.pocket.core.HorizonGamePreset;
 import com.limelight.pocket.ui.StreamMenuView;
 
 import java.util.ArrayList;
@@ -21,6 +22,26 @@ public final class GameSettingsPage {
     public static List<StreamMenuView.Item> build(final Context ctx, final String uuid, final int appId,
                                                   final String gameName, final Runnable onReset) {
         List<StreamMenuView.Item> page = new ArrayList<>();
+
+        if (ctx instanceof ConsoleActivity && uuid != null && !uuid.trim().isEmpty() && appId != 0) {
+            ConsoleActivity console = (ConsoleActivity) ctx;
+            String title = ctx.getString(R.string.horizon_game_presets);
+            HorizonGamePreset current = HorizonGamePreset.match(
+                    GameProfile.resolution(ctx, uuid, appId), GameProfile.fps(ctx, uuid, appId),
+                    GameProfile.bitrateKbps(ctx, uuid, appId));
+            page.add(StreamMenuView.Item.submenu(title, () -> {
+                List<StreamMenuView.Item> choices = new ArrayList<>();
+                choices.add(StreamMenuView.Item.note(ctx.getString(R.string.horizon_game_presets_note)));
+                for (HorizonGamePreset preset : HorizonGamePreset.values()) {
+                    choices.add(StreamMenuView.Item.confirm(ctx.getString(presetLabel(preset)), () -> {
+                        if (GameProfile.applyPreset(ctx, uuid, appId, preset)) {
+                            Toast.makeText(ctx, R.string.horizon_game_preset_saved, Toast.LENGTH_SHORT).show();
+                        }
+                    }).withValue(preset.description()));
+                }
+                console.pushConsolePage(title, choices);
+            }).withValue(current == null ? null : ctx.getString(presetLabel(current))));
+        }
 
         page.add(StreamMenuView.Item.value(ctx.getString(R.string.pocket_sm_bitrate),
                 bitrateLabel(ctx, GameProfile.bitrateKbps(ctx, uuid, appId)), direction -> {
@@ -67,6 +88,18 @@ public final class GameSettingsPage {
         }));
         page.add(StreamMenuView.Item.repeatable(ctx.getString(R.string.pocket_gs_note, gameName), null));
         return page;
+    }
+
+    private static int presetLabel(HorizonGamePreset preset) {
+        switch (preset) {
+            case REMOTE_SAVER: return R.string.horizon_game_remote_saver;
+            case REMOTE_BALANCED: return R.string.horizon_game_remote_balanced;
+            case REMOTE_HIGH_REFRESH: return R.string.horizon_game_remote_high_refresh;
+            case LOCAL_BALANCED: return R.string.horizon_game_local_balanced;
+            case LOCAL_HIGH_REFRESH: return R.string.horizon_game_local_high_refresh;
+            case USB_HIGH_REFRESH: return R.string.horizon_game_usb_high_refresh;
+            default: throw new IllegalArgumentException("Unknown preset");
+        }
     }
 
     private static String defaultLabel(Context ctx) {

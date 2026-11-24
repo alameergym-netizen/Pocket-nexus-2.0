@@ -61,6 +61,20 @@ public final class GameProfile {
         prefs(c).edit().putInt(key(pcUuid, appId, "framegen"), mode).apply();
     }
 
+    /** Apply only the three requested stream fields in one preference transaction.
+     * Existing frame generation and global settings remain untouched.
+     */
+    public static boolean applyPreset(Context c, String pcUuid, int appId,
+                                      com.limelight.pocket.core.HorizonGamePreset preset) {
+        if (pcUuid == null || pcUuid.trim().isEmpty() || appId == 0 || preset == null) return false;
+        prefs(c).edit()
+                .putInt(key(pcUuid, appId, "bitrate"), preset.kbps)
+                .putInt(key(pcUuid, appId, "fps"), preset.fps)
+                .putString(key(pcUuid, appId, "res"), preset.resolution)
+                .apply();
+        return true;
+    }
+
     public static void clear(Context c, String pcUuid, int appId) {
         prefs(c).edit()
                 .remove(key(pcUuid, appId, "bitrate"))
