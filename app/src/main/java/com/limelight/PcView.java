@@ -188,14 +188,13 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
     public static final String EXTRA_HOME_UUID = "pocket.home.uuid";
     public static final String EXTRA_HOME_APP = "pocket.home.appId";
     public static final String EXTRA_HOME_REQUEST = "pocket.home.request";
-    public static final String EXTRA_HOME_COMMAND = "pocket.home.command";
     /** Set by the device's Home button: Pocket Nexus's Home comes up. */
     public static final String EXTRA_SHOW_HOME = "pocket.home.show";
     private String pocketHomeUuid;
     private int pocketHomeApp;
     private long pocketHomeAt;
     private long pocketLaunchRequest;
-    private boolean pocketHomeCommand;
+    private String pocketHomeCommand;
     private final com.limelight.pocket.core.HorizonLaunchRequests pocketRequests =
             com.limelight.pocket.core.HorizonLaunchRequests.shared();
 
@@ -208,7 +207,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         pocketRequests.cancel(pocketLaunchRequest);
         pocketLaunchRequest = 0;
         pocketHomeUuid = null;
-        pocketHomeCommand = false;
+        pocketHomeCommand = null;
     }
     private boolean pocketHomeReturn;
     private boolean pocketStoppedSinceLaunch;
@@ -442,9 +441,9 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         intent.removeExtra(EXTRA_HOME_UUID);
         int appId = intent.getIntExtra(EXTRA_HOME_APP, 0);
         long request = intent.getLongExtra(EXTRA_HOME_REQUEST, 0);
-        boolean command = request != 0 && intent.getBooleanExtra(EXTRA_HOME_COMMAND, false);
+        String command = request != 0 ? intent.getStringExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN) : null;
         intent.removeExtra(EXTRA_HOME_REQUEST);
-        intent.removeExtra(EXTRA_HOME_COMMAND);
+        intent.removeExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
         intent.removeExtra(EXTRA_HOME_APP);
         if (uuid.isEmpty() || appId == 0) return;
         if (request == 0) {
@@ -2021,10 +2020,10 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
 
     /** Starts (or resumes) a game on a PC: wakes it, pairs it, or lets the library ask first. */
     private void pocketLaunch(ComputerDetails pc, NvApp app) {
-        pocketLaunch(pc, app, false);
+        pocketLaunch(pc, app, (String) null);
     }
 
-    private void pocketLaunch(ComputerDetails pc, NvApp app, boolean commandHandoff) {
+    private void pocketLaunch(ComputerDetails pc, NvApp app, String commandHandoff) {
         if (pc == null || app == null || isFinishing() || isDestroyed()) return;
         long request = pocketRequests.beginPc(com.limelight.pocket.core.HorizonLaunchTarget.pc(pc.uuid, app.getAppId()),
                 android.os.SystemClock.elapsedRealtime());
@@ -2035,7 +2034,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
     }
 
     private void pocketLaunch(ComputerDetails pc, NvApp app, long request,
-                              boolean commandHandoff, boolean returnHome) {
+                              String commandHandoff, boolean returnHome) {
         if (pc == null || app == null || !pocketOwnsRequest(request)) return;
         if (pc.state == ComputerDetails.State.OFFLINE && pc.pairState == PairState.PAIRED && pc.macAddress != null) {
             pocketWakeAndOpen(pc);
@@ -2052,14 +2051,13 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         final Runnable start = () -> {
             if (managerBinder != null && pocketOwnsRequest(request)
                     && pocketRequests.claim(request, android.os.SystemClock.elapsedRealtime())) {
-                if (!commandHandoff) com.limelight.pocket.pclib.PcLaunchTicket.clearHost(pc.uuid);
                 if (returnHome) {
                     pocketHomeReturn = true;
                     pocketStoppedSinceLaunch = false;
                 }
                 com.limelight.pocket.RecentGames.invalidate(pc.uuid);
                 ServerHelper.doStart(this, app, pc, managerBinder,
-                        PreferenceConfiguration.readPreferences(this).useVirtualDisplay);
+                        PreferenceConfiguration.readPreferences(this).useVirtualDisplay, commandHandoff);
             }
         };
         if (pc.runningGameId != 0 && pc.runningGameId != app.getAppId()) {
@@ -2273,7 +2271,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
                 int appId = data.getIntExtra(com.limelight.pocket.pclib.PcLibraryActivity.RESULT_APP_ID, 0);
                 for (com.limelight.pocket.RecentGames.Game g : com.limelight.pocket.RecentGames.forPc(this, pc.uuid, 100000)) {
                     if (g.app.getAppId() == appId) {
-                        pocketLaunch(pc, g.app, true);
+                        pocketLaunch(pc, g.app, data.getStringExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN));
                         return;
                     }
                 }

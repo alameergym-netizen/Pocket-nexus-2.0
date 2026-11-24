@@ -57,6 +57,7 @@ public final class ResumeTicket {
     public static void remember(Context context, Intent gameIntent) {
         try {
             Bundle extras = gameIntent.getExtras() != null ? new Bundle(gameIntent.getExtras()) : new Bundle();
+            extras.remove(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
             memoryExtras = extras;
             prefs(context).edit()
                     .putString(KEY_EXTRAS, encode(extras))

@@ -454,7 +454,8 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
 
         if (requestCode == com.limelight.pocket.pclib.PcLibraryActivity.REQUEST) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                pocketStartAppId(data.getIntExtra(com.limelight.pocket.pclib.PcLibraryActivity.RESULT_APP_ID, 0));
+                pocketStartAppId(data.getIntExtra(com.limelight.pocket.pclib.PcLibraryActivity.RESULT_APP_ID, 0),
+                        data.getStringExtra(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN));
             }
             return;
         }
@@ -869,12 +870,12 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
     }
 
     /** Streams this Apollo app (picked in the PC library), as A on its card would. */
-    private void pocketStartAppId(int appId) {
+    private void pocketStartAppId(int appId, String commandToken) {
         if (appGridAdapter != null) {
             for (int i = 0; i < appGridAdapter.getCount(); i++) {
                 if (((AppObject) appGridAdapter.getItem(i)).app.getAppId() == appId) {
                     pocketFocusApp(appId);
-                    pocketPlay(i);
+                    pocketPlay(i, commandToken);
                     return;
                 }
             }
@@ -882,7 +883,7 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
         // Not in the row (hidden): straight from the PC's list
         for (com.limelight.pocket.RecentGames.Game g : com.limelight.pocket.RecentGames.forPc(this, uuidString, 100000)) {
             if (g.app.getAppId() == appId && computer != null && managerBinder != null) {
-                ServerHelper.doStart(this, g.app, computer, managerBinder, prefConfig.useVirtualDisplay);
+                ServerHelper.doStart(this, g.app, computer, managerBinder, prefConfig.useVirtualDisplay, commandToken);
                 return;
             }
         }
@@ -962,7 +963,9 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
         return true;
     }
 
-    private void pocketPlay(int pos) {
+    private void pocketPlay(int pos) { pocketPlay(pos, null); }
+
+    private void pocketPlay(int pos, String commandToken) {
         if (appGridAdapter == null || pos < 0 || pos >= appGridAdapter.getCount()) {
             return;
         }
@@ -972,12 +975,12 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
         // (quit it and play this one?), or just switches when that's how it's set
         if (lastRunningAppId != 0) {
             if (lastRunningAppId == app.app.getAppId()) {
-                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
+                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay, commandToken);
             } else {
-                askSwitchGame(pocketAppName(lastRunningAppId), app.app.getAppName(), () -> pocketStartApp(app));
+                askSwitchGame(pocketAppName(lastRunningAppId), app.app.getAppName(), () -> pocketStartApp(app, commandToken));
             }
         } else {
-            pocketStartApp(app);
+            pocketStartApp(app, commandToken);
         }
     }
 
@@ -993,17 +996,17 @@ public class AppView extends ConsoleActivity implements CarouselAdapter.Listener
         return null;
     }
 
-    private void pocketStartApp(final AppObject app) {
+    private void pocketStartApp(final AppObject app, String commandToken) {
         {
             if (prefConfig.useVirtualDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
                 UiHelper.displayVdisplayConfirmationDialog(
                         AppView.this,
                         computer,
-                        () -> ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true),
+                        () -> ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true, commandToken),
                         null
                 );
             } else {
-                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
+                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay, commandToken);
             }
         }
     }
