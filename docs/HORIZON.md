@@ -46,3 +46,6 @@ Android-visible audio output inventory, sound/Bluetooth settings and optional Hu
 
 ## Controls and widgets milestone
 Global Back/Guide hold duration is configurable, without changing stream controls or existing bindings. Quick Control offers three reorder presets preserving all six tiles. Two optional Home widgets expose battery-side power and internal free space / mounted removable volume count. Neither is automatically inserted into an existing shelf. Storage refresh is throttled. Per-game global bindings, free-form tile editing and deeper telemetry remain future work.
+
+## CI diagnostics
+CI explicitly installs Android SDK 36 and the pinned native tools. APK assembly and unit tests are separate steps; build logs and test reports are retained even on failure. Successful runs upload a development APK, not a release. The imported default branch may still be ci-logs; a repository administrator should select horizon-foundation before using manual workflow dispatch.

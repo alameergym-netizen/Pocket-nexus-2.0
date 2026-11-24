@@ -23,17 +23,46 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Install Android NDK
+      - name: Install Android SDK and NDK
+        shell: bash
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.0.12077973" "cmake;3.22.1" > /dev/null
+          set -o pipefail
+          # Avoid a successful sdkmanager operation failing because yes receives SIGPIPE.
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1"
           echo "ndk.dir=$ANDROID_HOME/ndk/27.0.12077973" > local.properties
           echo "sdk.dir=$ANDROID_HOME" >> local.properties
-      - name: Build development APK and run unit tests
+      - name: Build development APK
+        shell: bash
         run: |
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleNonRoot_gameDebug testNonRoot_gameDebugUnitTest --tests 'com.limelight.pocket.*'
-      - uses: actions/upload-artifact@v4
+          ./gradlew --no-daemon --stacktrace assembleNonRoot_gameDebug 2>&1 | tee horizon-build.log
+      - name: Run Pocket unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace testNonRoot_gameDebugUnitTest --tests 'com.limelight.pocket.*' 2>&1 | tee horizon-tests.log
+      - name: Upload diagnostics even if the build or tests fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Horizon-CI-diagnostics
+          path: |
+            horizon-build.log
+            horizon-tests.log
+            app/build/test-results/testNonRoot_gameDebugUnitTest/**
+            app/build/reports/tests/testNonRoot_gameDebugUnitTest/**
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload tested development APK
+        uses: actions/upload-artifact@v4
         with:
           name: PocketNexus2-foundation-dev
           path: app/build/outputs/apk/**/debug/*.apk
           if-no-files-found: error
+          retention-days: 7
