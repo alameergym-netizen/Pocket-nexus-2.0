@@ -22,3 +22,6 @@ The CI workflow builds ARM64 development APKs and runs existing pocket unit test
 
 ## Shell milestone 1
 Seven Horizon presets are available alongside the fifteen legacy presets. Preset matching now includes sound, layout and focus where specified. Shared motion respects Android's disabled-animations setting. These are initial presets on the existing renderer, not a completed redesign or new audio assets. Tests cover matching and legacy preservation.
+
+## Search milestone
+Global search augments the existing Home, Android and ROM index with all launch paths from UniversalLibrary. Mixed platform/title searches are supported; name hits rank above source-only hits. Search callbacks avoid destroyed activities. This indexes cached sources, not a live query to every store.

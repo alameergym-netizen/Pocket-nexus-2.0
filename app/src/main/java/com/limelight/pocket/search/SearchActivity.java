@@ -41,6 +41,7 @@ import com.limelight.pocket.home.HomeActivity;
 import com.limelight.pocket.home.HomeItem;
 import com.limelight.pocket.home.HomeLauncher;
 import com.limelight.pocket.home.HomeStore;
+import com.limelight.pocket.library.UniversalLibrary;
 import com.limelight.pocket.retro.RetroLibrary;
 import com.limelight.pocket.retro.RomScanner;
 import com.limelight.pocket.ui.ConsoleScreen;
@@ -78,6 +79,7 @@ public class SearchActivity extends Activity {
         final HomeItem item;
         final Runnable tool;
         final String key;
+        final String sourceKey;
         int score;
 
         Hit(String name, String where, HomeItem item, Runnable tool) {
@@ -86,6 +88,7 @@ public class SearchActivity extends Activity {
             this.item = item;
             this.tool = tool;
             this.key = plain(name);
+            this.sourceKey = plain(where);
         }
     }
 
@@ -191,6 +194,7 @@ public class SearchActivity extends Activity {
     @Override
     protected void onDestroy() {
         io.shutdownNow();
+        main.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
@@ -263,8 +267,23 @@ public class SearchActivity extends Activity {
                     }
                 }
             }
+            // Include every cached PC game and other launch path known to the unified
+            // library, even if it has never been pinned or launched from Home.
+            // Keep existing Home and app hits first so custom names remain intact.
+            try {
+                for (UniversalLibrary.Game game : UniversalLibrary.gather(app)) {
+                    if (Thread.currentThread().isInterrupted()) { return; }
+                    for (UniversalLibrary.Way way : game.ways) {
+                        if (seen.add(way.item.key())) {
+                            found.add(new Hit(way.item.name, way.label, way.item, null));
+                        }
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // The local index is still useful if a library source is unavailable.
+            }
             main.post(() -> {
-                if (isFinishing()) {
+                if (isFinishing() || isDestroyed()) {
                     return;
                 }
                 all.addAll(found);
@@ -302,7 +321,7 @@ public class SearchActivity extends Activity {
         else {
             String[] words = q.split(" ");
             for (Hit h : all) {
-                int s = score(h.key, q, words);
+                int s = rank(h.key, h.sourceKey, q, words);
                 if (s > 0) {
                     h.score = s + (h.where.equals(getString(R.string.pocket_search_home)) ? 5 : 0);
                     shown.add(h);
@@ -317,6 +336,17 @@ public class SearchActivity extends Activity {
         rows.notifyDataSetChanged();
         count.setText(ready ? (q.isEmpty() ? "" : getString(R.string.pocket_search_count, shown.size()))
                 : getString(R.string.pocket_search_loading));
+    }
+
+    /** A name match outranks a source-only match; mixed queries such as "zelda wii u" work too. */
+    static int rank(String name, String source, String q, String[] words) {
+        if (q.isEmpty()) { return 0; }
+        int direct = score(name, q, words);
+        if (direct > 0) { return direct; }
+        int combined = score(name + " " + source, q, words);
+        if (combined == 0) { return 0; }
+        // Match the source alone, or a mixture of title and source. Never outrank a name match.
+        return score(source, q, words) > 0 ? 5 : 15;
     }
 
     /** How well a name matches: the whole of it, its start, a word's start, inside it, all words. */
