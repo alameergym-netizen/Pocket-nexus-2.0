@@ -2911,6 +2911,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             return pocketMicLabel();
         }).withIcon("MIC"));
 
+        final String audioRouteTitle = getString(R.string.horizon_route_title);
+        items.add(StreamMenuView.Item.submenu(audioRouteTitle, () -> streamMenu.push(audioRouteTitle,
+                com.limelight.pocket.device.HorizonAudio.streamRouteRows(this))).withIcon("INFO"));
+
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_sm_header_quality)));
         final String bitrateTitle = getString(R.string.pocket_sm_bitrate);
         items.add(StreamMenuView.Item.submenu(bitrateTitle, () -> streamMenu.push(bitrateTitle, pocketBitrateItems()))
