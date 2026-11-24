@@ -2085,6 +2085,126 @@ function Get-HostDashboardText {
     ) -join [Environment]::NewLine)
 }
 
+function Show-NexusVibepollo {
+    if (-not ("PocketNexus.NexusVibepollo" -as [type])) {
+        Add-Type -Path (Join-Path $here "NexusVibepollo.cs") -ReferencedAssemblies @("System.dll", "System.Core.dll", "System.Runtime.Serialization.dll", "System.Security.dll", "System.Xml.dll") -ErrorAction Stop
+    }
+    $settings = Join-Path $DataDir "vibepollo-status.txt"
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = "Vibepollo status | Nexus Host"
+    $dialog.StartPosition = "CenterParent"
+    $dialog.ClientSize = New-Object System.Drawing.Size(650, 380)
+    $dialog.MinimumSize = New-Object System.Drawing.Size(520, 340)
+    $dialog.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $layout = New-Object System.Windows.Forms.TableLayoutPanel
+    $layout.Dock = "Fill"
+    $layout.Padding = New-Object System.Windows.Forms.Padding(14)
+    $layout.ColumnCount = 2
+    $layout.RowCount = 6
+    [void]$layout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 150)))
+    [void]$layout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    foreach ($height in @(46, 34, 34, 34)) {
+        [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, $height)))
+    }
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 42)))
+
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = "Use a local Vibepollo API token scoped to GET /api/metadata and the public certificate from that installation."
+    $heading.Dock = "Fill"
+    $layout.Controls.Add($heading, 0, 0)
+    $layout.SetColumnSpan($heading, 2)
+
+    $port = New-Object System.Windows.Forms.NumericUpDown
+    $port.Minimum = 1024
+    $port.Maximum = 65535
+    $port.Value = 47990
+    $port.AccessibleName = "Local API port"
+    $certificate = New-Object System.Windows.Forms.TextBox
+    $certificate.ReadOnly = $true
+    $certificate.Dock = "Fill"
+    $certificate.AccessibleName = "Public host certificate path"
+    $browse = New-Object System.Windows.Forms.Button
+    $browse.Text = "Browse"
+    $browse.AutoSize = $true
+    $browse.Dock = "Right"
+    $browse.add_Click({
+        $picker = New-Object System.Windows.Forms.OpenFileDialog
+        $picker.Title = "Select the Vibepollo public certificate"
+        $picker.Filter = "Public certificates (*.cer;*.crt;*.pem)|*.cer;*.crt;*.pem"
+        try { if ($picker.ShowDialog($dialog) -eq "OK") { $certificate.Text = $picker.FileName } }
+        finally { $picker.Dispose() }
+    }.GetNewClosure())
+    $certRow = New-Object System.Windows.Forms.Panel
+    $certRow.Dock = "Fill"
+    $certRow.Controls.Add($certificate)
+    $certRow.Controls.Add($browse)
+    $token = New-Object System.Windows.Forms.TextBox
+    $token.Dock = "Fill"
+    $token.MaxLength = 160
+    $token.UseSystemPasswordChar = $true
+    $token.AccessibleName = "Scoped API token"
+    $fields = @(
+        @{ Label = "Local API port"; Control = $port },
+        @{ Label = "Public certificate"; Control = $certRow },
+        @{ Label = "Scoped API token"; Control = $token }
+    )
+    for ($i = 0; $i -lt $fields.Count; $i++) {
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = $fields[$i].Label
+        $label.AutoSize = $true
+        $layout.Controls.Add($label, 0, $i + 1)
+        $layout.Controls.Add($fields[$i].Control, 1, $i + 1)
+    }
+
+    $details = New-Object System.Windows.Forms.TextBox
+    $details.Multiline = $true
+    $details.ReadOnly = $true
+    $details.ScrollBars = "Vertical"
+    $details.Dock = "Fill"
+    $details.AccessibleName = "Vibepollo status result"
+    $details.Text = if (Test-Path -LiteralPath $settings) { "Saved connection available. Select Refresh saved." } else { "No connection configured." }
+    $layout.Controls.Add($details, 0, 4)
+    $layout.SetColumnSpan($details, 2)
+    $actions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $actions.Dock = "Fill"
+    $actions.WrapContents = $false
+    $commands = @(
+        @{ Label = "Verify and save"; Handler = {
+            $dialog.UseWaitCursor = $true
+            try {
+                $details.Text = [PocketNexus.NexusVibepollo]::Configure($settings, [int]$port.Value, $certificate.Text, $token.Text)
+            } catch { $details.Text = $_.Exception.GetBaseException().Message }
+            finally { $token.Clear(); $dialog.UseWaitCursor = $false }
+        } },
+        @{ Label = "Refresh saved"; Handler = {
+            $dialog.UseWaitCursor = $true
+            try { $details.Text = [PocketNexus.NexusVibepollo]::CheckSaved($settings) }
+            catch { $details.Text = $_.Exception.GetBaseException().Message }
+            finally { $dialog.UseWaitCursor = $false }
+        } },
+        @{ Label = "Forget"; Handler = {
+            try {
+                [IO.File]::Delete($settings)
+                $details.Text = "Saved connection removed from Nexus Host."
+            } catch { $details.Text = "Could not remove the saved connection." }
+        } },
+        @{ Label = "Close"; Handler = { $dialog.Close() } }
+    )
+    foreach ($command in $commands) {
+        $button = New-Object System.Windows.Forms.Button
+        $button.Text = $command.Label
+        $button.AutoSize = $true
+        $button.add_Click($command.Handler.GetNewClosure())
+        $actions.Controls.Add($button)
+    }
+    $layout.Controls.Add($actions, 0, 5)
+    $layout.SetColumnSpan($actions, 2)
+    $dialog.Controls.Add($layout)
+    try { [void]$dialog.ShowDialog($script:hostDashboard) }
+    finally { $dialog.Dispose() }
+}
+
 function Show-HostDashboard {
     if ($script:hostDashboard -and -not $script:hostDashboard.IsDisposed) {
         $script:hostSummary.Text = Get-HostDashboardText
@@ -2131,7 +2251,7 @@ function Show-HostDashboard {
     $actions = New-Object System.Windows.Forms.FlowLayoutPanel
     $actions.Dock = "Fill"
     $actions.WrapContents = $true
-    foreach ($label in @("Refresh", "Copy pairing PIN", "Close")) {
+    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "Close")) {
         $button = New-Object System.Windows.Forms.Button
         $button.Text = $label
         $button.AutoSize = $true
@@ -2144,6 +2264,10 @@ function Show-HostDashboard {
                 try { [System.Windows.Forms.Clipboard]::SetText($script:pin) } catch {
                     [void][System.Windows.Forms.MessageBox]::Show("Could not copy PIN. Use the tray pairing menu.", "Nexus Host")
                 }
+            }) }
+            "Vibepollo status" { $button.add_Click({
+                try { Show-NexusVibepollo }
+                catch { [void][System.Windows.Forms.MessageBox]::Show("Vibepollo status could not open. Check the Nexus Host installation.", "Nexus Host") }
             }) }
             "Close" { $button.add_Click({ $script:hostDashboard.Close() }) }
         }
