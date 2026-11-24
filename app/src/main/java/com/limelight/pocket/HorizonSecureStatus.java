@@ -135,13 +135,12 @@ public final class HorizonSecureStatus {
         T read(InputStream input) throws IOException;
     }
 
-    static String requestStatus(String host, Pairing pairing) throws Exception {
-        return request(host, pairing, VERSION, TIMEOUT_MS, input -> PcCompanion.readLine(input, 128));
+    static String requestStatus(String host, Pairing pairing, SSLContext tls) throws Exception {
+        return request(host, pairing, VERSION, TIMEOUT_MS, tls, input -> PcCompanion.readLine(input, 128));
     }
 
     private static <T> T request(String host, Pairing pairing, String command, int timeoutMs,
-                                 ReplyReader<T> reply) throws Exception {
-        SSLContext tls = SSLContext.getInstance("TLSv1.2");
+                                 SSLContext tls, ReplyReader<T> reply) throws Exception {
         tls.init(null, new TrustManager[] {new PinnedCertificate(pairing.fingerprint)}, null);
         try (Socket connection = new Socket()) {
             Timer deadline = new Timer("NexusSecureStatusDeadline", true);
@@ -251,7 +250,7 @@ public final class HorizonSecureStatus {
                 .show();
         new Thread(() -> {
             String reply;
-            try { reply = requestStatus(host, pairing); }
+            try { reply = requestStatus(host, pairing, SSLContext.getInstance("TLSv1.2")); }
             catch (Exception e) { reply = null; }
             Status status = Status.parse(reply);
             boolean revoked = "ERR auth".equals(reply);
@@ -286,7 +285,7 @@ public final class HorizonSecureStatus {
         new Thread(() -> {
             HorizonSecureLibrary.Result reply;
             try {
-                reply = request(host, pairing, "NEXUSG", LIBRARY_TIMEOUT_MS,
+                reply = request(host, pairing, "NEXUSG", LIBRARY_TIMEOUT_MS, SSLContext.getInstance("TLSv1.2"),
                         input -> HorizonSecureLibrary.read(() -> PcCompanion.readLine(input, 2048)));
             } catch (Exception e) {
                 reply = null;

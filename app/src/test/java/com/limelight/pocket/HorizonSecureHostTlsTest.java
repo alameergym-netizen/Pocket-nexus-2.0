@@ -65,8 +65,8 @@ public class HorizonSecureHostTlsTest {
             wrong[0] ^= 1;
             String prefix = "NEXUS1:" + server.getLocalPort() + ":";
             HorizonSecureStatus.Pairing wrongPairing = HorizonSecureStatus.Pairing.parse(prefix + hex(wrong) + ":" + KEY);
-            SSLException rejected = assertThrows(SSLException.class,
-                    () -> HorizonSecureStatus.requestStatus("127.0.0.1", wrongPairing));
+            SSLException rejected = assertThrows(SSLException.class, () -> HorizonSecureStatus.requestStatus(
+                    "127.0.0.1", wrongPairing, SSLContext.getInstance("TLSv1.2", "SunJSSE")));
             assertTrue(rejected.getMessage().contains("Host identity changed"));
             denied.get(8, TimeUnit.SECONDS);
 
@@ -83,7 +83,8 @@ public class HorizonSecureHostTlsTest {
             });
 
             HorizonSecureStatus.Pairing correctPairing = HorizonSecureStatus.Pairing.parse(prefix + hex(pinned) + ":" + KEY);
-            String response = HorizonSecureStatus.requestStatus("127.0.0.1", correctPairing);
+            String response = HorizonSecureStatus.requestStatus(
+                    "127.0.0.1", correctPairing, SSLContext.getInstance("TLSv1.2", "SunJSSE"));
             assertEquals("NEXUS1 " + KEY, received.get(8, TimeUnit.SECONDS));
             assertEquals(STATUS, response);
         } finally {
