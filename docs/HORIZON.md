@@ -34,3 +34,6 @@ The device info panel reports instantaneous estimated battery-side power using p
 
 ## Update catalog milestone
 Import Obtainium schema 1/2 exports through the Android document picker. The catalog stores only sanitized metadata and source host, not raw URLs, headers, regexes or credentials. It displays an imported snapshot; live resolution, release filters, signature verification, installation and scheduling remain separate milestones.
+
+## Storage milestone
+A read-only volume inventory shows Android-reported internal/removable storage, available/total space, read-only state, and selected ROM-root availability. The selected path is not changed by this panel. Multi-root indexing, drive identity persistence and game transfer remain future work.

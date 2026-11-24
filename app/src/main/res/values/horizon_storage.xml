@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_storage_title">Storage volumes</string>
+    <string name="horizon_storage_sub">Inspect internal storage, removable drives and the selected ROM folder.</string>
+    <string name="horizon_storage_rom">ROM library</string>
+    <string name="horizon_storage_accessible">Folder accessible</string>
+    <string name="horizon_storage_missing">Folder unavailable or permission missing</string>
+    <string name="horizon_storage_keep">Reconnect your drive or grant access. Your saved library location will not be changed here.</string>
+    <string name="horizon_storage_no_root">No ROM folder detected.</string>
+    <string name="horizon_storage_volumes">Android storage volumes</string>
+    <string name="horizon_storage_internal">Internal shared storage</string>
+    <string name="horizon_storage_unknown">Space unavailable</string>
+    <string name="horizon_storage_space">%1$s free / %2$s total</string>
+    <string name="horizon_storage_disconnected">Not mounted</string>
+    <string name="horizon_storage_readonly">Read-only volume</string>
+    <string name="horizon_storage_selected">Contains the selected ROM folder</string>
+    <string name="horizon_storage_limit">Only volumes exposed by Android are shown. Reopen after connecting a drive. Multiple ROM roots and automatic remount are not enabled yet.</string>
+</resources>

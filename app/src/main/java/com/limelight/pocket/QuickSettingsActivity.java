@@ -1539,6 +1539,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     private void buildSystemTab() {
         addAction(getString(R.string.pocket_store_title), getString(R.string.pocket_store_sub), null, this::storage);
+        addAction(getString(R.string.horizon_storage_title), getString(R.string.horizon_storage_sub), null,
+                () -> com.limelight.pocket.device.HorizonStorage.show(this));
 
         addHeader(R.string.pocket_upd_header);
         addAction(getString(R.string.pocket_upd_check), getString(R.string.pocket_upd_check_sub, Updater.current()),
