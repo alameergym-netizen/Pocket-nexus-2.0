@@ -38,6 +38,16 @@ Secure host status (development)
   - The encrypted listener carries read-only host status. Existing power, library, mic, USB,
     and stream paths use their existing connections. Keep the plaintext control port private.
 
+Vibepollo status (development)
+  - In the Vibepollo web UI, create a token scoped to GET /api/metadata. In the Windows Nexus
+    Host dashboard, open Vibepollo status and select the local management port (usually 47990).
+  - Browse to the public certificate from the Vibepollo installation. Its default config path
+    is credentials/cacert.pem. Paste the scoped token, then select Verify and save.
+  - Refresh saved shows cached encoder readiness reported by the host and virtual display driver
+    information when provided. Forget clears the local setup. Revoke the token in Vibepollo if
+    it is no longer needed or if it was exposed.
+  - The adapter connects to loopback HTTPS. No Windows firewall change or Android secret is needed.
+
 If you used the old "ArtemisPocket-USB-Bridge" window: close it, this one replaces it.
 
 Handhelds that DO have USB tethering:
