@@ -58,6 +58,25 @@ public class HorizonStreamObserverTest {
         assertTrue(observer.connected(next));
         assertEquals(RUNNING, observer.snapshot().state);
     }
+    @Test public void delayedSideEffectsRequireAcceptedCurrentRunningAttempt() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        long old = observer.beginAttempt();
+        assertFalse(observer.isRunning(0));
+        assertFalse(observer.isRunning(old));
+        assertTrue(observer.connected(old));
+        assertTrue(observer.isRunning(old));
+        observer.stopping(old);
+        assertFalse(observer.isRunning(old));
+        long next = observer.beginAttempt();
+        assertFalse(observer.isRunning(old));
+        assertFalse(observer.isRunning(next));
+        assertTrue(observer.connected(next));
+        assertTrue(observer.isRunning(next));
+        observer.ended(old);
+        assertTrue(observer.isRunning(next));
+        observer.failed(next);
+        assertFalse(observer.isRunning(next));
+    }
     @Test public void zeroTicketDoesNotChangeObservation() {
         HorizonStreamObserver observer = new HorizonStreamObserver();
         observer.failed(0);

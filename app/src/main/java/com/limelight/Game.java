@@ -270,22 +270,38 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private WifiManager.WifiLock highPerfWifiLock;
     private WifiManager.WifiLock lowLatencyWifiLock;
 
-    private boolean connectedToUsbDriverService = false;
+    // Binding ownership is independent from successful service connection.
+    // These fields and all service transitions belong to the main thread.
+    private boolean usbDriverBound;
+    private UsbDriverService.UsbDriverBinder usbDriverBinder;
     private ServiceConnection usbDriverServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            if (!usbDriverBound || !ownsStreamCallback() || !connected
+                    || !HorizonStreamObserver.instance().isRunning(horizonStreamTicket)) return;
             UsbDriverService.UsbDriverBinder binder = (UsbDriverService.UsbDriverBinder) iBinder;
+            usbDriverBinder = binder;
             binder.setListener(controllerHandler);
             binder.setStateListener(Game.this);
             binder.start();
-            connectedToUsbDriverService = true;
         }
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
-            connectedToUsbDriverService = false;
+            usbDriverBinder = null;
         }
     };
+
+    private void releaseUsbDriver() {
+        if (usbDriverBinder != null) {
+            usbDriverBinder.clearListenersIfOwned(controllerHandler, this);
+            usbDriverBinder = null;
+        }
+        if (usbDriverBound) {
+            usbDriverBound = false;
+            unbindService(usbDriverServiceConnection);
+        }
+    }
 
     public static final String EXTRA_HOST = "Host";
     public static final String EXTRA_PORT = "Port";
@@ -1932,6 +1948,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         if (prefConfig.enableFullExDisplay) handleDisplayRemoved();
 
+        releaseUsbDriver();
         if (controllerHandler != null) {
             controllerHandler.destroy();
         }
@@ -1955,11 +1972,6 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     .putFloat("number_pan_offset_x", panZoomHandler.getChildX())
                     .putFloat("number_pan_offset_y", panZoomHandler.getChildY())
                     .apply();
-        }
-
-        if (connectedToUsbDriverService) {
-            // Unbind from the discovery service
-            unbindService(usbDriverServiceConnection);
         }
 
         // Destroy the capture provider
@@ -5428,6 +5440,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             final long stoppingTicket = horizonStreamTicket;
             HorizonStreamObserver.instance().stopping(stoppingTicket);
             connecting = connected = false;
+            releaseUsbDriver();
             timerHandler.removeCallbacks(pocketPoorCheck);
             pocketAdaptiveDecision.reset();
             updatePipAutoEnter();
@@ -5713,6 +5726,14 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 pocketOnStreamStarted();
                 updatePipAutoEnter();
 
+                // Only the accepted connection callback may acquire USB and report launch.
+                if (prefConfig.usbDriver && !usbDriverBound) {
+                    usbDriverBound = bindService(new Intent(Game.this, UsbDriverService.class),
+                            usbDriverServiceConnection, Service.BIND_AUTO_CREATE);
+                }
+                reportAcceptedShortcutLaunch();
+                final long acceptedTicket = horizonStreamTicket;
+
                 // Hide the mouse cursor now after a short delay.
                 // Doing it before dismissing the spinner seems to be undone
                 // when the spinner gets displayed. On Android Q, even now
@@ -5721,7 +5742,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 timerHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        setInputGrabState(true);
+                        if (ownsStreamCallback() && connected && horizonInputVisible
+                                && HorizonStreamObserver.instance().isRunning(acceptedTicket)) {
+                            setInputGrabState(true);
+                        }
                     }
                 }, 500);
 
@@ -5748,22 +5772,25 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             }
         });
 
-        if (prefConfig.usbDriver) {
-            // Start the USB driver
-            bindService(new Intent(this, UsbDriverService.class),
-                    usbDriverServiceConnection, Service.BIND_AUTO_CREATE);
-        }
+    }
 
-        // Report this shortcut being used (off the main thread to prevent ANRs)
-        ComputerDetails computer = new ComputerDetails();
+    private void reportAcceptedShortcutLaunch() {
+        // Keep TV/shortcut provider IO off the UI thread, once per accepted connection.
+        final ComputerDetails computer = new ComputerDetails();
         computer.name = pcName;
-        computer.uuid = Game.this.getIntent().getStringExtra(EXTRA_PC_UUID);
-        ShortcutHelper shortcutHelper = new ShortcutHelper(this);
-        shortcutHelper.reportComputerShortcutUsed(computer);
-        if (appName != null) {
-            // This may be null if launched from the "Resume Session" PC context menu item
-            shortcutHelper.reportGameLaunched(computer, app);
-        }
+        computer.uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
+        final NvApp launchedApp = app;
+        final boolean reportGame = appName != null;
+        if (computer.uuid == null || computer.uuid.isEmpty()) return;
+        new Thread(() -> {
+            try {
+                ShortcutHelper shortcutHelper = new ShortcutHelper(Game.this);
+                shortcutHelper.reportComputerShortcutUsed(computer);
+                if (reportGame) shortcutHelper.reportGameLaunched(computer, launchedApp);
+            } catch (RuntimeException e) {
+                LimeLog.warning("Shortcut reporting failed: " + e.getClass().getSimpleName());
+            }
+        }, "NexusShortcutReport").start();
     }
 
     @Override
