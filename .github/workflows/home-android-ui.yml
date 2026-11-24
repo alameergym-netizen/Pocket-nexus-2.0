@@ -19,7 +19,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   home:
-    runs-on: ubuntu-latest
+    # The project's screenshot runs use 24.04; the emulator can exit on app launch on 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -44,8 +45,11 @@ jobs:
         with:
           api-level: 33
           arch: x86_64
-          target: google_apis
-          profile: pixel_2
+          target: default
+          ram-size: 2560M
+          heap-size: 512M
+          disk-size: 6000M
+          emulator-options: -no-window -no-snapshot -gpu guest -feature -Vulkan -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
           emulator-boot-timeout: 300
           script: bash .github/tests/run_home_shortcuts.sh

@@ -139,4 +139,13 @@ def main(apk):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    try:
+        main(sys.argv[1])
+    except Exception:
+        for label, command in (("failure.png", ("exec-out", "screencap", "-p")),
+                               ("window.txt", ("shell", "dumpsys", "window", "windows"))):
+            try:
+                (RESULTS / label).write_bytes(adb(*command, timeout=8))
+            except subprocess.SubprocessError:
+                pass
+        raise
