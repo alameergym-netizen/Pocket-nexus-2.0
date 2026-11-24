@@ -49,7 +49,7 @@ public final class ConnectionCheck {
         public int signal; // 0..4
         public int linkMbps;
         public final List<Pc> pcs = new ArrayList<>();
-        /** A bit rate the link carries with room to spare (Mbps), or 0 when it can't tell. */
+        /** Conservative starting bitrate, not measured throughput; zero when evidence is insufficient. */
         public int suggestedMbps;
         public final List<String> advice = new ArrayList<>();
     }
@@ -143,7 +143,7 @@ public final class ConnectionCheck {
     private static void advise(Context c, Result r) {
         if (r.usb) {
             r.advice.add(c.getString(R.string.pocket_cc_usb_good));
-            r.suggestedMbps = 150;
+            // A wired interface is not a throughput measurement.
         }
         else if (r.wifi) {
             if (r.bandGhz10 == 24) {
@@ -152,11 +152,7 @@ public final class ConnectionCheck {
             if (r.signal <= 1) {
                 r.advice.add(c.getString(R.string.pocket_cc_weak));
             }
-            if (r.linkMbps > 0) {
-                // A stream needs room: about a third of the link, rounded to a step
-                int s = Math.max(10, Math.min(150, r.linkMbps * 35 / 100));
-                r.suggestedMbps = s >= 100 ? (s / 10) * 10 : s >= 30 ? (s / 5) * 5 : s;
-            }
+            // PHY link rate alone cannot establish available streaming bandwidth.
         }
         else {
             r.advice.add(c.getString(R.string.pocket_cc_no_network));
@@ -164,9 +160,7 @@ public final class ConnectionCheck {
         if (r.vpn) {
             // Away from home: the internet in between carries less than the home network
             r.advice.add(c.getString(R.string.pocket_cc_vpn));
-            if (r.suggestedMbps > 30) {
-                r.suggestedMbps = 30;
-            }
+            // VPN transport does not establish whether the peer is direct or relayed.
         }
         for (Pc pc : r.pcs) {
             if (pc.avgMs < 0) {
@@ -178,6 +172,14 @@ public final class ConnectionCheck {
             else if (pc.avgMs > 25) {
                 r.advice.add(c.getString(R.string.pocket_cc_pc_slow, pc.name));
             }
+        }
+        // Only recommend a profile when one host was tested, so measurements from
+        // different computers are never combined into a fictitious connection.
+        if (r.pcs.size() == 1) {
+            Pc pc = r.pcs.get(0);
+            r.suggestedMbps = com.limelight.pocket.streaming.HorizonLinkPolicy.suggestMbps(
+                    r.usb, r.wifi, r.vpn, r.signal, r.bandGhz10, r.linkMbps,
+                    pc.tries, pc.lost, pc.avgMs, pc.jitterMs);
         }
         if (r.advice.isEmpty()) {
             r.advice.add(c.getString(R.string.pocket_cc_all_good));

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_link_limit">TCP connection timing and Wi-Fi link rate are not throughput, video latency or proof of a direct VPN path. Suggested settings are conservative starting points for one tested PC.</string>
+    <string name="horizon_link_apply">Apply %1$s / %2$d FPS / %3$d Mbps</string>
+    <string name="horizon_link_applied">Starting profile applied. Other settings unchanged.</string>
+    <string name="horizon_link_no_profile">No automatic recommendation: insufficient single-host evidence or high thermal pressure. Select a profile manually after checking the connection.</string>
+</resources>

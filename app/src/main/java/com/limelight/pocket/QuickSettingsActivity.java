@@ -1928,16 +1928,36 @@ public class QuickSettingsActivity extends ConsoleActivity {
             for (String a : r.advice) {
                 items.add(com.limelight.pocket.ui.StreamMenuView.Item.note("•  " + a));
             }
-            if (r.suggestedMbps > 0) {
-                final int mbps = r.suggestedMbps;
-                items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(
-                        getString(R.string.pocket_cc_use, mbps), () -> {
-                            prefs().edit().putInt("seekbar_bitrate_kbps", mbps * 1000).apply();
+            items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.horizon_link_limit)));
+            int thermal = -1;
+            boolean saver = false;
+            android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+            try {
+                if (pm != null) {
+                    saver = pm.isPowerSaveMode();
+                    if (Build.VERSION.SDK_INT >= 29) { thermal = pm.getCurrentThermalStatus(); }
+                }
+            } catch (RuntimeException ignored) {}
+            final int mbps = com.limelight.pocket.streaming.HorizonLinkPolicy.limitForThermal(
+                    r.suggestedMbps, thermal, saver);
+            if (mbps > 0) {
+                final String resolution = com.limelight.pocket.streaming.HorizonLinkPolicy.suggestedResolution(mbps);
+                final int fps = com.limelight.pocket.streaming.HorizonLinkPolicy.suggestedFps(mbps);
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.confirm(
+                        getString(R.string.horizon_link_apply, resolution, fps, mbps), () -> {
+                            // Network type alone does not prove USB bridge routing. Set only
+                            // the ordinary stream bitrate; preserve the separate USB bitrate.
+                            prefs().edit().putString("list_resolution", resolution)
+                                    .putString("list_fps", Integer.toString(fps))
+                                    .putInt("seekbar_bitrate_kbps", mbps * 1000)
+                                    .putString(PocketPrefs.KEY_PRESET, PocketSetup.PRESET_CUSTOM).apply();
                             PocketSounds.play(this, PocketSounds.TOGGLE_ON);
                             hideConsolePanel();
                             refreshRows();
-                            Toast.makeText(this, getString(R.string.pocket_cc_used, mbps), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, R.string.horizon_link_applied, Toast.LENGTH_SHORT).show();
                         }).withIcon("SPEED"));
+            } else {
+                items.add(com.limelight.pocket.ui.StreamMenuView.Item.note(getString(R.string.horizon_link_no_profile)));
             }
             items.add(com.limelight.pocket.ui.StreamMenuView.Item.action(getString(R.string.pocket_cc_again),
                     () -> {

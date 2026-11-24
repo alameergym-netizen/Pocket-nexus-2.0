@@ -55,3 +55,6 @@ Read-only hardware/firmware and sysfs frequency inventory, conservative Android 
 
 ## Settings migration milestone
 Horizon exports version 2 and accepts original Pocket Nexus version 1. All recognized stores are decoded and type-checked before writing, device-bound widget IDs, old updater state, USB route cache and music URI are excluded. PC pairing, storage grants and Android widgets must be re-established. A write failure across separate SharedPreferences files is not fully transactional; arbitrary unknown preference names remain possible and import only trusted backups. No personal export is included in the repository.
+
+## Smart streaming milestone
+Connection check no longer assumes 150 Mbps from a wired interface. Single-host TCP timing, link indications and VPN presence produce a conservative starting point capped at 25 Mbps, with thermal/battery-saver reductions. Explicit confirmation applies resolution, FPS and ordinary bitrate, leaving USB bitrate, codec and frame generation untouched. This is a heuristic, not a bandwidth benchmark, live adaptation or direct/relay classifier. Existing per-game and dock settings may override it.
