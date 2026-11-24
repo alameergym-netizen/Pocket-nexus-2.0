@@ -352,6 +352,9 @@ public final class GlobalButtonEngine {
 
     static void runAction(Context c, GlobalButtons.Action a, String front) {
         GlobalButtonEngine e = instance;
+        // A selected global radial action is posted after the overlay closes.
+        // It must not open another global screen if streaming regained ownership.
+        if (com.limelight.Game.ownsVisibleStreamInput() || (e != null && e.streamOwnsInput())) return;
         run(c, e != null ? e.service : null, a, front != null ? front : e != null ? e.front : null);
     }
 
