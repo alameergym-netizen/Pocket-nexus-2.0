@@ -39,7 +39,9 @@ public class HorizonSecureHostTlsTest {
         char[] password = fixturePassword.toCharArray();
         KeyManagerFactory keyManager = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManager.init(keys, password);
-        SSLContext fixture = SSLContext.getInstance("TLSv1.2");
+        // The fixture is a separate Java server. Robolectric can register Android Conscrypt
+        // globally, which cannot reflect into the accepted server socket on this JDK.
+        SSLContext fixture = SSLContext.getInstance("TLSv1.2", "SunJSSE");
         fixture.init(keyManager.getKeyManagers(), null, null);
 
         ExecutorService worker = Executors.newSingleThreadExecutor();
