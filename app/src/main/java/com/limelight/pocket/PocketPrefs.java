@@ -179,7 +179,12 @@ public final class PocketPrefs {
      * controllers keep working as plain Guide.
      */
     public static boolean matchesHome(String spec, KeyEvent event) {
-        if (HorizonBackKey.reservedForNavigation(event)) return false;
+        boolean physicalHome = (event.getKeyCode() == KeyEvent.KEYCODE_HOME
+                || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_MODE)
+                && event.getScanCode() > 0 && event.getDeviceId() >= 0
+                && !(event.getScanCode() >= 304 && event.getScanCode() <= 309)
+                && (event.getFlags() & KeyEvent.FLAG_FALLBACK) == 0;
+        if (HorizonBackKey.reservedForNavigation(event) && !physicalHome) return false;
         if (KEY_AUTO.equals(spec)) {
             if (event.getKeyCode() == KeyEvent.KEYCODE_HOME) {
                 return true;
@@ -190,6 +195,7 @@ public final class PocketPrefs {
             }
             return false;
         }
+        if (physicalHome && spec != null && spec.equals("k:" + event.getKeyCode())) return true;
         return matchesHotkey(spec, event);
     }
 

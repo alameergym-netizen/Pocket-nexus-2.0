@@ -38,6 +38,7 @@ public final class GlobalButtonEngine {
     private final AccessibilityService service;
     private final Handler main = new Handler(Looper.getMainLooper());
     private String front;
+    private boolean foregroundStream;
 
     /** The button being pressed now (-1: none), and how far its press has got. */
     private int down = -1;
@@ -53,7 +54,8 @@ public final class GlobalButtonEngine {
     private final Runnable holdFired = new Runnable() {
         @Override
         public void run() {
-            if (down < 0) {
+            if (down < 0 || streamOwnsInput()) {
+                if (streamOwnsInput()) cancelGestures();
                 return;
             }
             held = true;
@@ -66,7 +68,7 @@ public final class GlobalButtonEngine {
         public void run() {
             int button = pendingTap;
             pendingTap = -1;
-            if (button >= 0) {
+            if (button >= 0 && !streamOwnsInput()) {
                 perform(button, pendingKey, GlobalButtons.get(service, button, GlobalButtons.TAP));
             }
         }
@@ -80,6 +82,26 @@ public final class GlobalButtonEngine {
             boolean streaming = com.limelight.Game.instance != null && com.limelight.Game.instance.hasWindowFocus();
             MessageBanner.show(service, n, !streaming);
         });
+    }
+
+    /** Called when Game becomes visible, before any delayed global gesture can run. */
+    public static void streamTookInput() {
+        GlobalButtonEngine e = instance;
+        if (e != null) e.cancelGestures();
+    }
+
+    private boolean streamOwnsInput() {
+        return com.limelight.pocket.core.HorizonInputOwner.streamOwnsInput(
+                com.limelight.Game.ownsVisibleStreamInput(), foregroundStream);
+    }
+
+    private void cancelGestures() {
+        main.removeCallbacks(holdFired);
+        main.removeCallbacks(tapFired);
+        down = -1;
+        pendingTap = -1;
+        held = false;
+        bannerDown = false;
     }
 
     /** A button of ours is held down right now (Quick Switch waits for its release). */
@@ -106,6 +128,9 @@ public final class GlobalButtonEngine {
                 || cls.startsWith("android.widget.") || cls.startsWith("android.app.Dialog")) {
             return;
         }
+        foregroundStream = service.getPackageName().equals(pkg)
+                && com.limelight.pocket.core.HorizonInputOwner.isStreamClass(cls);
+        if (foregroundStream) cancelGestures();
         if (!pkg.equals(front)) {
             // A delayed Back gesture belongs to the original foreground app, not its successor.
             if (down == GlobalButtons.BACK) {
@@ -174,6 +199,10 @@ public final class GlobalButtonEngine {
 
     /** A key from the service's filter: true when it was used here (nobody else gets it). */
     public boolean onKeyEvent(KeyEvent event) {
+        if (streamOwnsInput()) {
+            cancelGestures();
+            return false;
+        }
         if (GlobalMenuActivity.isOpen()) {
             return keyWhileOpen(event);
         }
@@ -295,6 +324,10 @@ public final class GlobalButtonEngine {
 
     /** Does what the button was set to (PASS: what it does anyway). */
     private void perform(int button, int keyCode, GlobalButtons.Action a) {
+        if (streamOwnsInput()) {
+            cancelGestures();
+            return;
+        }
         if (a == GlobalButtons.Action.PASS) {
             if (button == GlobalButtons.BACK) {
                 service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
