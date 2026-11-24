@@ -73,10 +73,14 @@ $script:lastSessions = 0
 
 if (-not $Quiet) { try { $Host.UI.RawUI.WindowTitle = "Pocket Nexus PC" } catch { } }
 
+function Protect-HostLog([string]$text) {
+    return [regex]::Replace($text, '(?i)(Wi-Fi link PIN:\s*)[0-9]{6}(?![0-9])', '$1[redacted]')
+}
+
 function Write-Log($text) {
     try {
         if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length -gt 1MB)) { Move-Item -Force $LogFile "$LogFile.old" }
-        Add-Content -Path $LogFile -Value ("[" + (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + "] " + $text) -Encoding UTF8
+        Add-Content -Path $LogFile -Value ("[" + (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + "] " + (Protect-HostLog $text)) -Encoding UTF8
     } catch { }
 }
 
@@ -1756,12 +1760,35 @@ function Write-Status {
 }
 
 # ---- The cable ------------------------------------------------------------------------------
+function Get-ExpectedReverseMappings([int]$controlPort) {
+    $mappings = @{}
+    foreach ($p in $TcpPorts) { $mappings["tcp:$p"] = "tcp:$p" }
+    $mappings["tcp:$TunnelPort"] = "tcp:$TunnelPort"
+    $mappings["tcp:$DefaultCompanionPort"] = "tcp:$controlPort"
+    return $mappings
+}
+
+function Get-MissingReverseMappings([string[]]$lines, [int]$controlPort) {
+    $expected = Get-ExpectedReverseMappings $controlPort
+    $actual = @{}
+    foreach ($line in $lines) {
+        if ($line -match '(?:^|\s)(tcp:\d+)\s+(tcp:\d+)\s*$') {
+            $actual[$Matches[1]] = $Matches[2]
+        }
+    }
+    foreach ($key in ($expected.Keys | Sort-Object)) {
+        if ($actual[$key] -ne $expected[$key]) { $key }
+    }
+}
+
 function Set-Reverse {
-    & $script:adb reverse --remove-all 2>$null | Out-Null
-    foreach ($p in $TcpPorts) { & $script:adb reverse "tcp:$p" "tcp:$p" 2>$null | Out-Null }
-    & $script:adb reverse "tcp:$TunnelPort" "tcp:$TunnelPort" 2>$null | Out-Null
-    # The handheld always asks 47110 over the cable: it lands on this PC's Wi-Fi port
-    & $script:adb reverse "tcp:$DefaultCompanionPort" "tcp:$CompanionPort" 2>$null | Out-Null
+    $lines = @(& $script:adb reverse --list 2>$null)
+    if ($LASTEXITCODE -ne 0) { return }
+    $expected = Get-ExpectedReverseMappings $CompanionPort
+    foreach ($key in @(Get-MissingReverseMappings $lines $CompanionPort)) {
+        # Reconcile only Nexus ports; never remove unrelated reverse mappings.
+        & $script:adb reverse $key $expected[$key] 2>$null | Out-Null
+    }
 }
 
 function Reset-UsbMode {
@@ -1792,8 +1819,7 @@ function Invoke-Tick {
             $script:lastState = $state
         } elseif ($state -eq "device") {
             # Keep the port rules alive (they vanish if adb restarts)
-            $rules = ((& $script:adb reverse --list 2>$null) -join " ")
-            if ($rules -notmatch "tcp:$DefaultCompanionPort") { Set-Reverse }
+            Set-Reverse
         }
     }
     $sessions = [PocketBridge]::Sessions
@@ -1962,6 +1988,15 @@ function Invoke-SelfTest {
     function Check($ok, $what) {
         if ($ok) { Write-Host ("  ok    " + $what) } else { Write-Host ("  FAIL  " + $what); $failed.Add($what) }
     }
+    $all = @("UsbFfs tcp:47984 tcp:47984", "UsbFfs tcp:47989 tcp:47989", "UsbFfs tcp:48010 tcp:48010", "UsbFfs tcp:47990 tcp:47990", "UsbFfs tcp:47100 tcp:47100", "UsbFfs tcp:47110 tcp:47119", "UsbFfs tcp:9999 tcp:9999")
+    Check (@(Get-MissingReverseMappings $all 47119).Count -eq 0) "all expected USB mappings present; unrelated port ignored"
+    $missing = @(Get-MissingReverseMappings @("UsbFfs tcp:47110 tcp:47119") 47119)
+    Check ($missing.Count -eq 5 -and $missing -contains "tcp:47100") "missing USB routes detected even with correct control route"
+    $wrong = @($all | ForEach-Object { $_ -replace 'tcp:47110 tcp:47119', 'tcp:47110 tcp:47120' })
+    $repair = @(Get-MissingReverseMappings $wrong 47119)
+    Check ($repair.Count -eq 1 -and $repair[0] -eq "tcp:47110") "incorrect control route alone is repaired"
+    Check ((Protect-HostLog "PC helper ready  -  Wi-Fi link PIN: 123456") -eq "PC helper ready  -  Wi-Fi link PIN: [redacted]") "PIN redacted in persistent log"
+    Check ((Protect-HostLog "Handheld linked with the PIN") -eq "Handheld linked with the PIN") "nonsecret PIN event preserved"
     Check ($script:pcLibraryError -eq "") ("PC library compiled and hooked in " + $script:pcLibraryError)
     foreach ($er in $script:pcLibraryErrors) { Write-Host ("        " + $er) }
 
