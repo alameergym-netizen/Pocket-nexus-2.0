@@ -20,6 +20,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     private AudioTrack track;
     private HorizonStreamDsp dsp;
+    private HorizonAudioStats delivery;
     private short[] dspBuffer;
     private int openedEffectSession = -1;
 
@@ -71,6 +72,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
     public int setup(MoonBridge.AudioConfiguration audioConfiguration, int sampleRate, int samplesPerFrame) {
         dsp = null;
         dspBuffer = null;
+        delivery = new HorizonAudioStats();
         int channelConfig;
         int bytesPerFrame;
 
@@ -204,33 +206,30 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void playDecodedAudio(short[] audioData) {
-        // Only queue up to 40 ms of pending audio data in addition to what AudioTrack is buffering for us.
-        if (MoonBridge.getPendingAudioDuration() < 40) {
-            // This will block until the write is completed. That can cause a backlog
-            // of pending audio data, so we do the above check to be able to bound
-            // latency at 40 ms in that situation.
-            AudioTrack output = track;
-            if (output == null || audioData == null) { return; }
-            short[] pcm = audioData;
-            HorizonStreamDsp eq = dsp;
-            short[] scratch = dspBuffer;
-            if (eq != null && scratch != null) {
-                if (eq.process(audioData,scratch)) { pcm = scratch; }
-                else { eq.reset(); } // Unexpected frame shape: bypass and clear filter history.
-            }
-            output.write(pcm, 0, audioData.length);
+        AudioTrack output = track;
+        HorizonAudioStats stats = delivery;
+        if (output == null || stats == null || audioData == null || audioData.length == 0) return;
+
+        HorizonStreamDsp eq = dsp;
+        if (!stats.allowWrite(MoonBridge.getPendingAudioDuration())) {
+            if (eq != null) eq.reset();
+            return;
         }
-        else {
-            // A dropped PCM block is a discontinuity; avoid reusing stale filter history.
-            HorizonStreamDsp eq = dsp;
-            if (eq != null) { eq.reset(); }
-            LimeLog.info("Too much pending audio data: " + MoonBridge.getPendingAudioDuration() +" ms");
+
+        short[] pcm = audioData;
+        short[] scratch = dspBuffer;
+        if (eq != null && scratch != null) {
+            if (eq.process(audioData, scratch)) pcm = scratch;
+            else eq.reset();
         }
+        // Preserve blocking writes. A short or failed write is a discontinuity for the EQ.
+        int written = output.write(pcm, 0, audioData.length);
+        if (!stats.completeWrite(audioData.length, written) && eq != null) eq.reset();
     }
 
     @Override
     public void start() {
-        HorizonAudioRoute.register(track);
+        HorizonAudioRoute.register(track, delivery);
         if (enableAudioFx && track != null && openedEffectSession < 0) {
             int session = track.getAudioSessionId();
             if (session <= 0) { return; }
@@ -274,6 +273,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
         AudioTrack closing = track;
         HorizonAudioRoute.clear(closing);
         track = null;
+        delivery = null;
         dsp = null;
         dspBuffer = null;
         if (closing != null) {

@@ -567,6 +567,9 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addToggle(getString(R.string.pocket_set_adaptive), getString(R.string.pocket_set_adaptive_sub),
                 () -> PocketPrefs.adaptiveStream(this),
                 value -> prefs().edit().putBoolean(PocketPrefs.KEY_ADAPTIVE, value).apply());
+        addToggle(getString(R.string.horizon_power_stream_limit), getString(R.string.horizon_power_stream_limit_sub),
+                () -> PocketPrefs.powerLimitsStream(this),
+                value -> prefs().edit().putBoolean(PocketPrefs.KEY_POWER_STREAM_LIMIT, value).apply());
 
         {
             // Home and away: what a stream starts with away from home (VPN, mobile data)
