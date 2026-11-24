@@ -257,8 +257,10 @@ public class HomeActivity extends ConsoleActivity {
         });
         FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 Math.round(HomeDock.HEIGHT_DP * d), Gravity.BOTTOM | Gravity.START);
-        dlp.setMarginStart(Math.round(32 * d));
-        dlp.bottomMargin = Math.round(14 * d);
+        dlp.setMarginStart(Math.round(24 * d));
+        dlp.setMarginEnd(Math.round(18 * d));
+        // Separate the scrollable Quick Access strip from the bottom-right button hints.
+        dlp.bottomMargin = Math.round(27 * d);
         ((ViewGroup) findViewById(R.id.pocketMain)).addView(dock.view(), dlp);
         dock.refresh();
         widgets = new WidgetShelf(this, () -> dock.focusLast());
@@ -1391,7 +1393,7 @@ public class HomeActivity extends ConsoleActivity {
             rlp.topMargin = 0;
             // Clear of the button hints under it, and of the dock (the round buttons) when it's there
             boolean withDock = dock != null && !portal;
-            int bottom = withDock ? 92 : 40;
+            int bottom = withDock ? 99 : 40;
             if (dock != null) {
                 dock.view().setVisibility(withDock ? View.VISIBLE : View.GONE);
             }
@@ -1409,7 +1411,7 @@ public class HomeActivity extends ConsoleActivity {
             row.setHorizontalFadingEdgeEnabled(true);
             row.setFadingEdgeLength(Math.round(26 * d));
             hlp.gravity = Gravity.BOTTOM | Gravity.START;
-            hlp.width = Math.round(440 * d);
+            hlp.width = Math.round(Math.min(440,screenW/d*0.48f)*d);
             hlp.setMarginStart(Math.round(30 * d));
             hlp.setMarginEnd(0);
             rowLabel.setVisibility(View.VISIBLE);
