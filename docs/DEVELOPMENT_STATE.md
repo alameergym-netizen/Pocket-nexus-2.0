@@ -1,11 +1,30 @@
-# Horizon development state — 2026-11-24
+# Horizon development state
 
 Read docs/HORIZON_SYSTEM_BLUEPRINT.md, HORIZON.md and HORIZON_FOUNDATION_GATE.md. Integration branch horizon-foundation, not ci-logs. Inspect live PRs and exact CI before any merge. Preserve existing features, user data, original Horizon design, Back/Guide mapping, Android RP6 and Windows Vibepollo. Develop in substantial batches toward next release gate. Never force push, merge stale CI, expose plaintext APC1 to public internet or require root.
 
 ## Current checkpoint — 2026-11-25
-- #58/#59 were integrated at \`1544050c5f329ba21a5095f76359d92bec5aee3b\`. The exact combined head \`9d627d37b7a8bc82aa8adfcf4a59b2abd9e7d7c1\` passed ARM64 APK assembly and Android unit tests in 45502001869, and Android 13 Home workspace and screenshot checks in 45502001827. GitHub reported #59 merged via \`c85b36f51ba13d8f1a5bc7979d5d842b7cfd3d75\`. The integrated push run is 45502987220.
-- Windows Nexus Host secure status candidate adds pinned TLS, private per-device keys and revocation, with a new PC options entry on Android. The Windows archive is packaged deterministically locally. Require Android, Windows and relevant emulator CI on this candidate before integration. The [host notes](HORIZON_HOST.md) record setup and sources for Vibepollo, Playnite, and PyroWave.
-- Engineering 1/14, full acceptance 0/14. G02 still needs attempt admission and coverage across legacy entrances. G03 needs real emulator evidence for Library, Connect, Media, System, game details and settings in addition to existing Home and Control. G08 secure power/library/mic, least-privilege host adapters, and signed installer remain open. RP6 and real Windows/Vibepollo acceptance and owner-held release signing are deferred to the integrated release.
+- #58/#59 merged at `1544050c5f329ba21a5095f76359d92bec5aee3b`. The combined head `9d627d37b7a8bc82aa8adfcf4a59b2abd9e7d7c1` passed the ARM64 APK build, Android unit tests, and Android 13 Home workspace screenshot checks. The foundation push at the merge commit passed. [Android CI](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45502001869) · [Home UI CI](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45502001827) · [Integration CI](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45502987220)
+- #60 merged at `55ba203757777cee3869c14998a0b468e6f976d7`. Its exact tested head `60a75cc9919b182595d06695a071fb303835c702` passed Android, Windows PowerShell 5.1, pinned TLS and revocation checks, and deterministic Windows development packaging. Secure status covers read-only Windows telemetry. [Android CI](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45503258856) · [Windows CI](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45503258638) · [Host implementation and upstream research](HORIZON_HOST.md)
+- The #61 candidate applies running-game identity matching in stream negotiation, keeps ambiguous targets from quitting a running game, and cancels queued work before native cleanup. Already dispatched host requests can complete. Require fresh combined Android CI after the #60 integration.
+- Engineering 1/14, full acceptance 0/14. No new physical RP6/Windows or owner signing evidence.
+
+## Remaining acceptance by gate
+| Gate | Existing evidence or implementation | Next evidence or engineering needed |
+| --- | --- | --- |
+| G01 Foundation | Reproducible ARM64 CI, emulator migration and same-signer upgrade | Owner-private signer and data-preserving RP6 upgrade |
+| G02 Core | Launcher claims, actual stream observation, profile and async ownership | Verify final stream admission and rapid handoffs across legacy entrances, with explicit external-provider semantics |
+| G03 Shell | Home and Control emulator evidence, Library and Connect workspace code, Theme Studio | Controller and touch coverage for Library, Connect, Media, System, game details and settings, with compact/wide and accessibility |
+| G04 Gaming | Unified aggregation, per-game settings and stream resume policies | Resolve cross-provider identity collisions, verify collections and calibrate physical Back/Guide |
+| G05 Stream | Existing Moonlight paths, stream settings and adaptive reconnect | RP6/Vibepollo LAN, remote and USB matrix, measured stutter and fallback; evaluate PyroWave/VRR on compatible clients |
+| G06 Hardware | Read-only diagnostics, capability detection and in-memory tuning simulation | Decide supported RP6 capabilities; real privileged writes need authentication, thermal protection, journal, readback and rollback |
+| G07 Data | Source inventory, Retro index and offline game-library caches | Simultaneous internal/SD/USB disconnect tests, verified transfer and conflict-safe save backup/restore |
+| G08 Windows Host | Tray/dashboard, host commands, deterministic ZIP and pinned TLS status | Move supported companion operations to authenticated transport, keep explicit command permissions, validate Vibepollo and Playnite adapters and signed Windows installation |
+| G09 Audio | Stream DSP and Android-visible route information | DSP load/latency, route changes and physical FreeBuds validation; assess vendor-specific support |
+| G10 Connect | Existing cloud/browser choices, PC discovery and pending launch ownership | Provider registry and account/session lifecycle testing for supported official adapters |
+| G11 Services | Media, notifications, screenshots, widgets and Obtainium snapshot import | Test permission and controller flows, source refresh and actual verified installation |
+| G12 Automation | Profile preferences and simulated performance safety | Implement opt-in rules and recovery with safety/manual/game/device/default precedence |
+| G13 Recovery | Crash reporting, app migration and some emulator flows | Startup/frame/memory/power benchmarks, sleep/wake, safe mode and launcher escape |
+| G14 Release | Separate CI development artifacts and documented owner checks | Integrated Android/Windows matrix, physical RP6, privately signed upgrade and final security/license review |
 
 ## Verified foundation
 #29 merged at 98d62c598634749a6da7249e50b6b10f812bee29: 193 Android tests and 43 Windows checks. #31 merged at b6467cc113b71e7c4466006f3035ae10168bc344: 201 Android tests, real PC-stream observation and game presets. #32 merged at 1a645d5629887307b0ff22c68437ac6a5eac86cc: 204 Android tests (45464842745), Android 13 x86_64 same-package/same-signer synthetic upgrade retained three preference files and private file (45464842534). Restore rollback best-effort, explicit release signing guard/version code. Actual private release signer and RP6 migration/upgrade still unverified.
