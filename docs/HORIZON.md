@@ -52,3 +52,6 @@ CI explicitly installs Android SDK 36 and the pinned native tools. APK assembly 
 
 ## Retroid Bridge milestone 1
 Read-only hardware/firmware and sysfs frequency inventory, conservative Android thermal guidance, and existing tuning-tool handoff. CPU policies and GPU readings depend on app-visible kernel nodes. PServer remains unverified on the target firmware and no privileged operations are performed. References for future compatibility review: https://github.com/keiretrogaming/pulse and https://github.com/AurelioB/ClusterTune (no upstream source copied in this milestone).
+
+## Settings migration milestone
+Horizon exports version 2 and accepts original Pocket Nexus version 1. All recognized stores are decoded and type-checked before writing, device-bound widget IDs, old updater state, USB route cache and music URI are excluded. PC pairing, storage grants and Android widgets must be re-established. A write failure across separate SharedPreferences files is not fully transactional; arbitrary unknown preference names remain possible and import only trusted backups. No personal export is included in the repository.

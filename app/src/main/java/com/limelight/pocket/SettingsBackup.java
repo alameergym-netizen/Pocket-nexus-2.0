@@ -22,7 +22,7 @@ import java.util.Set;
  */
 public final class SettingsBackup {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     /** What's kept: the app's settings and the stores that are settings too. */
     private static final String[] FILES = {null, "pocket_game_profiles", "pocket_cloud_clients"};
 
@@ -44,7 +44,7 @@ public final class SettingsBackup {
     public static int write(Context c, Uri to) {
         try {
             JSONObject root = new JSONObject();
-            root.put("app", "Pocket Nexus");
+            root.put("app", "Pocket Nexus 2.0");
             root.put("version", VERSION);
             root.put("at", System.currentTimeMillis());
             int count = 0;
@@ -52,10 +52,10 @@ public final class SettingsBackup {
             for (String name : FILES) {
                 JSONObject one = new JSONObject();
                 for (Map.Entry<String, ?> e : prefs(c, name).getAll().entrySet()) {
-                    if (secret(e.getKey()) || e.getValue() == null) {
+                    if (excluded(e.getKey()) || e.getValue() == null) {
                         continue;
                     }
-                    Object v = e.getValue();
+                    Object v = portableValue(e.getKey(), e.getValue());
                     JSONObject typed = new JSONObject();
                     if (v instanceof Boolean) {
                         typed.put("b", v);
@@ -119,57 +119,37 @@ public final class SettingsBackup {
                 }
                 text = buf.toString("UTF-8");
             }
-            JSONObject root = new JSONObject(text);
-            if (!"Pocket Nexus".equals(root.optString("app")) || root.optJSONObject("files") == null) {
-                return -1;
+            Map<String, Map<String, Object>> staged = decode(new JSONObject(text));
+            // Check stored types across every file before writing anything.
+            for (String name : FILES) {
+                Map<String, Object> values = staged.get(name == null ? "main" : name);
+                if (values == null) { continue; }
+                Map<String, ?> existing = prefs(c, name).getAll();
+                for (Map.Entry<String, Object> entry : values.entrySet()) {
+                    Object old = existing.get(entry.getKey());
+                    if (old != null && !sameType(old, entry.getValue())) { return -1; }
+                }
             }
-            JSONObject files = root.getJSONObject("files");
             int count = 0;
             for (String name : FILES) {
-                JSONObject one = files.optJSONObject(name == null ? "main" : name);
-                if (one == null) {
-                    continue;
-                }
+                Map<String, Object> values = staged.get(name == null ? "main" : name);
+                if (values == null || values.isEmpty()) { continue; }
                 SharedPreferences.Editor ed = prefs(c, name).edit();
-                Iterator<String> keys = one.keys();
-                while (keys.hasNext()) {
-                    String k = keys.next();
-                    if (secret(k)) {
-                        continue;
+                for (Map.Entry<String, Object> entry : values.entrySet()) {
+                    String k = entry.getKey();
+                    Object v = entry.getValue();
+                    if (v instanceof Boolean) { ed.putBoolean(k, (Boolean) v); }
+                    else if (v instanceof Integer) { ed.putInt(k, (Integer) v); }
+                    else if (v instanceof Long) { ed.putLong(k, (Long) v); }
+                    else if (v instanceof Float) { ed.putFloat(k, (Float) v); }
+                    else if (v instanceof String) { ed.putString(k, (String) v); }
+                    else if (v instanceof Set) {
+                        @SuppressWarnings("unchecked") Set<String> strings = (Set<String>) v;
+                        ed.putStringSet(k, strings);
                     }
-                    JSONObject typed = one.optJSONObject(k);
-                    if (typed == null) {
-                        continue;
-                    }
-                    if (typed.has("b")) {
-                        ed.putBoolean(k, typed.getBoolean("b"));
-                    }
-                    else if (typed.has("i")) {
-                        ed.putInt(k, typed.getInt("i"));
-                    }
-                    else if (typed.has("l")) {
-                        ed.putLong(k, typed.getLong("l"));
-                    }
-                    else if (typed.has("f")) {
-                        ed.putFloat(k, (float) typed.getDouble("f"));
-                    }
-                    else if (typed.has("s")) {
-                        ed.putString(k, typed.getString("s"));
-                    }
-                    else if (typed.has("set")) {
-                        JSONArray a = typed.getJSONArray("set");
-                        Set<String> set = new HashSet<>();
-                        for (int i = 0; i < a.length(); i++) {
-                            set.add(a.getString(i));
-                        }
-                        ed.putStringSet(k, set);
-                    }
-                    else {
-                        continue;
-                    }
-                    count++;
                 }
-                ed.commit();
+                if (!ed.commit()) { return -1; }
+                count += values.size();
             }
             return count;
         } catch (Exception e) {
@@ -177,8 +157,95 @@ public final class SettingsBackup {
         }
     }
 
+    /** Device-bound state is not portable across app installs. */
+    static boolean excluded(String key) {
+        return secret(key) || key.startsWith("pocket_update_")
+                || key.startsWith("pocket_companion_seen_")
+                || key.startsWith("pocket_adaptive_cap_")
+                || key.equals("pocket_last_usb_ip") || key.equals("pocket_last_usb_uuid")
+                || key.equals("pocket_music_uri") || key.equals("pocket_last_pc_uuid");
+    }
+
+    static Object portableValue(String key, Object value) {
+        if ("pocket_home_widgets".equals(key) && value instanceof String) {
+            java.util.List<String> widgets = new java.util.ArrayList<>();
+            for (String widget : ((String) value).split(",")) {
+                String w = widget.trim();
+                if (!w.isEmpty() && !w.startsWith("aw:") && !widgets.contains(w)) {
+                    widgets.add(w);
+                }
+            }
+            return android.text.TextUtils.join(",", widgets);
+        }
+        return value;
+    }
+
+    private static boolean sameType(Object a, Object b) {
+        return a instanceof Set ? b instanceof Set : a.getClass().equals(b.getClass());
+    }
+
+    /** Parse and validate the entire backup before any preference store is changed. */
+    static Map<String, Map<String, Object>> decode(JSONObject root) throws org.json.JSONException {
+        String app = root.optString("app");
+        int version = root.optInt("version", -1);
+        if (!(version == 1 && "Pocket Nexus".equals(app))
+                && !(version == 2 && "Pocket Nexus 2.0".equals(app))) {
+            throw new org.json.JSONException("Unsupported backup");
+        }
+        JSONObject files = root.getJSONObject("files");
+        Map<String, Map<String, Object>> staged = new java.util.LinkedHashMap<>();
+        int count = 0;
+        for (String name : FILES) {
+            String file = name == null ? "main" : name;
+            if (!files.has(file)) { continue; }
+            JSONObject one = files.getJSONObject(file);
+            Map<String, Object> values = new java.util.LinkedHashMap<>();
+            Iterator<String> keys = one.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (excluded(key)) { continue; }
+                if (++count > 50000 || key.isEmpty() || key.length() > 4096) {
+                    throw new org.json.JSONException("Invalid preference key or too many entries");
+                }
+                JSONObject typed = one.getJSONObject(key);
+                if (typed.length() != 1) { throw new org.json.JSONException("Ambiguous preference type"); }
+                Object v;
+                if (typed.has("b") && typed.get("b") instanceof Boolean) { v = typed.getBoolean("b"); }
+                else if (typed.has("i") && typed.get("i") instanceof Number) {
+                    Number n = (Number) typed.get("i");
+                    long l = n.longValue();
+                    if (n.doubleValue() != l || l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
+                        throw new org.json.JSONException("Invalid integer");
+                    }
+                    v = (int) l;
+                } else if (typed.has("l") && (typed.get("l") instanceof Integer || typed.get("l") instanceof Long)) {
+                    v = typed.getLong("l");
+                } else if (typed.has("f") && typed.get("f") instanceof Number) {
+                    float value = (float) typed.getDouble("f");
+                    if (Float.isNaN(value) || Float.isInfinite(value)) { throw new org.json.JSONException("Invalid float"); }
+                    v = value;
+                } else if (typed.has("s") && typed.get("s") instanceof String) {
+                    v = typed.getString("s");
+                } else if (typed.has("set")) {
+                    JSONArray arr = typed.getJSONArray("set");
+                    Set<String> set = new HashSet<>();
+                    for (int i = 0; i < arr.length(); i++) {
+                        Object element = arr.get(i);
+                        if (!(element instanceof String)) { throw new org.json.JSONException("Invalid string set"); }
+                        set.add((String) element);
+                    }
+                    v = set;
+                } else { throw new org.json.JSONException("Unsupported preference type"); }
+                values.put(key, portableValue(key, v));
+            }
+            staged.put(file, values);
+        }
+        if (staged.isEmpty()) { throw new org.json.JSONException("No supported preference stores"); }
+        return staged;
+    }
+
     /** A name for the file: "PocketNexus-settings-2026-11-19.json". */
     public static String fileName() {
-        return "PocketNexus-settings-" + android.text.format.DateFormat.format("yyyy-MM-dd", System.currentTimeMillis()) + ".json";
+        return "PocketNexus2-settings-" + android.text.format.DateFormat.format("yyyy-MM-dd", System.currentTimeMillis()) + ".json";
     }
 }
