@@ -165,7 +165,7 @@ public final class HandheldTools {
     }
 
     /** {package, activity, name} of every handheld tool with a launcher icon here. */
-    static List<String[]> find(Context c) {
+    public static List<String[]> find(Context c) {
         List<String[]> out = new ArrayList<>();
         try {
             PackageManager pm = c.getPackageManager();

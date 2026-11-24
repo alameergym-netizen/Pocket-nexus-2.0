@@ -56,7 +56,9 @@ public final class GlobalButtons {
         /** Alt+Tab: the open apps in a small row, on the one before this; it switches by itself. */
         QUICK_SWITCH("switch", R.string.pocket_qswitch_title),
         /** Answers the newest message (Discord, WhatsApp...) with the controller's keyboard. */
-        REPLY("reply", R.string.pocket_gb_reply);
+        REPLY("reply", R.string.pocket_gb_reply),
+        /** Nexus Control: Wi-Fi, Bluetooth, sleep, brightness, volume, battery... over anything. */
+        CONTROL("control", R.string.pocket_gb_control);
 
         public final String id;
         public final int label;
@@ -205,6 +207,7 @@ public final class GlobalButtons {
                 return "LIST";
             case QUICK_SETTINGS:
             case SETTINGS:
+            case CONTROL:
                 return "SLIDERS";
             case PLAY_PAUSE:
                 return "PLAY_PAUSE";

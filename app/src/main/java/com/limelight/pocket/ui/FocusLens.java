@@ -298,7 +298,7 @@ public class FocusLens extends RecyclerView.ItemDecoration {
             float r = cardRadius * host.focusScale() + GAP_DP * d;
 
             int a = Math.round(255 * alpha);
-            halo.setColor(PocketTheme.withAlpha(accent, Math.round(a * 0.5f)));
+            halo.setColor(PocketTheme.withAlpha(accent, Math.round(a * 0.32f))); // softer: about a third less glow
             canvas.drawRoundRect(rect, r, r, halo);
             ring.setColor(PocketTheme.withAlpha(0xFFFFFFFF, Math.round(a * 0.95f)));
             canvas.drawRoundRect(rect, r, r, ring);

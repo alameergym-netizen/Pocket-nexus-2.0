@@ -437,7 +437,8 @@ public final class WidgetShelf {
                 return;
             case DEVICE:
             case CLOCK:
-                DevicePanel.show(activity);
+                // Nexus Control: the glass panel with the handheld's controls
+                com.limelight.pocket.global.ControlCenterActivity.open(activity);
                 return;
             case PCS:
                 close();

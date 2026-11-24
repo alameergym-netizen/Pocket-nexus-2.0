@@ -1496,6 +1496,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> getString(com.limelight.pocket.apps.HomeScreen.isDefault(this) ? R.string.pocket_on : R.string.pocket_off),
                 () -> com.limelight.pocket.apps.HomeScreen.openChooser(this));
 
+        addAction(getString(R.string.pocket_nc_title), getString(R.string.pocket_nc_tagline), null,
+                () -> com.limelight.pocket.global.ControlCenterActivity.open(this));
         addAction(getString(R.string.pocket_device_title), getString(R.string.pocket_set_device_sub), null,
                 () -> com.limelight.pocket.device.DevicePanel.show(this));
 

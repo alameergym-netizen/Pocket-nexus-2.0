@@ -106,6 +106,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
     private int cableTicks;
     private boolean carouselAnimated;
     private String latencyText;
+    private long latencyMs = -1;
     private String latencyForUuid;
     private boolean latencyProbeRunning;
     private final Handler usbHandler = new Handler(Looper.getMainLooper());
@@ -1513,7 +1514,9 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         String sub = describeComputer(computer.details, true);
         if (latencyText != null && computer.details.uuid.equals(latencyForUuid)
                 && computer.details.state == ComputerDetails.State.ONLINE) {
-            sub += " · " + latencyText;
+            // As a console's PC card: the connection in a word, the round trip, the stream's size
+            sub = describeComputer(computer.details, false) + "  ·  " + pocketConnectionWord(latencyMs)
+                    + "  ·  " + latencyText + "  ·  " + pocketStreamFormat();
         }
         if (!sub.contentEquals(subtitle.getText())) {
             subtitle.setText(sub);
@@ -1566,6 +1569,22 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         int artId = computer.details.runningGameId != 0 ? computer.details.runningGameId : lastId;
         pocketBackdropFor(computer.details.uuid, artId, runningName != null ? runningName : lastName);
         probeLatency(computer.details);
+    }
+
+    private String pocketConnectionWord(long ms) {
+        int id = ms < 0 ? R.string.pocket_conn_unknown : ms <= 6 ? R.string.pocket_conn_excellent
+                : ms <= 15 ? R.string.pocket_conn_good : ms <= 40 ? R.string.pocket_conn_fair : R.string.pocket_conn_poor;
+        return getString(id);
+    }
+
+    private String pocketStreamFormat() {
+        try {
+            com.limelight.preferences.PreferenceConfiguration pc =
+                    com.limelight.preferences.PreferenceConfiguration.readPreferences(this);
+            return pc.height + "p" + Math.round(pc.fps);
+        } catch (RuntimeException e) {
+            return "";
+        }
     }
 
     /** The name of one of a PC's games (from its known list), or null. */
@@ -1625,6 +1644,11 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         // just its colours (or its cover, by the style)
         android.graphics.Bitmap keyArt = com.limelight.pocket.PocketArt.cached(this, uuid, appId, com.limelight.pocket.PocketArt.HERO);
         com.limelight.pocket.ui.KeyArtStage stage = pocketKeyArt();
+        // Where you left off: the last session's own frame, when it was this game
+        android.graphics.Bitmap session = com.limelight.pocket.StreamScreenshot.sessionShot(this, uuid, appId);
+        if (session != null && stage != null) {
+            keyArt = session;
+        }
         if (stage != null) {
             com.limelight.pocket.ui.LaunchOverlay.rememberKeyArt(name, keyArt);
             if (keyArt != null || !com.limelight.pocket.PocketArt.has(this, uuid, appId, com.limelight.pocket.PocketArt.HERO)) {
@@ -2073,6 +2097,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
                 if (result != Long.MAX_VALUE) {
                     double ms = result / 1_000_000.0;
                     latencyText = ms < 1 ? "<1 ms" : Math.round(ms) + " ms";
+                    latencyMs = Math.round(ms);
                     latencyForUuid = uuid;
                 }
             });

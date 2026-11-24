@@ -575,18 +575,35 @@ public final class SystemArt {
         int color = info != null && info.color != 0 ? info.color : fallbackColor;
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(out);
+        // Always a dark card (as a console's own menu): a light colour (PlayStation's white,
+        // the Game Boy's grey...) is taken down to a deep shade of itself
+        float cl = luma(color);
+        float top = cl > 0.45f ? 0.42f * 0.45f / cl : 0.8f;
+        float bottom = cl > 0.45f ? 0.14f * 0.45f / cl : 0.22f;
         Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bg.setShader(new LinearGradient(0, 0, w * 0.4f, h, darker(color, 0.8f), darker(color, 0.22f), Shader.TileMode.CLAMP));
+        bg.setShader(new LinearGradient(0, 0, w * 0.4f, h, darker(color, top), darker(color, bottom), Shader.TileMode.CLAMP));
         cv.drawRect(0, 0, w, h, bg);
 
         // The strip, a little wider than the card (its slanted edges mostly fall outside)
         float scale = w * 1.3f / strip.getWidth();
         float sh = strip.getHeight() * scale;
-        float top = Math.max(h - sh, Math.min(0, h * 0.44f - sh * 0.44f));
+        float stripTop = Math.max(h - sh, Math.min(0, h * 0.44f - sh * 0.44f));
         Matrix mx = new Matrix();
         mx.setScale(scale, scale);
-        mx.postTranslate((w - strip.getWidth() * scale) / 2f, top);
-        cv.drawBitmap(strip, mx, new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG));
+        mx.postTranslate((w - strip.getWidth() * scale) / 2f, stripTop);
+        Paint art = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+        float sl = stripLuma(strip);
+        if (sl > 0.42f) {
+            // A bright artwork (a white console on white): dimmed to a night version of itself
+            float k = Math.max(0.34f, 0.42f / sl);
+            android.graphics.ColorMatrix cm = new android.graphics.ColorMatrix();
+            cm.setScale(k, k, k, 1f);
+            android.graphics.ColorMatrix sat = new android.graphics.ColorMatrix();
+            sat.setSaturation(1.15f);
+            cm.postConcat(sat);
+            art.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
+        }
+        cv.drawBitmap(strip, mx, art);
 
         // Light from the top, depth at the bottom (where the logo goes)
         Paint shade = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -766,6 +783,47 @@ public final class SystemArt {
         glowBack.setShader(new LinearGradient(x - 1, 0, x + w * 0.2f, 0, 0x99000000, 0x00000000, Shader.TileMode.CLAMP));
         cv.drawRect(x - 1, 0, x + w * 0.2f, h, glowBack);
         return out;
+    }
+
+    private static float luma(int color) {
+        return (0.2126f * Color.red(color) + 0.7152f * Color.green(color) + 0.0722f * Color.blue(color)) / 255f;
+    }
+
+    private static final java.util.WeakHashMap<Bitmap, Float> LUMA = new java.util.WeakHashMap<>();
+
+    /** How bright an artwork is on the whole (0..1), from a small copy of it. */
+    private static float stripLuma(Bitmap b) {
+        synchronized (LUMA) {
+            Float hit = LUMA.get(b);
+            if (hit != null) {
+                return hit;
+            }
+        }
+        float sum = 0;
+        int n = 0;
+        try {
+            Bitmap small = Bitmap.createScaledBitmap(b, 12, 24, true);
+            for (int y = 0; y < small.getHeight(); y++) {
+                for (int x = 0; x < small.getWidth(); x++) {
+                    int p = small.getPixel(x, y);
+                    if (Color.alpha(p) < 128) {
+                        continue;
+                    }
+                    sum += luma(p);
+                    n++;
+                }
+            }
+            if (small != b) {
+                small.recycle();
+            }
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return 0f;
+        }
+        float l = n > 0 ? sum / n : 0f;
+        synchronized (LUMA) {
+            LUMA.put(b, l);
+        }
+        return l;
     }
 
     private static int darker(int color, float f) {

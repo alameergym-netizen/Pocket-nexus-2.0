@@ -813,7 +813,7 @@ public class AndroidAppsActivity extends ConsoleActivity implements CarouselAdap
                     return;
                 }
                 if (PANEL.equals(e.settingsAction)) {
-                    com.limelight.pocket.device.DevicePanel.show(this);
+                    com.limelight.pocket.global.ControlCenterActivity.open(this);
                     return;
                 }
                 startActivity(new Intent(e.settingsAction));

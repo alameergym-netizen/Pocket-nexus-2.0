@@ -29,18 +29,25 @@ public final class PocketTheme {
         public final String sounds;
         /** Home's layout that comes with it (null: leave it as it is). */
         public final String layout;
+        /** How the focused card shows (null: leave it as it is). */
+        public final String focus;
 
         Preset(int name, int accent, String backdrop, boolean frost, String sounds) {
-            this(name, accent, backdrop, frost, sounds, null);
+            this(name, accent, backdrop, frost, sounds, null, null);
         }
 
         Preset(int name, int accent, String backdrop, boolean frost, String sounds, String layout) {
+            this(name, accent, backdrop, frost, sounds, layout, null);
+        }
+
+        Preset(int name, int accent, String backdrop, boolean frost, String sounds, String layout, String focus) {
             this.name = name;
             this.accent = accent;
             this.backdrop = backdrop;
             this.frost = frost;
             this.sounds = sounds;
             this.layout = layout;
+            this.focus = focus;
         }
     }
 
@@ -57,6 +64,22 @@ public final class PocketTheme {
             // PlayStation Portal: its blue, the game's art behind everything, and Home laid out
             // its way (the tiles at the top, the game at the bottom)
             new Preset(R.string.pocket_theme_portal, 0xFF3D8BFF, PocketPrefs.BACKDROP_ART, true, "crystal", "portal"),
+            // Glass, as Apple TV: wide cards under the game's own art, frosted glass, and a focus
+            // that lifts the card (no ring around it)
+            new Preset(R.string.pocket_theme_glass_tv, 0xFFF5F5F7, PocketPrefs.BACKDROP_ART, true, "glass", "wide",
+                    PocketPrefs.FOCUS_ZOOM),
+            // Console, as a PS5: a row of small tiles, the game's art filling the screen
+            new Preset(R.string.pocket_theme_console, 0xFFE6EEFA, PocketPrefs.BACKDROP_ART, false, "crystal", "tiles",
+                    PocketPrefs.FOCUS_RING_ZOOM),
+            // Grid, as an Xbox: covers in a grid, its green
+            new Preset(R.string.pocket_theme_grid, 0xFF2ECC40, PocketPrefs.BACKDROP_AMBIENT, true, "tactile", "grid_covers",
+                    PocketPrefs.FOCUS_RING_ZOOM),
+            // Minimal, as a Switch: plain black, round tiles, a thin ring
+            new Preset(R.string.pocket_theme_minimal, 0xFFFF4D5A, PocketPrefs.BACKDROP_BLACK, false, "crisp", "tiles",
+                    PocketPrefs.FOCUS_RING),
+            // Deck, as a Steam Deck: covers on a shelf, its blue
+            new Preset(R.string.pocket_theme_deck, 0xFF1A9FFF, PocketPrefs.BACKDROP_AMBIENT, true, "soft", "covers",
+                    PocketPrefs.FOCUS_RING_ZOOM),
     };
 
     /** Which theme the current settings match, or -1 when they've been mixed by hand. */
@@ -83,6 +106,9 @@ public final class PocketTheme {
         PocketPrefs.setFrost(context, t.frost);
         if (t.layout != null) {
             Layouts.setHome(context, t.layout);
+        }
+        if (t.focus != null) {
+            PocketPrefs.prefs(context).edit().putString(PocketPrefs.KEY_FOCUS_STYLE, t.focus).apply();
         }
     }
 

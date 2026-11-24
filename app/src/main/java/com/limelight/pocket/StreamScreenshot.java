@@ -59,6 +59,112 @@ public final class StreamScreenshot {
         }
     }
 
+    // ---- The last session's picture (the PC's card on Streaming shows where you left off) ------
+
+    private static final String KEY_SESSION_APP = "pocket_session_app_";
+    private static final String KEY_SESSION_AT = "pocket_session_at_";
+    private static final long SESSION_KEEP_MS = 14L * 24 * 60 * 60 * 1000;
+    private static final android.util.LruCache<String, Bitmap> SESSIONS = new android.util.LruCache<>(3);
+
+    private static java.io.File sessionFile(Context c, String uuid) {
+        java.io.File dir = new java.io.File(c.getFilesDir(), "pocket_sessions");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        return new java.io.File(dir, uuid.replaceAll("[^A-Za-z0-9_-]", "_") + ".jpg");
+    }
+
+    /**
+     * A frame of the stream as it's left (small, kept per PC with its game): quietly, nothing
+     * shown, nothing saved to the gallery.
+     */
+    public static void captureSession(Context context, SurfaceView view, final String uuid, final int appId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || view == null || uuid == null || appId == 0
+                || view.getWidth() <= 0 || view.getHeight() <= 0 || !view.getHolder().getSurface().isValid()) {
+            return;
+        }
+        final Context app = context.getApplicationContext();
+        int w = Math.min(960, view.getWidth());
+        int h = Math.max(1, Math.round(w * view.getHeight() / (float) view.getWidth()));
+        final Bitmap bitmap;
+        try {
+            bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        } catch (OutOfMemoryError e) {
+            return;
+        }
+        final HandlerThread worker = new HandlerThread("PocketSessionShot");
+        worker.start();
+        try {
+            PixelCopy.request(view, bitmap, result -> {
+                try {
+                    if (result == PixelCopy.SUCCESS && !mostlyBlack(bitmap)) {
+                        java.io.File f = sessionFile(app, uuid);
+                        java.io.File tmp = new java.io.File(f.getPath() + ".part");
+                        try (OutputStream out = new java.io.FileOutputStream(tmp)) {
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 84, out);
+                        }
+                        if (tmp.renameTo(f)) {
+                            com.limelight.pocket.PocketPrefs.prefs(app).edit().putInt(KEY_SESSION_APP + uuid, appId)
+                                    .putLong(KEY_SESSION_AT + uuid, System.currentTimeMillis()).apply();
+                            SESSIONS.remove(uuid);
+                        }
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    bitmap.recycle();
+                    worker.quitSafely();
+                }
+            }, new Handler(worker.getLooper()));
+        } catch (RuntimeException e) {
+            worker.quitSafely();
+        }
+    }
+
+    /** A dark loading screen or a black frame isn't worth keeping. */
+    private static boolean mostlyBlack(Bitmap b) {
+        int bright = 0;
+        int n = 0;
+        for (int y = b.getHeight() / 10; y < b.getHeight(); y += Math.max(1, b.getHeight() / 9)) {
+            for (int x = b.getWidth() / 10; x < b.getWidth(); x += Math.max(1, b.getWidth() / 16)) {
+                int p = b.getPixel(x, y);
+                int l = (android.graphics.Color.red(p) + android.graphics.Color.green(p) + android.graphics.Color.blue(p)) / 3;
+                if (l > 28) {
+                    bright++;
+                }
+                n++;
+            }
+        }
+        return n == 0 || bright < n / 8;
+    }
+
+    /** The last session's picture for this PC and game (recent enough), or null. */
+    public static Bitmap sessionShot(Context c, String uuid, int appId) {
+        if (uuid == null || appId == 0) {
+            return null;
+        }
+        android.content.SharedPreferences p = com.limelight.pocket.PocketPrefs.prefs(c);
+        if (p.getInt(KEY_SESSION_APP + uuid, 0) != appId
+                || System.currentTimeMillis() - p.getLong(KEY_SESSION_AT + uuid, 0) > SESSION_KEEP_MS) {
+            return null;
+        }
+        Bitmap hit = SESSIONS.get(uuid);
+        if (hit != null) {
+            return hit;
+        }
+        java.io.File f = sessionFile(c, uuid);
+        if (!f.isFile()) {
+            return null;
+        }
+        try {
+            Bitmap b = android.graphics.BitmapFactory.decodeFile(f.getPath());
+            if (b != null) {
+                SESSIONS.put(uuid, b);
+            }
+            return b;
+        } catch (OutOfMemoryError e) {
+            return null;
+        }
+    }
+
     private static boolean save(Context context, Bitmap bitmap, String gameName) {
         String safe = gameName == null ? "Stream" : gameName.replaceAll("[^\\p{L}\\p{N} _-]", "").trim();
         if (safe.isEmpty()) {

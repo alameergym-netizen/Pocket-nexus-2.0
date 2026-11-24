@@ -308,7 +308,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                 }
                 break;
             case ButtonActions.LAUNCHER_DEVICE:
-                com.limelight.pocket.device.DevicePanel.show(this);
+                com.limelight.pocket.global.ControlCenterActivity.open(this);
                 break;
             case ButtonActions.LAUNCHER_SEARCH:
                 PocketSounds.play(this, PocketSounds.OPEN);

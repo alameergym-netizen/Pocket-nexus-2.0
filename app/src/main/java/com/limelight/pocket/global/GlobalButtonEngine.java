@@ -290,6 +290,15 @@ public final class GlobalButtonEngine {
     }
 
     /** An action from the ring (or anywhere): the service does what only it can, if it's on. */
+    /** Sleep: the screen off, as the power button does (needs the service; Android 9+). */
+    static boolean lockScreen() {
+        GlobalButtonEngine e = instance;
+        if (e == null || e.service == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            return false;
+        }
+        return e.service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
+    }
+
     static void runAction(Context c, GlobalButtons.Action a, String front) {
         GlobalButtonEngine e = instance;
         run(c, e != null ? e.service : null, a, front != null ? front : e != null ? e.front : null);
@@ -326,6 +335,9 @@ public final class GlobalButtonEngine {
                 return;
             case MUSIC:
                 start(c, com.limelight.pocket.music.MusicActivity.class);
+                return;
+            case CONTROL:
+                ControlCenterActivity.open(c);
                 return;
             case QUICK_SWITCH:
                 GlobalMenuActivity.show(c, GlobalMenuActivity.MODE_SWITCH, front);

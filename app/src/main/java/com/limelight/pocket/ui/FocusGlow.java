@@ -70,7 +70,7 @@ public final class FocusGlow {
                 view.animate().cancel();
                 if (has) {
                     PocketSounds.play(view.getContext(), PocketSounds.NAV);
-                    view.animate().scaleX(grow).scaleY(grow).translationZ(9 * d)
+                    view.animate().scaleX(grow).scaleY(grow).translationZ(5.5f * d)
                             .setDuration(motion ? 240 : 0).setInterpolator(Spring.POP).start();
                 }
                 else {

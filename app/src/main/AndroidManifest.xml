@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Nexus Control's Do not disturb tile (Android asks the user once) -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -488,6 +490,16 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:noHistory="false"
+            android:resizeableActivity="false"
+            android:taskAffinity="${applicationId}.overlay"
+            android:theme="@style/PocketOverlayTheme" />
+        <!-- Nexus Control: the handheld's controls in a glass panel, over anything -->
+        <activity
+            android:name=".pocket.global.ControlCenterActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
             android:resizeableActivity="false"
             android:taskAffinity="${applicationId}.overlay"
             android:theme="@style/PocketOverlayTheme" />

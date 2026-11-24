@@ -35,7 +35,7 @@ public final class SoftRing extends Drawable {
         line.setColor(0xF2FFFFFF);
         halo.setStyle(Paint.Style.STROKE);
         halo.setStrokeWidth(5f * density);
-        halo.setColor((glowColor & 0x00FFFFFF) | 0x80000000);
+        halo.setColor((glowColor & 0x00FFFFFF) | 0x52000000); // a third less glow than it was
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             line.setMaskFilter(new BlurMaskFilter(0.9f * density, BlurMaskFilter.Blur.NORMAL));
             halo.setMaskFilter(new BlurMaskFilter(9f * density, BlurMaskFilter.Blur.NORMAL));
@@ -59,7 +59,7 @@ public final class SoftRing extends Drawable {
     public void setAlpha(int a) {
         alpha = a;
         line.setAlpha(Math.round(0xF2 * a / 255f));
-        halo.setAlpha(Math.round(0x80 * a / 255f));
+        halo.setAlpha(Math.round(0x52 * a / 255f));
         invalidateSelf();
     }
 

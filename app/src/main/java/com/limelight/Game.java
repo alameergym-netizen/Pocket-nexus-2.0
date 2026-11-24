@@ -1914,6 +1914,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onPause() {
+        // The frame you leave on: the PC's card on Streaming shows it (where you left off)
+        if (connected && streamContainer != null) {
+            com.limelight.pocket.StreamScreenshot.captureSession(this, streamContainer.getSurfaceView(),
+                    pocketPcUuid(), appId);
+        }
         if (isFinishing()) {
             // Stop any further input device notifications before we lose focus (and pointer capture)
             if (controllerHandler != null) {
