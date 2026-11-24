@@ -19,6 +19,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
     private final boolean enableAudioFx;
 
     private AudioTrack track;
+    private int openedEffectSession = -1;
 
     public AndroidAudioRenderer(Context context, boolean enableAudioFx) {
         this.context = context;
@@ -201,33 +202,55 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
     @Override
     public void start() {
-        if (enableAudioFx) {
-            // Open an audio effect control session to allow equalizers to apply audio effects
-            Intent i = new Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION);
-            i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, track.getAudioSessionId());
-            i.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.getPackageName());
-            i.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_GAME);
-            context.sendBroadcast(i);
+        if (enableAudioFx && track != null && openedEffectSession < 0) {
+            int session = track.getAudioSessionId();
+            if (session <= 0) { return; }
+            try {
+                Intent i = new Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION);
+                i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, session);
+                i.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.getPackageName());
+                i.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_GAME);
+                context.sendBroadcast(i);
+                openedEffectSession = session;
+            } catch (RuntimeException e) {
+                LimeLog.info("Audio effect session could not be opened");
+            }
         }
     }
 
     @Override
     public void stop() {
-        if (enableAudioFx) {
-            // Close our audio effect control session when we're stopping
+        closeEffectSession();
+    }
+
+    private void closeEffectSession() {
+        int session = openedEffectSession;
+        openedEffectSession = -1;
+        if (session <= 0) { return; }
+        try {
             Intent i = new Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION);
-            i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, track.getAudioSessionId());
+            i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, session);
             i.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.getPackageName());
             context.sendBroadcast(i);
+        } catch (RuntimeException e) {
+            LimeLog.info("Audio effect session could not be closed");
         }
     }
 
     @Override
     public void cleanup() {
-        // Immediately drop all pending data
-        track.pause();
-        track.flush();
-
-        track.release();
+        closeEffectSession();
+        // Immediately drop pending data, even if setup did not finish.
+        AudioTrack closing = track;
+        track = null;
+        if (closing != null) {
+            try {
+                closing.pause();
+                closing.flush();
+            } catch (RuntimeException ignored) {
+            } finally {
+                closing.release();
+            }
+        }
     }
 }
