@@ -36,6 +36,8 @@ public final class PcCompanion {
     public static final int PORT = 47110;
     private static final int CONNECT_TIMEOUT_MS = 1500;
     private static final int READ_TIMEOUT_MS = 5000;
+    static final int MAX_RESPONSE_BYTES = 64 * 1024;
+    static final int MAX_COMMAND_BYTES = 1023;
 
     public interface Callback {
         /** reply is null when the PC helper couldn't be reached. Called on the main thread. */
@@ -63,7 +65,7 @@ public final class PcCompanion {
         }
 
         public void send(String line) throws IOException {
-            out.write((line + "\n").getBytes(StandardCharsets.UTF_8));
+            out.write(encodeCommand(line));
             out.flush();
         }
 
@@ -111,7 +113,7 @@ public final class PcCompanion {
             socket.setSoTimeout(READ_TIMEOUT_MS);
             String token = PocketPrefs.getCompanionToken(context, pcUuid);
             OutputStream out = socket.getOutputStream();
-            out.write(("APC1 " + (token != null && !token.isEmpty() ? token : "-") + "\n").getBytes(StandardCharsets.UTF_8));
+            out.write(encodeCommand("APC1 " + (token != null && !token.isEmpty() ? token : "-")));
             out.flush();
             String hello = readLine(socket.getInputStream());
             if (hello == null || !hello.startsWith("OK ")) {
@@ -146,7 +148,7 @@ public final class PcCompanion {
             socket.setSoTimeout(800);
             String token = PocketPrefs.getCompanionToken(context, pcUuid);
             OutputStream out = socket.getOutputStream();
-            out.write(("APC1 " + (token != null && !token.isEmpty() ? token : "-") + "\n").getBytes(StandardCharsets.UTF_8));
+            out.write(encodeCommand("APC1 " + (token != null && !token.isEmpty() ? token : "-")));
             out.flush();
             String hello = readLine(socket.getInputStream());
             boolean ok = hello != null && hello.startsWith("OK ");
@@ -162,6 +164,59 @@ public final class PcCompanion {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    public interface DiagnosticCallback {
+        void onResult(Diagnostic diagnostic);
+    }
+
+    public static final class Diagnostic {
+        public final boolean reachable, paired, pong;
+        public final long roundTripMs;
+        public final String version, status;
+        Diagnostic(boolean reachable, boolean paired, boolean pong, long roundTripMs,
+                   String version, String status) {
+            this.reachable = reachable;
+            this.paired = paired;
+            this.pong = pong;
+            this.roundTripMs = roundTripMs;
+            this.version = version;
+            this.status = status;
+        }
+    }
+
+    /** Read-only legacy protocol test; does not pair, run programs or change host settings. */
+    public static void diagnoseAsync(Context context, String host, String uuid, DiagnosticCallback done) {
+        Context app = context.getApplicationContext();
+        Handler main = new Handler(Looper.getMainLooper());
+        new Thread(() -> {
+            Diagnostic result;
+            try (Session session = open(app, host, uuid)) {
+                if (session == null) {
+                    result = new Diagnostic(false, false, false, -1, "", "");
+                } else {
+                    boolean pong = false;
+                    long elapsed = -1;
+                    String version = "", status = "";
+                    try {
+                        long start = android.os.SystemClock.elapsedRealtime();
+                        pong = "PONG".equals(session.call("PING"));
+                        if (pong) { elapsed = android.os.SystemClock.elapsedRealtime() - start; }
+                        if (pong && session.authed) {
+                            String v = session.call("VERSION");
+                            if (v != null && v.startsWith("VERSION ")) { version = v.substring(8); }
+                            String st = session.call("STATUS");
+                            if (st != null && st.startsWith("STATUS ")) { status = st.substring(7); }
+                        }
+                    } catch (IOException ignored) {
+                        // Preserve completed stages, so a later command failure is visible.
+                    }
+                    result = new Diagnostic(true, session.authed, pong, elapsed, version, status);
+                }
+            }
+            final Diagnostic finalResult = result;
+            main.post(() -> done.onResult(finalResult));
+        }, "HorizonPcDiagnostic").start();
     }
 
     /** Runs one command (blocking). Returns the reply line, or null if unreachable. */
@@ -291,20 +346,36 @@ public final class PcCompanion {
         return streamHost;
     }
 
+    /** Enforce a single command within the legacy Windows helper's line limit. */
+    static byte[] encodeCommand(String line) throws IOException {
+        if (line == null || line.isEmpty() || line.indexOf('\r') >= 0
+                || line.indexOf('\n') >= 0 || line.indexOf('\0') >= 0) {
+            throw new IOException("Invalid companion command");
+        }
+        byte[] bytes = line.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_COMMAND_BYTES) {
+            throw new IOException("Companion command too long");
+        }
+        byte[] framed = java.util.Arrays.copyOf(bytes, bytes.length + 1);
+        framed[bytes.length] = '\n';
+        return framed;
+    }
+
+    /** A long response is one frame, not a series of fabricated messages. */
     static String readLine(InputStream in) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
-        while (line.size() < 1024) {
+        int consumed = 0;
+        while (true) {
             int b = in.read();
             if (b < 0) {
-                return line.size() > 0 ? line.toString("UTF-8") : null;
+                if (consumed == 0) { return null; }
+                throw new IOException("Incomplete companion response");
             }
-            if (b == '\n') {
-                break;
+            if (b == '\n') { return line.toString("UTF-8"); }
+            if (++consumed > MAX_RESPONSE_BYTES) {
+                throw new IOException("Companion response too long");
             }
-            if (b != '\r') {
-                line.write(b);
-            }
+            if (b != '\r') { line.write(b); }
         }
-        return line.toString("UTF-8");
     }
 }

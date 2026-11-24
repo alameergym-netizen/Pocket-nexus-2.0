@@ -37,3 +37,6 @@ Import Obtainium schema 1/2 exports through the Android document picker. The cat
 
 ## Storage milestone
 A read-only volume inventory shows Android-reported internal/removable storage, available/total space, read-only state, and selected ROM-root availability. The selected path is not changed by this panel. Multi-root indexing, drive identity persistence and game transfer remain future work.
+
+## PC Connect milestone 1
+Bounded, complete line framing rejects truncated replies and embedded newline commands. Read-only diagnostics distinguish reachable helper, pairing, PING latency, version and status. The Windows helper is unchanged and APC1 remains plaintext; use USB or trusted encrypted networking. TLS, host identity verification and the Vibepollo management adapter are future work.

@@ -730,6 +730,7 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
         }
         com.limelight.pocket.ui.LibraryLayout.addSettings(this, items);
         PocketSounds.play(this, PocketSounds.OPEN);
+        items.add(StreamMenuView.Item.action(getString(R.string.horizon_pc_diagnostics), this::showHostDiagnostics));
         showConsolePanel(shownName(g), g.storeLabel(), null, items);
     }
 
@@ -945,8 +946,42 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
             hideConsolePanel();
             com.limelight.pocket.PcCompanion.askWifiPort(this, host, uuid, pcName);
         }).withValue(String.valueOf(com.limelight.pocket.PocketPrefs.getCompanionPort(this, uuid))));
+        items.add(StreamMenuView.Item.action(getString(R.string.horizon_pc_diagnostics), this::showHostDiagnostics));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_pclib_try_again), () -> load(false)));
         showConsolePanel(getString(R.string.pocket_pclib_helper_title), statusText(), null, items);
+    }
+
+    private boolean hostDiagnosticRunning;
+
+    private void showHostDiagnostics() {
+        if (hostDiagnosticRunning) { return; }
+        hostDiagnosticRunning = true;
+        Toast.makeText(this, R.string.horizon_pc_checking, Toast.LENGTH_SHORT).show();
+        PcCompanion.diagnoseAsync(this, host, uuid, result -> {
+            hostDiagnosticRunning = false;
+            if (isFinishing() || isDestroyed()) { return; }
+            List<StreamMenuView.Item> items = new ArrayList<>();
+            items.add(StreamMenuView.Item.info(getString(R.string.horizon_pc_helper),
+                    getString(result.reachable ? R.string.horizon_pc_reachable : R.string.horizon_pc_unreachable)));
+            if (result.reachable) {
+                items.add(StreamMenuView.Item.info(getString(R.string.horizon_pc_pairing),
+                        getString(result.paired ? R.string.horizon_pc_linked : R.string.horizon_pc_unlinked)));
+                items.add(StreamMenuView.Item.info(getString(R.string.horizon_pc_ping),
+                        result.pong ? getString(R.string.horizon_pc_ms, result.roundTripMs)
+                                : getString(R.string.horizon_pc_unavailable)));
+                if (result.paired) {
+                    items.add(StreamMenuView.Item.info(getString(R.string.horizon_pc_version),
+                            result.version.isEmpty() ? getString(R.string.horizon_pc_unavailable) : result.version));
+                    items.add(StreamMenuView.Item.note(result.status.isEmpty()
+                            ? getString(R.string.horizon_pc_unavailable) : result.status));
+                } else {
+                    items.add(StreamMenuView.Item.action(getString(R.string.pocket_companion_pin_menu), this::askPin));
+                }
+            }
+            items.add(StreamMenuView.Item.note(getString(R.string.horizon_pc_legacy)));
+            items.add(StreamMenuView.Item.action(getString(R.string.horizon_pc_retest), this::showHostDiagnostics));
+            showConsolePanel(getString(R.string.horizon_pc_diagnostics), pcName, null, items);
+        });
     }
 
     private void askPin() {
