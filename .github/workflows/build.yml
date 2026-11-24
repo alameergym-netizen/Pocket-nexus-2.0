@@ -66,3 +66,13 @@ jobs:
           path: app/build/outputs/apk/**/debug/*.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Build side-by-side Preview APK
+        shell: bash
+        run: bash gradlew --no-daemon -PpocketPreview=true :app:assembleNonRoot_gameDebug
+      - name: Upload Preview APK for local signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketNexus2-preview-for-signing
+          path: app/build/outputs/apk/nonRoot_game/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7

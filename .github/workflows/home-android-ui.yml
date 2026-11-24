@@ -7,6 +7,7 @@ on:
       - '.github/workflows/home-android-ui.yml'
       - '.github/tests/home_shortcuts.py'
       - '.github/tests/run_home_shortcuts.sh'
+      - 'app/build.gradle'
       - 'app/src/main/java/com/limelight/pocket/home/HomeActivity.java'
       - 'app/src/main/java/com/limelight/pocket/device/HorizonAudio.java'
       - 'app/src/main/java/com/limelight/pocket/global/ControlCenterActivity.java'
@@ -37,6 +38,9 @@ jobs:
           sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           "$sdk" --install "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1"
           bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameDebug
+          mkdir -p home-ui-apks
+          cp app/build/outputs/apk/nonRoot_game/debug/*.apk home-ui-apks/dev.apk
+          bash gradlew --no-daemon -PpocketAbis=x86_64 -PpocketPreview=true :app:assembleNonRoot_gameDebug
       - name: Enable emulator acceleration
         run: sudo chmod 666 /dev/kvm
       - name: Test the Home controls on Android 13

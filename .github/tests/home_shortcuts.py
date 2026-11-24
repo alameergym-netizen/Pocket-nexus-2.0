@@ -7,7 +7,8 @@ import time
 import xml.etree.ElementTree as ET
 
 
-PACKAGE = "com.pocketnexus.console.debug"
+DEV_PACKAGE = "com.pocketnexus.console.debug"
+PACKAGE = "com.pocketnexus.console.preview"
 CONTROL = "homeNexusControl"
 HEADPHONES = "homeHeadphones"
 EMPTY = "No headphones or Bluetooth audio devices detected."
@@ -85,9 +86,14 @@ def verify_destination(name):
                  and contains(t, "Bluetooth settings"))
 
 
-def main(apk):
+def main(dev_apk, preview_apk):
     RESULTS.mkdir(exist_ok=True)
-    adb("install", "-g", apk, timeout=180)
+    adb("install", "-g", dev_apk, timeout=180)
+    adb("shell", "run-as", DEV_PACKAGE, "touch", "existing-dev-data")
+    adb("install", "-g", preview_apk, timeout=180)
+    adb("shell", "run-as", DEV_PACKAGE, "test", "-f", "existing-dev-data")
+    adb("shell", "run-as", PACKAGE, "test", "!", "-e", "existing-dev-data")
+    print("PASS: Preview installed beside Dev with separate data", flush=True)
     adb("shell", "wm", "size", "1080x1920")
     adb("shell", "wm", "density", "400")
     adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
@@ -137,10 +143,16 @@ def main(apk):
     wait_for("Home after controller navigation", home)
     print("PASS: Home shortcuts, touch, controller and Back", flush=True)
 
+    adb("shell", "run-as", PACKAGE, "touch", "preview-data")
+    adb("install", "-r", preview_apk, timeout=180)
+    adb("shell", "run-as", PACKAGE, "test", "-f", "preview-data")
+    adb("shell", "run-as", DEV_PACKAGE, "test", "-f", "existing-dev-data")
+    print("PASS: Reinstall with the Preview signer preserved both apps' data", flush=True)
+
 
 if __name__ == "__main__":
     try:
-        main(sys.argv[1])
+        main(sys.argv[1], sys.argv[2])
     except Exception:
         for label, command in (("failure.png", ("exec-out", "screencap", "-p")),
                                ("window.txt", ("shell", "dumpsys", "window", "windows"))):

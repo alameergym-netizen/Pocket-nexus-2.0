@@ -1,5 +1,7 @@
 apply plugin: 'com.android.application'
 
+def pocketPreview = providers.gradleProperty("pocketPreview").map { it.toBoolean() }.getOrElse(false)
+
 android {
     ndkVersion "27.0.12077973"
 
@@ -107,10 +109,11 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix ".debug"
-            resValue "string", "app_label", "Pocket Nexus 2.0 (Dev)"
-            resValue "string", "app_label_root", "Pocket Nexus 2.0 (Dev)"
-            resValue "string", "app_label_game", "Pocket Nexus 2.0 (Dev)"
+            applicationIdSuffix(pocketPreview ? ".preview" : ".debug")
+            def debugLabel = pocketPreview ? "Pocket Nexus 2.0 (Preview)" : "Pocket Nexus 2.0 (Dev)"
+            resValue "string", "app_label", debugLabel
+            resValue "string", "app_label_root", debugLabel
+            resValue "string", "app_label_game", debugLabel
             signingConfig signingConfigs.debug
 
             minifyEnabled true
