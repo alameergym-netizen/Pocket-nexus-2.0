@@ -268,10 +268,10 @@ public class PcLibraryActivity extends ConsoleActivity implements CarouselAdapte
             status = result.status;
             statusDetail = result.detail != null ? result.detail : "";
             List<PcGame> lastComplete = result.status == PcLibrary.NO_HELPER ? PcLibrary.cached(uuid) : null;
-            showingCachedLibrary = lastComplete != null;
+            showingCachedLibrary = lastComplete != null || result.cached;
             // Never replace the visible complete library with a partial response on transport failure.
             // Do not fall back to the old list after an explicit auth or compatibility error.
-            List<PcGame> visible = showingCachedLibrary ? lastComplete : result.games;
+            List<PcGame> visible = lastComplete != null ? lastComplete : result.games;
             show(visible);
             if (first && result.status != PcLibrary.OK && visible.isEmpty()) {
                 explainHelper();

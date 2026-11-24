@@ -37,11 +37,18 @@ public final class PcLibrary {
         public final List<PcGame> games;
         /** Why, for ADDON_FAILED. */
         public final String detail;
+        /** Local PC rows came from a persisted snapshot, not a verified live connection. */
+        public final boolean cached;
 
         Result(int status, List<PcGame> games, String detail) {
+            this(status,games,detail,false);
+        }
+
+        Result(int status, List<PcGame> games, String detail, boolean cached) {
             this.status = status;
             this.games = games;
             this.detail = detail;
+            this.cached = cached;
         }
     }
 
@@ -79,6 +86,10 @@ public final class PcLibrary {
 
     private static synchronized void remember(String uuid, List<PcGame> games) {
         LAST.put(uuid, new ArrayList<>(games));
+    }
+
+    private static synchronized void forget(String uuid) {
+        LAST.remove(uuid);
     }
 
     public static void load(Context context, final String host, final String uuid, final boolean refreshAccount,
@@ -190,12 +201,27 @@ public final class PcLibrary {
                 session.close();
             }
         }
+        boolean cachedRows = false;
+        if (status == OK) {
+            // Save only the complete, counted PC response, never the merged Steam account list.
+            HorizonLibraryStore.save(context, uuid, lines);
+        } else if (status == NO_HELPER) {
+            List<String> snapshot = HorizonLibraryStore.load(context, uuid);
+            if (snapshot != null) {
+                lines = snapshot;
+                cachedRows = true;
+            }
+        } else {
+            // An explicit auth / protocol error must not expose an earlier PC snapshot.
+            forget(uuid);
+            HorizonLibraryStore.clear(context, uuid);
+        }
         List<PcGame> onPc = PcGame.parseAll(lines);
         List<PcGame> owned = SteamAccount.owned(context, refreshAccount);
         List<PcGame> all = PcGame.merge(onPc, owned);
         PcGame.sort(all);
         // Without the helper, the account's games still show (they just can't start or install)
-        return new Result(status, all, detail);
+        return new Result(status, all, detail, cachedRows);
     }
 
     /** The programs on the PC's Start menu and desktop (to add one to the PC games). */
