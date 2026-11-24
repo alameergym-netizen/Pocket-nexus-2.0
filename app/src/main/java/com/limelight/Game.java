@@ -207,6 +207,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
     private volatile long horizonStreamTicket;
+    private com.limelight.pocket.pclib.HorizonPcLaunchQueue.Ticket horizonPcLaunch;
     private boolean connecting = false;
     public boolean connected = false;
     private boolean autoEnterPip = false;
@@ -466,7 +467,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         String pocketProfileUuid = getIntent().getStringExtra(EXTRA_PC_UUID);
         int pocketProfileApp = getIntent().getIntExtra(EXTRA_APP_ID, 0);
         // A game from the PC games streamed through Desktop: its own settings, not Desktop's
-        int pocketTicketProfile = com.limelight.pocket.pclib.PcLaunchTicket.profileFor(pocketProfileUuid, pocketProfileApp);
+        horizonPcLaunch = com.limelight.pocket.pclib.PcLaunchTicket.snapshotFor(pocketProfileUuid, pocketProfileApp);
+        int pocketTicketProfile = horizonPcLaunch != null ? horizonPcLaunch.profile : 0;
         if (pocketTicketProfile != 0) {
             pocketProfileApp = pocketTicketProfile;
         }
@@ -3318,11 +3320,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         pocketWatchSignIn();
         // A game from the PC library that Apollo has no entry for: the Desktop stream is up, so
         // now the PC starts the game (it opens on the screen being streamed)
-        final String[] pcLaunch = com.limelight.pocket.pclib.PcLaunchTicket.take(pocketPcUuid(),
+        final String[] pcLaunch = com.limelight.pocket.pclib.PcLaunchTicket.take(horizonPcLaunch, pocketPcUuid(),
                 getIntent().getIntExtra(EXTRA_APP_ID, 0));
+        horizonPcLaunch = null;
         if (pcLaunch != null) {
             showPocketToast(getString(R.string.pocket_pclib_starting_on_pc, pcLaunch[1]), true, 3500);
             PcCompanion.runAsync(this, host, pocketPcUuid(), pcLaunch[0], reply -> {
+                if (isFinishing() || isDestroyed() || instance != Game.this) return;
                 if (reply == null || !reply.startsWith("OK")) {
                     showPocketToast(getString(R.string.pocket_pclib_launch_failed, pcLaunch[1]), true, 5000);
                 }
@@ -5675,6 +5679,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     spinner = null;
                 }
 
+                // A stopped/replaced activity must not dispatch a pending PC launch.
+                if (isFinishing() || isDestroyed() || instance != Game.this
+                        || HorizonStreamObserver.instance().snapshot().ticket != horizonStreamTicket
+                        || HorizonStreamObserver.instance().snapshot().terminal()) return;
                 connected = true;
                 connecting = false;
                 HorizonStreamObserver.instance().connected(horizonStreamTicket);
