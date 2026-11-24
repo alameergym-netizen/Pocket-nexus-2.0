@@ -168,25 +168,20 @@ public final class PcLibrary {
                     // A big library on a slow disk takes a moment to read
                     session.setReadTimeout(25000);
                     session.send("GAMES");
-                    for (int i = 0; i < 20000; i++) {
-                        String line = session.readLine();
-                        if (line == null || line.startsWith("END")) {
-                            break;
+                    HorizonLibraryReply reply = HorizonLibraryReply.read(session::readLine, "G\t", 20000,
+                            line -> PcGame.parse(line) != null);
+                    if (reply.error != null) {
+                        String error = reply.error;
+                        if (error.equals("ERR auth")) {
+                            status = NOT_LINKED;
+                        } else if (error.equals("ERR pclib") || error.startsWith("ERR pclib ")) {
+                            status = ADDON_FAILED;
+                            detail = error.substring(9).trim();
+                        } else {
+                            status = OLD_HELPER;
                         }
-                        if (line.startsWith("ERR")) {
-                            if (line.startsWith("ERR auth")) {
-                                status = NOT_LINKED;
-                            }
-                            else if (line.startsWith("ERR pclib")) {
-                                status = ADDON_FAILED;
-                                detail = line.substring(9).trim();
-                            }
-                            else {
-                                status = OLD_HELPER;
-                            }
-                            break;
-                        }
-                        lines.add(line);
+                    } else {
+                        lines.addAll(reply.lines);
                     }
                 }
             } catch (IOException e) {
@@ -221,19 +216,17 @@ public final class PcLibrary {
                     else {
                         session.setReadTimeout(25000);
                         session.send("PROGRAMS");
-                        out = new ArrayList<>();
-                        for (int i = 0; i < 5000; i++) {
-                            String line = session.readLine();
-                            if (line == null || line.startsWith("END")) {
-                                break;
-                            }
-                            if (line.startsWith("ERR")) {
-                                error = line;
-                                out = null;
-                                break;
-                            }
-                            String[] p = line.split("\t", -1);
-                            if (p.length >= 3 && "P".equals(p[0]) && !p[1].isEmpty()) {
+                        HorizonLibraryReply reply = HorizonLibraryReply.read(session::readLine, "P\t", 5000,
+                                line -> {
+                                    String[] p = line.split("\t", -1);
+                                    return p.length >= 3 && !p[1].trim().isEmpty() && !p[2].trim().isEmpty();
+                                });
+                        if (reply.error != null) {
+                            error = reply.error;
+                        } else {
+                            out = new ArrayList<>();
+                            for (String line : reply.lines) {
+                                String[] p = line.split("\t", -1);
                                 out.add(new Program(p[1], p[2], p.length > 3 ? p[3] : ""));
                             }
                         }

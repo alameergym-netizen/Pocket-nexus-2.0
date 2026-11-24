@@ -1,0 +1,3 @@
+# PC library response integrity
+
+GAMES and PROGRAMS must end with exact END <count> matching the accepted row count. EOF, malformed records, count mismatch, excess records and more than 8 Mi characters are rejected. Error replies discard pending records. The existing successful cache is updated only for OK; account-owned games may still display separately when a helper fails. Limit total response processing to 60 seconds checked between reads (a blocking final read can extend this by its socket deadline). Seven unit tests. Does not authenticate host identity, alter Apollo, or change the Windows wire protocol. Candidate depends on integrated host branch.
