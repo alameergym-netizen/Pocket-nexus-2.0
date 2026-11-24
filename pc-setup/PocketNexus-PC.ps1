@@ -34,7 +34,12 @@ $TunnelPort = 47100
 $DefaultCompanionPort = 47110
 $TcpPorts = @(47984, 47989, 48010, 47990)
 $DataDir = "$env:LOCALAPPDATA\ArtemisPocket"
-New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
+if ($SelfTest) {
+    $DataDir = Join-Path ([IO.Path]::GetTempPath()) ("nexus-host-test-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $DataDir -ErrorAction Stop | Out-Null
+} else {
+    New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
+}
 
 # The PC helper's port over Wi-Fi: 47110 unless it was changed (-WifiPort, or the icon's menu).
 # Over the cable the handheld always uses 47110 (mapped to this port), so only Wi-Fi cares.
@@ -320,6 +325,7 @@ public static class PocketCompanion {
     static volatile int cpuPercent = 0;
 
     public static int WifiPort = 47110;
+    public static bool SelfTestMode = false;
 
     public static void Start(int port, string token, string pin) {
         Start(port, token, pin, false);
@@ -404,10 +410,11 @@ public static class PocketCompanion {
                 } else if (cmd == "STATUS") {
                     WriteLine(s, Status());
                 } else if (cmd == "POWER") {
-                    WriteLine(s, Power(p.Length > 1 ? p[1].ToLowerInvariant() : ""));
+                    WriteLine(s, SelfTestMode ? "ERR selftest" : Power(p.Length > 1 ? p[1].ToLowerInvariant() : ""));
                 } else if (cmd == "VERSION") {
                     WriteLine(s, "VERSION 3" + (Extra != null ? " games" : ""));
                 } else if (cmd == "MIC") {
+                    if (SelfTestMode) { WriteLine(s, "ERR selftest"); continue; }
                     int rate = p.Length > 1 ? ParseInt(p[1], 48000) : 48000;
                     int channels = p.Length > 2 ? ParseInt(p[2], 1) : 1;
                     MicPlayer.Run(s, rate, channels);
@@ -723,6 +730,7 @@ public static class PcGames {
     public static string DataDir = "";
     /** For the self-test: a Steam folder to read instead of the real one. */
     public static string SteamRootOverride;
+    public static bool SelfTestMode = false;
     /** What the last scan found (for the PCLIB command and the log). */
     public static string LastNote = "";
 
@@ -1591,6 +1599,7 @@ public static class PcGames {
         if (g == null) { Scan(); g = Find(source, id); }
         if (g == null) { return "ERR unknown"; }
         if (g.State != "installed") { return "ERR notinstalled"; }
+        if (SelfTestMode) { return "ERR selftest"; }
         try {
             if (g.Source == "steam") {
                 Open("steam://rungameid/" + g.Id);
@@ -1615,6 +1624,7 @@ public static class PcGames {
 
     public static string SteamInstall(string id, bool confirm) {
         if (!IsDigits(id)) { return "ERR id"; }
+        if (SelfTestMode) { return "ERR selftest"; }
         if (SteamPath() == null) { return "ERR nosteam"; }
         try { Open("steam://install/" + id); } catch (Exception e) { return "ERR " + Clean(e.Message); }
         Log("Steam: install requested (app " + id + (confirm ? ")" : ", the drive is picked on the stream)"));
@@ -2129,6 +2139,8 @@ function Invoke-SelfTest {
     foreach ($er in $script:pcLibraryErrors) { Write-Host ("        " + $er) }
 
     # The protocol, over the loopback (trusted like the cable)
+    [PocketCompanion]::SelfTestMode = $true
+    [PcGames]::SelfTestMode = $true
     [PocketCompanion]::Start($CompanionPort, ("ab" * 16), "123456", $true)
     $client = New-Object System.Net.Sockets.TcpClient
     $client.Connect("127.0.0.1", $CompanionPort)
@@ -2142,6 +2154,9 @@ function Invoke-SelfTest {
     $hello = $reader.ReadLine()
     Check ($hello -like "OK 1 *") ("hello: " + $hello)
     $writer.WriteLine("PING"); Check ($reader.ReadLine() -eq "PONG") "PING"
+    $writer.WriteLine("POWER shutdown"); Check ($reader.ReadLine() -eq "ERR selftest") "selftest blocks host power operations"
+    $writer.WriteLine("MIC 48000 2"); Check ($reader.ReadLine() -eq "ERR selftest") "selftest blocks microphone output"
+    $writer.WriteLine("STEAM INSTALL 100"); Check ($reader.ReadLine() -eq "ERR selftest") "selftest blocks real Steam installs"
     $writer.WriteLine("WIFIPORT"); $wp = $reader.ReadLine(); Check ($wp -eq ("WIFIPORT " + $CompanionPort)) ("WIFIPORT: " + $wp)
     $writer.WriteLine("VERSION"); $v = $reader.ReadLine(); Check ($v -like "VERSION * games") ("VERSION: " + $v)
     $writer.WriteLine("GAMES")
@@ -2224,7 +2239,7 @@ function Invoke-SelfTest {
     }
 
     # PC apps: add one from the Start menu list and find it in GAMES
-    [PcGames]::DataDir = (Join-Path $env:TEMP ("pn-test-" + [Guid]::NewGuid().ToString("N")))
+    [PcGames]::DataDir = (Join-Path $DataDir "app-fixture")
     New-Item -ItemType Directory -Force -Path ([PcGames]::DataDir) | Out-Null
     $programs = [PcGames]::ScanPrograms()
     if ($programs.Count -gt 0) {
@@ -2238,9 +2253,9 @@ function Invoke-SelfTest {
         Write-Host "  (no Start menu programs on this machine to test PC apps with)"
     }
 
-    if ($failed.Count -gt 0) { Write-Host ("SELFTEST FAILED: " + $failed.Count); exit 1 }
+    if ($failed.Count -gt 0) { Write-Host ("SELFTEST FAILED: " + $failed.Count); return 1 }
     Write-Host "SELFTEST PASSED"
-    exit 0
+    return 0
 }
 
 # ==== Setup (double-clicked): close older helpers, set things up, start it in the background ====
@@ -2342,11 +2357,16 @@ try {
     Load-Types
 } catch {
     Say ("Couldn't start: " + $_.Exception.Message) "Red"
-    if ($SelfTest) { Write-Host "SELFTEST FAILED: compile"; exit 1 }
+    if ($SelfTest) { Write-Host "SELFTEST FAILED: compile"; Remove-Item -LiteralPath $DataDir -Recurse -Force -ErrorAction SilentlyContinue; exit 1 }
     if ($Console) { Read-Host "  Press Enter to close" | Out-Null }
     exit 1
 }
-if ($SelfTest) { Invoke-SelfTest }
+if ($SelfTest) {
+    $result = 1
+    try { $result = Invoke-SelfTest }
+    finally { Remove-Item -LiteralPath $DataDir -Recurse -Force -ErrorAction SilentlyContinue }
+    exit $result
+}
 
 $script:adb = Get-Adb
 Start-Servers
