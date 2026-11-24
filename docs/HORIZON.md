@@ -31,3 +31,6 @@ Six opt-in connection profiles apply only resolution, FPS and Wi-Fi/USB bitrates
 
 ## Performance milestone 1
 The device info panel reports instantaneous estimated battery-side power using public Android battery telemetry when available. Control Center prioritizes recognized ClusterTune and PULSE launcher activities. This is launcher integration only, not a PServer backend; no CPU/GPU or thermal settings are written.
+
+## Update catalog milestone
+Import Obtainium schema 1/2 exports through the Android document picker. The catalog stores only sanitized metadata and source host, not raw URLs, headers, regexes or credentials. It displays an imported snapshot; live resolution, release filters, signature verification, installation and scheduling remain separate milestones.

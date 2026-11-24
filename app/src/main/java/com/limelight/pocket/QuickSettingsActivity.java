@@ -803,6 +803,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private static final int REQUEST_BACKUP = 7502;
     private static final int REQUEST_RESTORE = 7503;
     private static final int REQUEST_LSFG_DLL = 7504;
+    private static final int REQUEST_OBTAINIUM = 7505;
 
     private static int indexOfInt(int[] values, int v) {
         for (int i = 0; i < values.length; i++) {
@@ -843,6 +844,20 @@ public class QuickSettingsActivity extends ConsoleActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_OBTAINIUM && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            final android.net.Uri uri = data.getData();
+            final Context app = getApplicationContext();
+            new Thread(() -> {
+                final int count = com.limelight.pocket.updates.ObtainiumCatalog.importFile(app, uri);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) { return; }
+                    Toast.makeText(this, count < 0 ? getString(R.string.horizon_obtainium_failed)
+                            : getString(R.string.horizon_obtainium_imported, count), Toast.LENGTH_LONG).show();
+                    refreshRows();
+                });
+            }, "horizon-import").start();
+            return;
+        }
         if (requestCode == REQUEST_LSFG_DLL && resultCode == RESULT_OK && data != null && data.getData() != null) {
             // The user's Lossless.dll: copied in, its shaders made for this GPU (a few seconds)
             Toast.makeText(this, R.string.pocket_lsfgb_working, Toast.LENGTH_LONG).show();
@@ -1531,6 +1546,18 @@ public class QuickSettingsActivity extends ConsoleActivity {
                         : Updater.knownNewer(this) != null ? getString(R.string.pocket_upd_ready_short)
                         : getString(R.string.pocket_upd_this, Updater.current()),
                 this::checkUpdate);
+        addAction(getString(R.string.horizon_obtainium_import), getString(R.string.horizon_obtainium_import_sub),
+                null, () -> {
+                    try {
+                        startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                                .addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQUEST_OBTAINIUM);
+                    } catch (RuntimeException e) {
+                        Toast.makeText(this, R.string.horizon_obtainium_failed, Toast.LENGTH_LONG).show();
+                    }
+                });
+        addAction(getString(R.string.horizon_obtainium_catalog), getString(R.string.horizon_obtainium_catalog_sub),
+                () -> Integer.toString(com.limelight.pocket.updates.ObtainiumCatalog.count(this)),
+                () -> com.limelight.pocket.updates.ObtainiumCatalog.show(this));
 
         // Handheld or docked (on a TV): like a Switch, each with its own stream settings
         addHeader(R.string.pocket_header_dock_mode);

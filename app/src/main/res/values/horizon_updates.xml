@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_obtainium_import">Import Obtainium export</string>
+    <string name="horizon_obtainium_import_sub">Replace the local source catalog from a JSON export. No apps are installed.</string>
+    <string name="horizon_obtainium_catalog">Update source catalog</string>
+    <string name="horizon_obtainium_catalog_sub">Browse imported versions and release channels.</string>
+    <string name="horizon_obtainium_snapshot">Imported snapshot only. Versions are not checked live; use Obtainium for updates until Nexus supports source filters and signature validation.</string>
+    <string name="horizon_obtainium_empty">No catalog imported yet.</string>
+    <string name="horizon_obtainium_count">%1$d sources</string>
+    <string name="horizon_obtainium_imported">Imported %1$d sources</string>
+    <string name="horizon_obtainium_failed">Could not import a supported Obtainium export</string>
+</resources>
