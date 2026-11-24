@@ -9,6 +9,7 @@ public final class PcLaunchTicket {
     public static void arm(String pcUuid, int viaAppId, String launchCommand, String gameName, int profileId) {
         QUEUE.arm(pcUuid, viaAppId, launchCommand, gameName, profileId, SystemClock.elapsedRealtime());
     }
+    public static void clearHost(String uuid) { QUEUE.clearHost(uuid); }
     public static HorizonPcLaunchQueue.Ticket snapshotFor(String pcUuid, int streamAppId) {
         return QUEUE.snapshotFor(pcUuid, streamAppId, SystemClock.elapsedRealtime());
     }

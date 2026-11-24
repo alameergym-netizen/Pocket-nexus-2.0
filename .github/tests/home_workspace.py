@@ -72,9 +72,24 @@ def main(apk):
     c.capture("03-detail-focus")
     print("PASS: independent regions, grid-to-dock and detail focus", flush=True)
     c.key("BUTTON_SELECT")
-    c.wait_for("legacy Tiles layout chip", lambda t: c.has(t, "Tiles"))
-    tree = c.wait_for("legacy home pins retained", home_ready)
+    # Layout chip is transient (1.5s); UIAutomator waits for idle and can miss it.
+    # Verify the actual selected layout and persisted preference instead of a toast-like chip.
+    def legacy_geometry(tree):
+        grid_node = resource(tree, "homeRow")
+        detail_node = resource(tree, "pocketHeroPlay")
+        if grid_node is None or detail_node is None or not home_ready(tree):
+            return False
+        shelf, detail = bounds(grid_node), bounds(detail_node)
+        return shelf[1] >= detail[3] and c.has(tree, "Music") and c.has(tree, "Files")
+
+    tree = c.wait_for("legacy Tiles geometry and retained pins", legacy_geometry)
+    prefs = c.adb("shell", "run-as", c.PKG, "cat",
+                  "shared_prefs/" + c.PKG + "_preferences.xml").decode("utf-8")
+    assert re.search(r'<string name="pocket_home_layout">tiles</string>', prefs), "Tiles preference not persisted"
     assert c.has(tree, "Music") and c.has(tree, "Files")
+    c.adb("shell", "am", "force-stop", c.PKG)
+    c.launch()
+    c.wait_for("legacy Tiles survives process restart", legacy_geometry)
     c.capture("04-legacy-tiles")
     print("PASS: legacy layout remains available and retains seeded pins", flush=True)
 

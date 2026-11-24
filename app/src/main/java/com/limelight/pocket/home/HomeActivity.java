@@ -195,6 +195,15 @@ public class HomeActivity extends ConsoleActivity {
     private final Map<String, ComputerDetails> livePcs = new HashMap<>();
     /** A game waiting for its PC: being checked, or waking up. */
     private HomeItem pending;
+    private long pcRequest;
+    private boolean pcLibraryHandoff;
+    private final com.limelight.pocket.core.HorizonLaunchRequests launchRequests =
+            com.limelight.pocket.core.HorizonLaunchRequests.shared();
+
+    private boolean currentPcRequest(long request) {
+        return !isFinishing() && !isDestroyed()
+                && launchRequests.current(request, android.os.SystemClock.elapsedRealtime());
+    }
     private boolean pendingWake;
     private ComputerDetails wakingPc;
 
@@ -403,6 +412,8 @@ public class HomeActivity extends ConsoleActivity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        if (pending != null) hideBlockingCard();
+        cancelPending();
         focusGeneration++;
         if (keyArt != null) { keyArt.pauseMotion(); }
         main.removeCallbacks(startAmbient);
@@ -1890,6 +1901,11 @@ public class HomeActivity extends ConsoleActivity {
         if (pending != null) {
             return; // already on its way
         }
+        long request = launchRequests.beginPc(com.limelight.pocket.core.HorizonLaunchTarget.from(item),
+                android.os.SystemClock.elapsedRealtime());
+        if (request == 0L) return;
+        pcRequest = request;
+        pcLibraryHandoff = !record;
         PocketSounds.play(this, PocketSounds.SELECT);
         ComputerDetails pc = binder != null ? binder.getComputer(item.a) : null;
         if (pc == null) {
@@ -1899,7 +1915,7 @@ public class HomeActivity extends ConsoleActivity {
             HomeStore.record(this, item);
         }
         if (pc != null && pc.state == ComputerDetails.State.ONLINE) {
-            startOn(pc, item);
+            startOn(pc, item, request);
             return;
         }
         pending = item;
@@ -1919,9 +1935,8 @@ public class HomeActivity extends ConsoleActivity {
     }
 
     private final Runnable checkTimeout = () -> {
-        if (pending == null || pendingWake) {
-            return;
-        }
+        if (pending == null || pendingWake) return;
+        if (!currentPcRequest(pcRequest)) { cancelPending(); hideBlockingCard(); return; }
         ComputerDetails pc = binder != null ? binder.getComputer(pending.a) : livePcs.get(pending.a);
         if (pc != null) {
             wakeOrGiveUp(pc);
@@ -1955,9 +1970,8 @@ public class HomeActivity extends ConsoleActivity {
         @Override
         public void run() {
             final ComputerDetails pc = wakingPc;
-            if (pc == null || !pendingWake) {
-                return;
-            }
+            if (pc == null || !pendingWake) return;
+            if (!currentPcRequest(pcRequest)) { cancelPending(); hideBlockingCard(); return; }
             new Thread(() -> {
                 try {
                     WakeOnLanSender.sendWolPacket(pc);
@@ -1977,6 +1991,13 @@ public class HomeActivity extends ConsoleActivity {
     };
 
     private void cancelPending() {
+        launchRequests.cancel(pcRequest);
+        pcRequest = 0;
+        pcLibraryHandoff = false;
+        clearPendingWait();
+    }
+
+    private void clearPendingWait() {
         pending = null;
         pendingWake = false;
         wakingPc = null;
@@ -1990,12 +2011,17 @@ public class HomeActivity extends ConsoleActivity {
             return;
         }
         livePcs.put(details.uuid, details);
+        if (pending != null && !currentPcRequest(pcRequest)) {
+            cancelPending();
+            hideBlockingCard();
+        }
         if (pending != null && pending.a.equals(details.uuid)) {
             if (details.state == ComputerDetails.State.ONLINE) {
                 HomeItem item = pending;
-                cancelPending();
+                long request = pcRequest;
+                clearPendingWait();
                 hideBlockingCard();
-                startOn(details, item);
+                startOn(details, item, request);
             }
             else if (details.state == ComputerDetails.State.OFFLINE && !pendingWake) {
                 wakeOrGiveUp(details);
@@ -2009,13 +2035,15 @@ public class HomeActivity extends ConsoleActivity {
     }
 
     /** The PC is on: start (or resume) it, asking first if another game is running. */
-    private void startOn(final ComputerDetails pc, final HomeItem item) {
+    private void startOn(final ComputerDetails pc, final HomeItem item, long request) {
+        if (!currentPcRequest(request)) return;
         if (pc.pairState != PairingManager.PairState.PAIRED) {
             Toast.makeText(this, R.string.pocket_home_need_pair, Toast.LENGTH_LONG).show();
             SectionBar.go(this, SectionBar.HOME, SectionBar.STREAMING);
             return;
         }
         final NvApp app;
+        HomeItem desktopCommand = null;
         if (HomeItem.PC_LIBRARY_GAME.equals(item.kind)) {
             NvApp own = PcLibrary.apolloAppFor(this, pc.uuid, item.name);
             if (own != null) {
@@ -2028,7 +2056,7 @@ public class HomeActivity extends ConsoleActivity {
                     return;
                 }
                 // The stream opens on the PC's desktop and asks the PC to start the game
-                PcLaunchTicket.arm(pc.uuid, desktop.getAppId(), item.b, item.name, item.n);
+                desktopCommand = item; // arm only after actual selection/confirmation
                 app = desktop;
             }
         }
@@ -2036,10 +2064,10 @@ public class HomeActivity extends ConsoleActivity {
             app = appOf(pc, item.n, item.name);
         }
         if (pc.runningGameId != 0 && pc.runningGameId != app.getAppId()) {
-            askSwitch(pc, app);
+            askSwitch(pc, app, request, desktopCommand, pcLibraryHandoff);
             return;
         }
-        start(pc, app);
+        start(pc, app, request, desktopCommand, pcLibraryHandoff);
     }
 
     /** The PC's app with this id (from its list), or one made from what Home knows of it. */
@@ -2052,33 +2080,42 @@ public class HomeActivity extends ConsoleActivity {
         return new NvApp(name != null && !name.isEmpty() ? name : "App " + appId, null, appId, false);
     }
 
-    private void askSwitch(final ComputerDetails pc, final NvApp app) {
+    private void askSwitch(final ComputerDetails pc, final NvApp app, long request,
+                           HomeItem desktopCommand, boolean handoff) {
         final NvApp running = appOf(pc, pc.runningGameId, null);
         List<StreamMenuView.Item> items = new ArrayList<>();
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_home_running_resume, running.getAppName()), () -> {
             hideConsolePanel();
-            start(pc, running);
+            start(pc, running, request, null, false);
         }));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_home_running_switch, app.getAppName()), () -> {
             hideConsolePanel();
-            if (binder == null) {
-                return;
-            }
+            if (binder == null || !currentPcRequest(request)) return;
             ServerHelper.doQuit(this, pc, running, binder, () -> main.post(() -> {
-                if (!isFinishing()) {
+                if (resumed && currentPcRequest(request)) {
                     pc.runningGameId = 0;
-                    start(pc, app);
+                    start(pc, app, request, desktopCommand, handoff);
                 }
             }));
         }));
-        items.add(StreamMenuView.Item.action(getString(android.R.string.cancel), this::hideConsolePanel));
+        items.add(StreamMenuView.Item.action(getString(android.R.string.cancel), () -> {
+            launchRequests.cancel(request);
+            hideConsolePanel();
+        }));
         showConsolePanel(getString(R.string.pocket_home_running_title, running.getAppName()), pc.name, null, items);
     }
 
-    private void start(ComputerDetails pc, NvApp app) {
+    private void start(ComputerDetails pc, NvApp app, long request, HomeItem desktopCommand, boolean handoff) {
+        if (!currentPcRequest(request)) return;
         if (binder == null) {
             Toast.makeText(this, R.string.pair_pc_offline, Toast.LENGTH_SHORT).show();
             return;
+        }
+        if (!launchRequests.claim(request, android.os.SystemClock.elapsedRealtime())) return;
+        if (desktopCommand != null) {
+            PcLaunchTicket.arm(pc.uuid, app.getAppId(), desktopCommand.b, desktopCommand.name, desktopCommand.n);
+        } else if (!handoff) {
+            PcLaunchTicket.clearHost(pc.uuid);
         }
         RecentGames.invalidate(pc.uuid);
         boolean vd = PreferenceConfiguration.readPreferences(this).useVirtualDisplay;
