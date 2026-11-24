@@ -1060,7 +1060,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         //streamContainer.getHolder().addCallback(this);
 
         streamContainer.setOnSurfaceAvailable(() -> {
-            if (!attemptedConnection) {
+            if (!attemptedConnection && !isFinishing() && !isDestroyed() && instance == Game.this) {
                 LimeLog.info("Surface is available, starting connection...");
                 attemptedConnection = true;
 
@@ -1070,6 +1070,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 // Starten Sie die NvConnection
                 horizonStreamTicket = HorizonStreamObserver.instance().beginAttempt(
                         com.limelight.pocket.core.HorizonLaunchTarget.pc(pocketPcUuid(), appId));
+                connecting = true;
                 conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx),
                         decoderRenderer, Game.this);
             }
@@ -5415,6 +5416,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private void stopConnection() {
         if (connecting || connected) {
+            final boolean wasConnected = connected;
             connecting = connected = false;
             updatePipAutoEnter();
 
@@ -5432,8 +5434,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             ResumeTicket.markStopStarted();
             new Thread() {
                 public void run() {
+                    try {
                     conn.stop();
-                    if (httpConn != null && quitOnStop) {
+                    // A cancelled negotiation is not proof we own a running remote app.
+                    if (wasConnected && httpConn != null && quitOnStop) {
                         try {
                             sleep(1000);
                             httpConn.quitApp();
@@ -5444,8 +5448,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                             Game.this.runOnUiThread(() -> Toast.makeText(Game.this, e.getMessage(), Toast.LENGTH_LONG).show());
                         }
                     }
-                    // Only now: a stream that restarts after this waits until the quit went through
-                    ResumeTicket.markStopFinished();
+                    } finally {
+                        // Also release the resume barrier after a cleanup exception.
+                        ResumeTicket.markStopFinished();
+                    }
                 }
             }.start();
         }
@@ -5680,7 +5686,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 }
 
                 // A stopped/replaced activity must not dispatch a pending PC launch.
-                if (isFinishing() || isDestroyed() || instance != Game.this
+                if (!connecting || isFinishing() || isDestroyed() || instance != Game.this
                         || HorizonStreamObserver.instance().snapshot().ticket != horizonStreamTicket
                         || HorizonStreamObserver.instance().snapshot().terminal()) return;
                 connected = true;
