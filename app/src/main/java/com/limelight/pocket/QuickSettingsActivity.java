@@ -675,6 +675,18 @@ public class QuickSettingsActivity extends ConsoleActivity {
     // ---- Buttons ------------------------------------------------------------------------
 
     private void buildButtonsTab() {
+        addAction(getString(R.string.horizon_console_buttons),getString(R.string.horizon_console_buttons_sub),
+                () -> getString(HorizonConsoleButtons.matches(prefs())
+                        ? R.string.horizon_console_buttons_active : R.string.horizon_console_buttons_custom),
+                () -> ConsoleActivity.showImmersive(new AlertDialog.Builder(this)
+                        .setTitle(R.string.horizon_console_buttons)
+                        .setMessage(R.string.horizon_console_buttons_confirm)
+                        .setNegativeButton(android.R.string.cancel,null)
+                        .setPositiveButton(R.string.horizon_console_buttons_apply,(dialog,which) -> {
+                            HorizonConsoleButtons.apply(prefs());
+                            refreshRows();
+                            if (!isAccessibilityServiceEnabled(this)) { showAccessibilityPrompt(); }
+                        }).create()));
         buildEverywhereButtons();
 
         addHeader(R.string.pocket_header_back);

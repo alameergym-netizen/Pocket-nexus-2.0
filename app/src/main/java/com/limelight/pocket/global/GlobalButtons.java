@@ -100,10 +100,10 @@ public final class GlobalButtons {
     private static final String[] GESTURE_KEYS = {"tap", "double", "hold"};
 
     private static final Action[][] DEFAULTS = {
-            // Back: goes back; twice: Quick Switch (the app before); held: the radial menu
-            {Action.PASS, Action.QUICK_SWITCH, Action.RADIAL},
-            // Guide: Pocket Nexus's Home; twice: Quick Resume; held: the radial menu
-            {Action.HOME, Action.QUICK_RESUME, Action.RADIAL},
+            // Back: local device controls. B remains the normal console back action.
+            {Action.CONTROL, Action.NONE, Action.NONE},
+            // Guide: quick game switcher, or radial menu on hold, outside streaming.
+            {Action.QUICK_RESUME, Action.NONE, Action.RADIAL},
     };
 
     private static final Action[] RADIAL_DEFAULTS = {
