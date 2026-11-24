@@ -16,6 +16,10 @@ public final class HorizonLaunchTarget {
         return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.PC_STREAM,
                 uuid == null ? "" : uuid, Integer.toString(appId));
     }
+    public static HorizonLaunchTarget cloud(String service, String url) {
+        return new HorizonLaunchTarget(HorizonProviderPolicy.Provider.CLOUD,
+                service == null ? "" : service, url == null ? "" : url);
+    }
     public static HorizonLaunchTarget from(HomeItem i) {
         HorizonProviderPolicy.Provider p = HorizonProviderPolicy.provider(i);
         if (i == null) return new HorizonLaunchTarget(p);
@@ -23,7 +27,7 @@ public final class HorizonLaunchTarget {
             case PC_STREAM: return pc(i.a, i.n);
             case PC_LIBRARY: return new HorizonLaunchTarget(p, i.a, Integer.toString(i.n), i.b);
             case RETRO: return new HorizonLaunchTarget(p, i.a, i.b, i.c);
-            case CLOUD: return new HorizonLaunchTarget(p, i.a, i.b);
+            case CLOUD: return cloud(i.a, i.b);
             case NATIVE: return new HorizonLaunchTarget(p, i.a,
                     i.b.isEmpty() ? "STEAM" : i.b.toUpperCase(java.util.Locale.ROOT), Integer.toString(i.n));
             case SHORTCUT: return i.b.isEmpty() ? new HorizonLaunchTarget(p, i.a, "", i.c)
