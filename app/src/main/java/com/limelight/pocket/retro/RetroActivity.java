@@ -1424,7 +1424,8 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
 
     private com.limelight.pocket.home.HomeItem homeItem(RomScanner.Rom rom) {
         return new com.limelight.pocket.home.HomeItem(com.limelight.pocket.home.HomeItem.RETRO,
-                RomScanner.searchName(rom.name), rom.system, rom.relPath, "", 0);
+                RomScanner.searchName(rom.name), rom.system, rom.relPath,
+                lib != null && lib.root != null ? lib.root.getAbsolutePath() : "", 0);
     }
 
     /** A name of your own for the game (its details are looked up by it). */
