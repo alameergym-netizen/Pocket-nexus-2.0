@@ -21,6 +21,9 @@ public final class HorizonLaunchRequests {
     public synchronized long beginPc(HorizonLaunchTarget target, long now) {
         if (target == null || (target.provider != HorizonProviderPolicy.Provider.PC_STREAM
                 && target.provider != HorizonProviderPolicy.Provider.PC_LIBRARY)) return 0L;
+        // A pending discovery/confirmation already owns this PC target, even after
+        // the short button debounce expires. Explicit cancellation or expiry allows retry.
+        if (target.equals(last) && current(sequence, now)) return 0L;
         return begin(target, now, PC_WAIT_MS);
     }
     private long begin(HorizonLaunchTarget target, long now, long limit) {
