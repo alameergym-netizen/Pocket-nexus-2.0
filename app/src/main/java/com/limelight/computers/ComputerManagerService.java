@@ -59,14 +59,17 @@ public class ComputerManagerService extends Service {
 
     private IdentityManager idManager;
     private final LinkedList<PollingTuple> pollingTuples = new LinkedList<>();
-    private ComputerManagerListener listener = null;
+    private final com.limelight.pocket.core.HorizonPollingOwner<ComputerManagerListener> pollingOwner =
+            new com.limelight.pocket.core.HorizonPollingOwner<>();
+    private final Object legacyPollingOwner = new Object();
+    private final Object pollingLifecycleLock = new Object();
     private final AtomicInteger activePolls = new AtomicInteger(0);
-    private boolean pollingActive = false;
+    private volatile boolean pollingActive = false;
     private final Lock defaultNetworkLock = new ReentrantLock();
 
     private ConnectivityManager.NetworkCallback networkCallback;
 
-    private DiscoveryService.DiscoveryBinder discoveryBinder;
+    private volatile DiscoveryService.DiscoveryBinder discoveryBinder;
     private final ServiceConnection discoveryServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             synchronized (discoveryServiceConnection) {
@@ -153,8 +156,8 @@ public class ComputerManagerService extends Service {
         }
 
         // Don't call the listener if this is a failed lookup of a new PC
-        if ((!newPc || details.state == ComputerDetails.State.ONLINE) && listener != null) {
-            listener.notifyComputerUpdated(details);
+        if (!newPc || details.state == ComputerDetails.State.ONLINE) {
+            notifyPollingOwner(details);
         }
 
         releaseLocalDatabaseReference();
@@ -193,32 +196,39 @@ public class ComputerManagerService extends Service {
         return t;
     }
 
+    private void notifyPollingOwner(ComputerDetails details) {
+        ComputerManagerListener current = pollingOwner.listener();
+        if (current != null) current.notifyComputerUpdated(details);
+    }
+
     public class ComputerManagerBinder extends Binder {
         public void startPolling(ComputerManagerListener listener) {
-            // Polling is active
-            pollingActive = true;
+            startPolling(legacyPollingOwner, listener);
+        }
 
-            // Set the listener
-            ComputerManagerService.this.listener = listener;
-
-            // Start mDNS autodiscovery too
-            discoveryBinder.startDiscovery(MDNS_QUERY_PERIOD_MS);
-
-            synchronized (pollingTuples) {
-                for (PollingTuple tuple : pollingTuples) {
-                    // Enforce the poll data TTL
-                    if (SystemClock.elapsedRealtime() - tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
-                        LimeLog.info("Timing out polled state for "+tuple.computer.name);
-                        tuple.computer.state = ComputerDetails.State.UNKNOWN;
-                    }
-
-                    // Report this computer initially
-                    listener.notifyComputerUpdated(tuple.computer);
-
-                    // This polling thread might already be there
-                    if (tuple.thread == null) {
-                        tuple.thread = createPollingThread(tuple);
-                        tuple.thread.start();
+        /** One foreground polling owner. A stale screen may not stop its successor. */
+        public void startPolling(Object owner, ComputerManagerListener listener) {
+            synchronized (pollingLifecycleLock) {
+                DiscoveryService.DiscoveryBinder discovery = discoveryBinder;
+                if (discovery == null || owner == null || listener == null) return;
+                // Discovery agents can hold their own locks during callbacks. Never call
+                // their lifecycle methods while holding the computer tuple lock.
+                if (!pollingActive) discovery.startDiscovery(MDNS_QUERY_PERIOD_MS);
+                synchronized (pollingTuples) {
+                    pollingOwner.acquire(owner, listener);
+                    pollingActive = true;
+                    for (PollingTuple tuple : pollingTuples) {
+                        if (SystemClock.elapsedRealtime() - tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
+                            LimeLog.info("Timing out polled state for "+tuple.computer.name);
+                            tuple.computer.state = ComputerDetails.State.UNKNOWN;
+                        }
+                        if (!pollingOwner.owns(owner)) break;
+                        listener.notifyComputerUpdated(tuple.computer);
+                        if (!pollingOwner.owns(owner)) break;
+                        if (tuple.thread == null) {
+                            tuple.thread = createPollingThread(tuple);
+                            tuple.thread.start();
+                        }
                     }
                 }
             }
@@ -266,8 +276,16 @@ public class ComputerManagerService extends Service {
         }
 
         public void stopPolling() {
-            // Just call the unbind handler to cleanup
-            ComputerManagerService.this.onUnbind(null);
+            stopPolling(legacyPollingOwner);
+        }
+
+        /** True only if this caller actually owned and stopped the shared poll. */
+        public boolean stopPolling(Object owner) {
+            synchronized (pollingLifecycleLock) {
+                if (!pollingOwner.release(owner)) return false;
+                stopPollingLocked();
+                return true;
+            }
         }
 
         public ApplistPoller createAppListPoller(ComputerDetails computer) {
@@ -305,28 +323,27 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    @Override
-    public boolean onUnbind(Intent intent) {
-        if (discoveryBinder != null) {
-            // Stop mDNS autodiscovery
-            discoveryBinder.stopDiscovery();
-        }
-
-        // Stop polling
-        pollingActive = false;
+    /** Called under pollingLifecycleLock; never call discovery while holding tuple lock. */
+    private void stopPollingLocked() {
         synchronized (pollingTuples) {
+            pollingActive = false;
             for (PollingTuple tuple : pollingTuples) {
                 if (tuple.thread != null) {
-                    // Interrupt and remove the thread
                     tuple.thread.interrupt();
                     tuple.thread = null;
                 }
             }
         }
+        DiscoveryService.DiscoveryBinder discovery = discoveryBinder;
+        if (discovery != null) discovery.stopDiscovery();
+    }
 
-        // Remove the listener
-        listener = null;
-
+    @Override
+    public boolean onUnbind(Intent intent) {
+        synchronized (pollingLifecycleLock) {
+            pollingOwner.clear();
+            stopPollingLocked();
+        }
         return false;
     }
 
@@ -747,9 +764,7 @@ public class ComputerManagerService extends Service {
                     synchronized (pollingTuples) {
                         for (PollingTuple tuple : pollingTuples) {
                             tuple.computer.state = ComputerDetails.State.UNKNOWN;
-                            if (listener != null) {
-                                listener.notifyComputerUpdated(tuple.computer);
-                            }
+                            notifyPollingOwner(tuple.computer);
                         }
                     }
                 }
@@ -760,9 +775,7 @@ public class ComputerManagerService extends Service {
                     synchronized (pollingTuples) {
                         for (PollingTuple tuple : pollingTuples) {
                             tuple.computer.state = ComputerDetails.State.OFFLINE;
-                            if (listener != null) {
-                                listener.notifyComputerUpdated(tuple.computer);
-                            }
+                            notifyPollingOwner(tuple.computer);
                         }
                     }
                 }
@@ -797,7 +810,7 @@ public class ComputerManagerService extends Service {
     }
 
     public class ApplistPoller {
-        private Thread thread;
+        private volatile Thread thread;
         private final ComputerDetails computer;
         private final Object pollEvent = new Object();
         private boolean receivedAppList = false;
@@ -829,7 +842,7 @@ public class ComputerManagerService extends Service {
                 return false;
             }
 
-            return thread != null && !thread.isInterrupted();
+            return thread == Thread.currentThread() && !Thread.currentThread().isInterrupted();
         }
 
         private PollingTuple getPollingTuple(ComputerDetails details) {
@@ -844,7 +857,8 @@ public class ComputerManagerService extends Service {
             return null;
         }
 
-        public void start() {
+        public synchronized void start() {
+            if (thread != null) return;
             thread = new Thread() {
                 @Override
                 public void run() {
@@ -853,9 +867,7 @@ public class ComputerManagerService extends Service {
                         // Can't poll if it's not online or paired
                         if (computer.state != ComputerDetails.State.ONLINE ||
                                 computer.pairState != PairingManager.PairState.PAIRED) {
-                            if (listener != null) {
-                                listener.notifyComputerUpdated(computer);
-                            }
+                            if (thread == Thread.currentThread()) notifyPollingOwner(computer);
                             continue;
                         }
 
@@ -884,6 +896,7 @@ public class ComputerManagerService extends Service {
                                 appList = http.getAppListRaw();
                             }
 
+                            if (thread != Thread.currentThread() || Thread.currentThread().isInterrupted()) return;
                             List<NvApp> list = NvHTTP.getAppListByReader(new StringReader(appList));
                             if (list.isEmpty()) {
                                 LimeLog.warning("Empty app list received from "+computer.uuid);
@@ -914,9 +927,7 @@ public class ComputerManagerService extends Service {
 
                                 // Notify that the app list has been updated
                                 // and ensure that the thread is still active
-                                if (listener != null && thread != null) {
-                                    listener.notifyComputerUpdated(computer);
-                                }
+                                if (thread == Thread.currentThread()) notifyPollingOwner(computer);
                             }
                             else if (appList.isEmpty()) {
                                 LimeLog.warning("Null app list received from "+computer.uuid);
@@ -933,7 +944,7 @@ public class ComputerManagerService extends Service {
             thread.start();
         }
 
-        public void stop() {
+        public synchronized void stop() {
             if (thread != null) {
                 thread.interrupt();
 
@@ -946,7 +957,7 @@ public class ComputerManagerService extends Service {
 }
 
 class PollingTuple {
-    public Thread thread;
+    public volatile Thread thread;
     public final ComputerDetails computer;
     public final Object networkLock;
     public long lastSuccessfulPollMs;

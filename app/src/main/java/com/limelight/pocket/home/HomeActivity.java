@@ -471,7 +471,7 @@ public class HomeActivity extends ConsoleActivity {
     private void startPolling() {
         if (binder != null) {
             try {
-                binder.startPolling(pcListener);
+                binder.startPolling(this, pcListener);
             } catch (RuntimeException ignored) {
             }
         }
@@ -480,7 +480,7 @@ public class HomeActivity extends ConsoleActivity {
     private void stopPolling() {
         if (binder != null) {
             try {
-                binder.stopPolling();
+                binder.stopPolling(this);
             } catch (RuntimeException ignored) {
             }
         }
