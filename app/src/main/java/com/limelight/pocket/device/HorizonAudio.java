@@ -133,6 +133,12 @@ public final class HorizonAudio {
     }
 
     private static void showStreamRoute(ConsoleActivity a) {
+        List<StreamMenuView.Item> rows = streamRouteRows(a);
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh), () -> showStreamRoute(a)));
+        a.showConsolePanel(a.getString(R.string.horizon_route_title), null, null, rows);
+    }
+
+    public static List<StreamMenuView.Item> streamRouteRows(Context a) {
         List<StreamMenuView.Item> rows = new ArrayList<>();
         com.limelight.binding.audio.HorizonAudioRoute.Snapshot s =
                 com.limelight.binding.audio.HorizonAudioRoute.snapshot();
@@ -150,6 +156,15 @@ public final class HorizonAudio {
                             : a.getString(R.string.horizon_route_ms,ms)));
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_underruns),
                     s.underruns < 0 ? a.getString(R.string.horizon_audio_unavailable) : Integer.toString(s.underruns)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_queue_peak),
+                    s.delivery.highestQueueMs < 0 ? a.getString(R.string.horizon_audio_unavailable)
+                            : a.getString(R.string.horizon_pc_ms, s.delivery.highestQueueMs)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_dropped),
+                    Long.toString(s.delivery.droppedBlocks)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_partial),
+                    Long.toString(s.delivery.partialWrites)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_errors),
+                    Long.toString(s.delivery.writeErrors)));
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_mode),
                     a.getString(s.performanceMode < 0 ? R.string.horizon_audio_unavailable
                             : s.performanceMode == 1 ? R.string.horizon_route_low_latency
@@ -157,8 +172,7 @@ public final class HorizonAudio {
                             : R.string.horizon_route_standard)));
         }
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_route_note)));
-        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh), () -> showStreamRoute(a)));
-        a.showConsolePanel(a.getString(R.string.horizon_route_title),null,null,rows);
+        return rows;
     }
 
     private static void showBluetooth(ConsoleActivity a) {
