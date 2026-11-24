@@ -20,6 +20,17 @@ public class HorizonControlsTest {
         assertEquals(0, HorizonControls.order(0)[0]);
         assertEquals(0, HorizonControls.layoutIndex(99));
     }
+    @Test public void focusTintRemainsOpaqueAndLight() {
+        assertEquals(0xFFCCCCCC, HorizonControls.focusColor(0xFF000000));
+        assertEquals(0xFFFFFFFF, HorizonControls.focusColor(0xFFFFFFFF));
+        assertEquals(0xFFFFCCCC, HorizonControls.focusColor(0x00FF0000));
+    }
+    @Test public void levelsAreBounded() {
+        assertEquals(0f, HorizonControls.clampLevel(-0.1f), 0f);
+        assertEquals(0.5f, HorizonControls.clampLevel(0.5f), 0f);
+        assertEquals(1f, HorizonControls.clampLevel(1.2f), 0f);
+        assertEquals(0f, HorizonControls.clampLevel(Float.NaN), 0f);
+    }
     @Test public void holdDurationIsBounded() {
         assertEquals(350, HorizonControls.holdMs(1));
         assertEquals(480, HorizonControls.holdMs(480));
