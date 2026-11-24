@@ -333,6 +333,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private int pocketProfileFrameGen;
     /** LSFG-Android (external overlay app) makes the in-between frames. */
     private boolean pocketLsfg;
+    /** Lossless Scaling, built in: Android 10+ and a Lossless.dll loaded (else the stream plays without). */
+    private boolean pocketLsfgBuiltIn;
+    private boolean pocketLsfgPaused;
     private boolean pocketWarned24;
     private com.limelight.pocket.ui.LaunchOverlay pocketLaunchOverlay;
 
@@ -487,6 +490,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // The generated frames are 8-bit
             prefConfig.enableHdr = false;
         }
+        pocketLsfgBuiltIn = pocketLsfg && Build.VERSION.SDK_INT >= 29
+                && com.limelight.pocket.video.LsfgSetup.ready(this);
+        if (pocketLsfgBuiltIn) {
+            // x2, x3 or x4: the stream comes at the screen's rate divided by that
+            int m = com.limelight.pocket.video.LsfgSetup.multiplier(this);
+            int target = Math.max(20, Math.round(pocketMaxRefreshRate() / m));
+            if (prefConfig.fps > target) {
+                prefConfig.fps = target;
+            }
+        }
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
 
         if (prefConfig.fullScreen) {
@@ -595,8 +608,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         streamContainer = findViewById(R.id.streamContainer);
         if (onExternelDisplay) {
             pocketFrameGen = false;
+            pocketLsfgBuiltIn = false;
         }
         streamContainer.setFrameGeneration(pocketFrameGen);
+        streamContainer.setLsfg(pocketLsfgBuiltIn, pocketMaxRefreshRate());
         streamContainer.init(this, prefConfig);
         streamContainer.setOnGenericMotionListener(this);
         streamContainer.setOnKeyListener(this);
@@ -2751,7 +2766,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         page.add(off);
         page.add(builtIn);
         page.add(lsfg);
-        if (pocketLsfg) {
+        if (pocketLsfgBuiltIn && com.limelight.pocket.video.LsfgPipeline.active) {
+            // A quick look without it (the same stream, frames shown as they come), and back
+            page.add(StreamMenuView.Item.value(getString(R.string.pocket_lsfgb_pause_item), onOff(!pocketLsfgPaused),
+                    direction -> {
+                        pocketLsfgPaused = !pocketLsfgPaused;
+                        streamContainer.setLsfgBypass(pocketLsfgPaused);
+                        return onOff(!pocketLsfgPaused);
+                    }).withIcon("STAR"));
+        }
+        else if (pocketLsfg && !pocketLsfgBuiltIn && com.limelight.pocket.LsfgApp.isInstalled(this)) {
             page.add(StreamMenuView.Item.action(getString(R.string.pocket_sm_lsfg_open), () -> {
                 if (!com.limelight.pocket.LsfgApp.open(this)) {
                     showPocketToast(getString(R.string.pocket_lsfg_missing_toast), true, 3500);
@@ -3025,8 +3049,18 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         return max;
     }
 
+    /** Lossless Scaling couldn't start (no Vulkan feature, the driver...): playing without it. */
+    public void pocketLsfgUnavailable(String why) {
+        pocketLsfgBuiltIn = false;
+        showPocketToast(getString(R.string.pocket_lsfgb_failed, why != null ? why : "?"), true, 6000);
+    }
+
     private String pocketFrameGenLabel() {
         if (pocketLsfg) {
+            if (pocketLsfgBuiltIn && com.limelight.pocket.video.LsfgPipeline.active) {
+                return pocketLsfgPaused ? getString(R.string.pocket_lsfgb_paused)
+                        : getString(R.string.pocket_lsfgb_active, com.limelight.pocket.video.LsfgPipeline.multiplierNow);
+            }
             return getString(R.string.pocket_framegen_lsfg_short);
         }
         if (!pocketFrameGen) {
@@ -3301,10 +3335,14 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             showPocketToast(getString(R.string.pocket_framegen_toast, Math.round(prefConfig.fps),
                     Math.round(pocketMaxRefreshRate())), true, 2500);
         }
+        else if (pocketLsfgBuiltIn) {
+            showPocketToast(getString(R.string.pocket_lsfgb_toast, com.limelight.pocket.video.LsfgSetup.multiplier(this),
+                    Math.round(prefConfig.fps), Math.round(pocketMaxRefreshRate())), true, 3000);
+        }
         else if (pocketLsfg) {
-            showPocketToast(com.limelight.pocket.LsfgApp.isInstalled(this)
-                    ? getString(R.string.pocket_lsfg_toast, Math.round(prefConfig.fps), Math.round(pocketMaxRefreshRate()))
-                    : getString(R.string.pocket_lsfg_missing_toast), true, 4000);
+            // Picked, but nothing to run it with yet: said once, and the stream plays as it is
+            showPocketToast(getString(Build.VERSION.SDK_INT >= 29 ? R.string.pocket_lsfgb_load_first
+                    : R.string.pocket_lsfgb_unsupported), true, 5000);
         }
         String uuid = pocketPcUuid();
         if (UsbLink.isUsbAddress(host)) {

@@ -38,7 +38,9 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
         MODE_2D,
         MODE_AI_3D,
         MODE_AI_3D_MOVIE,
-        MODE_FRAME_GEN
+        MODE_FRAME_GEN,
+        /** Lossless Scaling's frame generation, built in (the user's own Lossless.dll). */
+        MODE_LSFG
     }
 
     private Game game;
@@ -46,6 +48,9 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
     private Stereo3DRenderer mStereoRenderer;
     private FrameGenRenderer mFrameGen;
     private boolean frameGenRequested;
+    private boolean lsfgRequested;
+    private float lsfgRefreshHz;
+    private com.limelight.pocket.video.LsfgPipeline mLsfg;
 
     private SurfaceView mSurfaceView;
     private Surface mCurrentSurface;
@@ -74,7 +79,8 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
         this.game = game;
         this.prefConfig = prefConfig;
         // Artemis Pocket: AI 3D modes were removed; the GL path is used for frame generation
-        this.renderMode = frameGenRequested ? StreamMode.MODE_FRAME_GEN : StreamMode.MODE_2D;
+        this.renderMode = lsfgRequested && android.os.Build.VERSION.SDK_INT >= 29 ? StreamMode.MODE_LSFG
+                : frameGenRequested ? StreamMode.MODE_FRAME_GEN : StreamMode.MODE_2D;
 
         Stereo3DRenderer.isMovieMode = renderMode == StreamMode.MODE_AI_3D_MOVIE;
 
@@ -98,7 +104,7 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
             mSurfaceView = glSurfaceView;
             addView(mSurfaceView, childParams);
         }
-        else if (renderMode != StreamMode.MODE_2D) {
+        else if (renderMode != StreamMode.MODE_2D && renderMode != StreamMode.MODE_LSFG) {
             GLSurfaceView glSurfaceView = new GLSurfaceView(context);
             glSurfaceView.setEGLContextClientVersion(3);
             mStereoRenderer = new Stereo3DRenderer(glSurfaceView, this, context, prefConfig);
@@ -257,6 +263,36 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
             mCurrentSurface = holder.getSurface();
             notifySurfaceReady();
         }
+        else if (renderMode == StreamMode.MODE_LSFG && width > 0 && height > 0
+                && android.os.Build.VERSION.SDK_INT >= 29) {
+            if (mLsfg == null) {
+                // The generator shows on this surface; the decoder draws into the generator
+                final Surface out = holder.getSurface();
+                mLsfg = new com.limelight.pocket.video.LsfgPipeline(getContext(), prefConfig.width, prefConfig.height);
+                mLsfg.start(out, width, height, lsfgRefreshHz, new com.limelight.pocket.video.LsfgPipeline.Listener() {
+                    @Override
+                    public void onDecoderSurface(Surface surface) {
+                        mCurrentSurface = surface;
+                        notifySurfaceReady();
+                    }
+
+                    @Override
+                    public void onUnavailable(String why) {
+                        // Without it: the stream straight on the screen, as always
+                        mLsfg = null;
+                        renderMode = StreamMode.MODE_2D;
+                        mCurrentSurface = mSurfaceView.getHolder().getSurface();
+                        notifySurfaceReady();
+                        if (game != null) {
+                            game.pocketLsfgUnavailable(why);
+                        }
+                    }
+                });
+            }
+            else {
+                mLsfg.setOutput(holder.getSurface(), width, height);
+            }
+        }
 
         game.surfaceChanged(holder, format, width, height);
     }
@@ -265,6 +301,11 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
         if (renderMode == StreamMode.MODE_2D) {
             isSurfaceReady = false;
             mCurrentSurface = null;
+        } else if (renderMode == StreamMode.MODE_LSFG) {
+            // The generator lets go of the screen; the decoder keeps drawing into it
+            if (mLsfg != null) {
+                mLsfg.setOutput(null, 0, 0);
+            }
         } else if (mFrameGen != null) {
             isSurfaceReady = false;
         } else if (mStereoRenderer != null) {
@@ -288,6 +329,27 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
         }
         if (mFrameGen != null) {
             mFrameGen.release();
+        }
+        if (mLsfg != null) {
+            mLsfg.release();
+            mLsfg = null;
+        }
+    }
+
+    /** Pocket Nexus: call before init() to show the stream through Lossless Scaling (Android 10+). */
+    public void setLsfg(boolean enabled, float refreshHz) {
+        lsfgRequested = enabled;
+        lsfgRefreshHz = refreshHz;
+    }
+
+    public boolean isLsfg() {
+        return renderMode == StreamMode.MODE_LSFG && mLsfg != null;
+    }
+
+    /** Lossless Scaling paused (frames shown as they come) or on. */
+    public void setLsfgBypass(boolean bypass) {
+        if (mLsfg != null) {
+            mLsfg.setBypass(bypass);
         }
     }
 

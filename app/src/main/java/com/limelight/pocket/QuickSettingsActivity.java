@@ -495,14 +495,57 @@ public class QuickSettingsActivity extends ConsoleActivity {
                     prefs().edit().putString(PocketPrefs.KEY_FRAME_GEN, fgValues[index]).apply();
                     refreshRows();
                 }, null);
-        addAction(getString(R.string.pocket_set_lsfg_open), getString(R.string.pocket_set_lsfg_open_sub),
-                () -> getString(LsfgApp.isInstalled(this) ? R.string.pocket_lsfg_installed : R.string.pocket_lsfg_missing),
+        // Lossless Scaling, built in: the user's own Lossless.dll, loaded once
+        addAction(getString(R.string.pocket_lsfgb_title), getString(R.string.pocket_lsfgb_sub),
+                () -> com.limelight.pocket.video.LsfgSetup.status(this),
                 () -> {
-                    if (!LsfgApp.open(this)) {
-                        android.widget.Toast.makeText(this, R.string.pocket_lsfg_missing_toast,
-                                android.widget.Toast.LENGTH_LONG).show();
+                    if (!com.limelight.pocket.video.LsfgSetup.supported()) {
+                        Toast.makeText(this, R.string.pocket_lsfgb_unsupported, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    try {
+                        startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                                .addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQUEST_LSFG_DLL);
+                    } catch (RuntimeException e) {
+                        Toast.makeText(this, R.string.pocket_apps_cant_open, Toast.LENGTH_SHORT).show();
                     }
                 });
+        {
+            final int[] mults = com.limelight.pocket.video.LsfgSetup.MULTIPLIERS;
+            String[] labels = new String[mults.length];
+            for (int i = 0; i < mults.length; i++) {
+                labels[i] = getString(R.string.pocket_lsfgb_times, mults[i]);
+            }
+            addChoice(getString(R.string.pocket_lsfgb_multiplier), getString(R.string.pocket_lsfgb_multiplier_sub), labels,
+                    () -> indexOfInt(mults, com.limelight.pocket.video.LsfgSetup.multiplier(this)),
+                    index -> prefs().edit().putInt(com.limelight.pocket.video.LsfgSetup.KEY_MULTIPLIER, mults[index]).apply(),
+                    null);
+            final float[] flows = com.limelight.pocket.video.LsfgSetup.FLOWS;
+            String[] flowLabels = new String[flows.length];
+            for (int i = 0; i < flows.length; i++) {
+                flowLabels[i] = Math.round(flows[i] * 100) + "%";
+            }
+            addChoice(getString(R.string.pocket_lsfgb_flow), getString(R.string.pocket_lsfgb_flow_sub), flowLabels,
+                    () -> {
+                        float now = com.limelight.pocket.video.LsfgSetup.flowScale(this);
+                        for (int i = 0; i < flows.length; i++) {
+                            if (Math.abs(flows[i] - now) < 0.01f) {
+                                return i;
+                            }
+                        }
+                        return flows.length - 1;
+                    },
+                    index -> prefs().edit().putFloat(com.limelight.pocket.video.LsfgSetup.KEY_FLOW, flows[index]).apply(),
+                    null);
+            addToggle(getString(R.string.pocket_lsfgb_performance), getString(R.string.pocket_lsfgb_performance_sub),
+                    () -> com.limelight.pocket.video.LsfgSetup.performance(this),
+                    value -> prefs().edit().putBoolean(com.limelight.pocket.video.LsfgSetup.KEY_PERFORMANCE, value).apply());
+        }
+        if (LsfgApp.isInstalled(this)) {
+            addAction(getString(R.string.pocket_set_lsfg_open), getString(R.string.pocket_set_lsfg_open_sub),
+                    () -> getString(R.string.pocket_lsfg_installed),
+                    () -> LsfgApp.open(this));
+        }
 
         addToggle(getString(R.string.pocket_set_adaptive), getString(R.string.pocket_set_adaptive_sub),
                 () -> PocketPrefs.adaptiveStream(this),
@@ -742,6 +785,16 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private static final int REQUEST_MUSIC = 7501;
     private static final int REQUEST_BACKUP = 7502;
     private static final int REQUEST_RESTORE = 7503;
+    private static final int REQUEST_LSFG_DLL = 7504;
+
+    private static int indexOfInt(int[] values, int v) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == v) {
+                return i;
+            }
+        }
+        return 0;
+    }
 
     private void backup() {
         try {
@@ -773,6 +826,23 @@ public class QuickSettingsActivity extends ConsoleActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_LSFG_DLL && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            // The user's Lossless.dll: copied in, its shaders made for this GPU (a few seconds)
+            Toast.makeText(this, R.string.pocket_lsfgb_working, Toast.LENGTH_LONG).show();
+            com.limelight.pocket.video.LsfgSetup.importDll(this, data.getData(), (ok, message) -> {
+                if (isFinishing()) {
+                    return;
+                }
+                PocketSounds.play(this, ok ? PocketSounds.TOGGLE_ON : PocketSounds.ERROR);
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                if (ok && !PocketPrefs.frameGenLsfg(this)) {
+                    // Loaded to be used: Lossless Scaling becomes the frame generation
+                    prefs().edit().putString(PocketPrefs.KEY_FRAME_GEN, PocketPrefs.FRAME_GEN_LSFG).apply();
+                }
+                refreshRows();
+            });
+            return;
+        }
         if ((requestCode == REQUEST_BACKUP || requestCode == REQUEST_RESTORE) && resultCode == RESULT_OK
                 && data != null && data.getData() != null) {
             final android.net.Uri uri = data.getData();

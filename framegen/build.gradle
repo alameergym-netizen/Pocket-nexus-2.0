@@ -1,6 +1,6 @@
 // Lossless Scaling frame generation, built in: lsfg-vk (MIT) and LSFG-Android's native render
-// loop (GPLv3, as this app), on the user's own Lossless.dll. Android 10+ (AHardwareBuffer,
-// NNAPI); the app (Android 5+) only loads it there.
+// loop (GPLv3, as this app), on the user's own Lossless.dll. Its native part needs Android 10+
+// (AHardwareBuffer, NNAPI) and is only loaded there.
 apply plugin: 'com.android.library'
 
 android {
@@ -9,7 +9,9 @@ android {
     ndkVersion "27.0.12077973"
 
     defaultConfig {
-        minSdk 29
+        // The Java side is safe anywhere (it loads the native part only on Android 10+, see
+        // FrameGen.load); the native part is built for Android 10 (ANDROID_PLATFORM below)
+        minSdk 21
         ndk {
             abiFilters(*((project.findProperty('pocketAbis') ?: 'arm64-v8a').toString().split(',')))
         }
