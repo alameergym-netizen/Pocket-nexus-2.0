@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_game_presets">Game stream presets</string>
+    <string name="horizon_game_presets_note">Choose a starting point for this game. Confirm to replace its resolution, FPS and bitrate; frame generation and global settings stay unchanged. The bitrate applies on every link for this game. Use a suitable link and adjust if needed. Changes take effect on the next launch; adaptive streaming and frame generation can affect actual values.</string>
+    <string name="horizon_game_preset_saved">Game stream preset saved</string>
+    <string name="horizon_game_remote_saver">Remote Saver</string>
+    <string name="horizon_game_remote_balanced">Remote Balanced</string>
+    <string name="horizon_game_remote_high_refresh">Remote High Refresh</string>
+    <string name="horizon_game_local_balanced">Local Balanced</string>
+    <string name="horizon_game_local_high_refresh">Local High Refresh</string>
+    <string name="horizon_game_usb_high_refresh">USB High Refresh</string>
+    <string name="horizon_stream_observation">PC streaming session</string>
+    <string name="horizon_stream_last_attempt">Last observed local attempt</string>
+    <string name="horizon_stream_observation_note">Process-local snapshot, not the remote game state. A stopped client may leave the PC game running. Reconnects are new attempts.</string>
+    <string name="horizon_stream_connecting">Connecting</string>
+    <string name="horizon_stream_connected">Connected</string>
+    <string name="horizon_stream_failed">Failed</string>
+    <string name="horizon_stream_ended">Client ended</string>
+    <string name="horizon_stream_ending">Ending</string>
+    <string name="horizon_stream_background">Background</string>
+    <string name="horizon_stream_reconnecting">Reconnecting</string>
+    <string name="horizon_stream_not_observed">Not observed in this process</string>
+</resources>

@@ -1,23 +1,19 @@
 # Horizon development state — 2026-11-24
 
-## Resume here
-Read docs/HORIZON_SYSTEM_BLUEPRINT.md and docs/HORIZON.md first. Integration branch: horizon-foundation (not repository default ci-logs). Inspect live PRs, actual branch head and workflow results before editing; this file is a dated checkpoint, not live status. Preserve original application, all existing capabilities and user data. Android RP6 and Windows Nexus Host are equal release requirements. Primary host: Vibepollo. Back opens Nexus Control (in-stream menu while streaming); Home during streaming sends Xbox Guide. Preserve existing bindings. No force pushes or untested merges.
+Read docs/HORIZON_SYSTEM_BLUEPRINT.md and docs/HORIZON.md first. Actual integration branch: horizon-foundation (not ci-logs). Inspect live refs, PRs, exact CI results and artifacts before continuing. Treat this document as a dated checkpoint, not live status. Preserve user data, original features, original approved Horizon visual identity, controller mappings (Back Control; Home while streaming Xbox Guide), ARM64 Android 13 RP6 and Windows Vibepollo compatibility. Do not stop at a single small PR: work in coherent batches with verified checkpoints. Do not force push, merge stale/failed CI, expose plaintext APC1 to public networks or require root.
 
 ## Verified baseline
-Foundation b80bbeb21112a99cd14c31292584058512b34a54 includes merged PR #24 session state policy and full-system blueprint. CI 45461259856 passed (five session tests). Game cards #21 and Home #20 already merged. Session policy is not yet wired into runtime.
+PR #29 merged to foundation commit 98d62c598634749a6da7249e50b6b10f812bee29. Integrated Android CI 45462900041: APK build, 193 passed test lines; Windows CI 45462900133: 43 successful checks. Contains #22 Hero, #23 Control, #25 provider classification, #26 Windows desktop dashboard, #27 USB non-destructive mapping and PIN log redaction, #28 initial integration. #24 session policy and blueprint already merged. These are not final redesign, physical device validation, or encrypted connection. Original PRs superseded by #29; close only after confirming merged content.
 
-## Integrated candidate
-This branch combines exact source blobs from independent successful candidates #22 Hero (run 45461431168), #23 Control (45458089143), #25 provider classification (45461504280), #26 Windows Dashboard (Android 45461786231 and Windows 45461786251, 38 checks). Their changed paths do not overlap each other or newer foundation changes. All require new integrated Android and Windows CI before merge. Keep original PRs until integration is confirmed; do not merge them separately afterward. No claim of completed shell redesign or verified desktop GUI.
+## Current candidate
+PR #31 includes #30 stream observation, game-specific preset menu and Device Info last-local-attempt status, four observer and four preset tests. Updated on exact merged #29 base without path overlap. Requires new combined Android CI; unchanged Windows content retains earlier evidence but final release still needs Windows/RP6 integration. No actual global session lock, automatic hardware controls, or cross-process session recovery. Bitrate preset applies to every link of that game; three existing preference fields changed only after confirmation. 
 
-PR #27 USB/privacy: Windows CI 45462100156 and Android CI 45462100192 passed independently. This successor branch reconciles the exact USB/log changes with the dashboard from #28, preserving all eleven additional Windows checks. Fresh integrated Android and Windows CI required. Legacy APC1 remains plaintext; no public internet exposure. Old log/status PIN and token storage remain outstanding.
-
-## Next work in order
-1. Verify integrated candidate CI and foundation head before merge.
-2. Verify successor candidate with #27 and dashboard combined; do not merge stale results. Reconcile against current foundation if #28 lands first.
-3. Connect session policy/provider classification to confirmed stream lifecycle with failure and stale-callback handling, then other providers. External activity launch is not confirmation of gameplay.
-4. Build profile policy and full Horizon design system; capture actual screenshots. Do not treat current polish as final redesign.
-5. Windows Host: secure pairing/transport, real desktop dashboard validation, Vibepollo integration and installer; continue alongside Android.
-6. Track remaining G01–G14 gates in the blueprint. Physical RP6 and Windows tests are required.
+## Next batch
+1. Verify #31 current merge ref, APK and unit tests; merge only if successful. Close #30 as superseded after merge. Update checkpoint and offer tested artifact when available.
+2. Prioritize actual new Horizon Shell design and screenshot validation, including Home, library, stream, game detail and Control Center; not cosmetic tweaks. Preserve existing functionality. 
+3. Expand unified provider/session identity and profile engine, including audio/storage and safe per-session restoration. 
+4. Windows: encrypted authenticated transport, pairing revocation and protected credential storage, full UI/installer, Vibepollo capabilities and telemetry. Preserve USB/mic/power/library; actual Windows and RP6 tests.
+5. Continue all remaining blueprint gates.
 
 ## Release progress
-0/14 fully accepted gates, not 0% of development effort. Partial foundation, core, shell, gaming, stream, hardware, data, host, audio, connect, services. Automation, optimization/recovery and release remain open. Update this checkpoint after verified integration, retaining links to evidence.
+0/14 strict full-release gates accepted. This is not 0% development effort. Existing partial functionality and verified tests retained. Do not infer progress percentage or hardware compatibility from build success.
