@@ -74,6 +74,8 @@ public class GamePageActivity extends ConsoleActivity {
     public static final String EXTRA_RUNNING = "pocket.page.running";
     public static final String EXTRA_CAN_QUIT = "pocket.page.canQuit";
     public static final String EXTRA_RECT = "pocket.page.rect";
+    private static final String EXTRA_RETRO_ITEM = "pocket.page.retroItem";
+    public static final String RESULT_RETRO_ITEM = "pocket.page.result.retroItem";
 
     public static final String RESULT_ACTION = "pocket.page.action";
     public static final String RESULT_APP_ID = "pocket.page.result.appId";
@@ -87,7 +89,16 @@ public class GamePageActivity extends ConsoleActivity {
     /** Opens a game's page from a card (the card grows into the page). */
     public static void open(Activity from, View card, String uuid, int appId, String name, String pcName,
                             boolean running, boolean canQuit, Bitmap cover) {
+        open(from,card,uuid,appId,name,pcName,running,canQuit,cover,null);
+    }
+
+    public static void open(Activity from, View card, String uuid, int appId, String name, String pcName,
+                            boolean running, boolean canQuit, Bitmap cover,
+                            com.limelight.pocket.home.HomeItem retroItem) {
         Intent intent = new Intent(from, GamePageActivity.class);
+        if (retroItem != null && com.limelight.pocket.home.HomeItem.RETRO.equals(retroItem.kind)) {
+            intent.putExtra(EXTRA_RETRO_ITEM,retroItem.toLine());
+        }
         intent.putExtra(EXTRA_UUID, uuid);
         intent.putExtra(EXTRA_APP_ID, appId);
         intent.putExtra(EXTRA_NAME, name);
@@ -755,17 +766,17 @@ public class GamePageActivity extends ConsoleActivity {
     /** What this page's game is on Home (to add it there right from here), found off the main thread. */
     private void findHomeItem() {
         final android.content.Context app = getApplicationContext();
+        if (com.limelight.pocket.retro.RetroLibrary.UUID.equals(uuid)) {
+            // An integer ID alone cannot recover a source-bound ROM reliably.
+            homeItem = com.limelight.pocket.retro.HorizonRetroPageIdentity.read(
+                    getIntent().getStringExtra(EXTRA_RETRO_ITEM),appId);
+            updateHomeButton();
+            return;
+        }
         new Thread(() -> {
             com.limelight.pocket.home.HomeItem found = null;
             try {
-                if (com.limelight.pocket.retro.RetroLibrary.UUID.equals(uuid)) {
-                    com.limelight.pocket.retro.RomScanner.Rom rom = com.limelight.pocket.retro.Achievements.findRom(app, appId);
-                    if (rom != null) {
-                        found = new com.limelight.pocket.home.HomeItem(com.limelight.pocket.home.HomeItem.RETRO,
-                                com.limelight.pocket.retro.RomScanner.searchName(rom.name), rom.system, rom.relPath, "", 0);
-                    }
-                }
-                else if (com.limelight.pocket.apps.AndroidLibrary.UUID.equals(uuid)) {
+                if (com.limelight.pocket.apps.AndroidLibrary.UUID.equals(uuid)) {
                     android.content.pm.PackageManager pm = app.getPackageManager();
                     for (android.content.pm.ApplicationInfo ai : pm.getInstalledApplications(0)) {
                         if (com.limelight.pocket.apps.AndroidLibrary.idFor(ai.packageName) == appId) {
@@ -869,6 +880,9 @@ public class GamePageActivity extends ConsoleActivity {
         Intent result = new Intent();
         result.putExtra(RESULT_ACTION, action);
         result.putExtra(RESULT_APP_ID, appId);
+        if (com.limelight.pocket.retro.RetroLibrary.UUID.equals(uuid) && homeItem != null) {
+            result.putExtra(RESULT_RETRO_ITEM,homeItem.toLine());
+        }
         result.putExtra(RESULT_CHANGED, changed);
         setResult(RESULT_OK, result);
         isResultSet = true;

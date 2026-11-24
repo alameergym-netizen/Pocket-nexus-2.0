@@ -1656,7 +1656,7 @@ public class HomeActivity extends ConsoleActivity {
             }
         }
         GamePageActivity.open(this, card, artUuid(e.item), artId(e.item), RomScanner.searchName(displayName(e.item)),
-                where(e), false, false, cover);
+                where(e), false, false, cover, HomeItem.RETRO.equals(e.item.kind) ? e.item : null);
     }
 
     @Override
@@ -1679,7 +1679,15 @@ public class HomeActivity extends ConsoleActivity {
         }
         if (requestCode == GamePageActivity.REQUEST && data != null
                 && GamePageActivity.ACTION_PLAY.equals(data.getStringExtra(GamePageActivity.RESULT_ACTION))) {
-            activate(heroPos);
+            String retro = data.getStringExtra(GamePageActivity.RESULT_RETRO_ITEM);
+            if (retro != null) {
+                HomeItem item = com.limelight.pocket.retro.HorizonRetroPageIdentity.read(retro,
+                        data.getIntExtra(GamePageActivity.RESULT_APP_ID,0));
+                if (item != null) { HomeLauncher.launch(this,item); }
+                else { Toast.makeText(this,R.string.horizon_retro_source_changed,Toast.LENGTH_LONG).show(); }
+            } else {
+                activate(heroPos);
+            }
             return;
         }
         if (requestCode == com.limelight.pocket.info.InfoPickerActivity.REQUEST && resultCode == RESULT_OK) {
