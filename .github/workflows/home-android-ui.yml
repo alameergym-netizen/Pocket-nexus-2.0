@@ -39,12 +39,21 @@ jobs:
         shell: bash
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/nexus-android"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME" home-ui-results
           sudo chmod 666 /dev/kvm
-          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n nexus-home -k 'system-images;android-33;google_apis;x86_64' --force
-          mkdir -p home-ui-results
+          "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n nexus-home -p "$ANDROID_AVD_HOME/nexus-home.avd" -k 'system-images;android-33;google_apis;x86_64' --device pixel_2 --force
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx nexus-home
           "$ANDROID_HOME/emulator/emulator" -avd nexus-home -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > home-ui-results/emulator.log 2>&1 &
+          emulator_pid=$!
           trap 'adb emu kill >/dev/null 2>&1 || true' EXIT
-          timeout 240 adb wait-for-device
+          for attempt in {1..120}; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then cat home-ui-results/emulator.log; exit 1; fi
+            if adb devices | grep -Eq '^emulator-[0-9]+[[:space:]]+device'; then break; fi
+            sleep 2
+          done
+          timeout 10 adb wait-for-device
           timeout 240 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
