@@ -43,3 +43,6 @@ Bounded, complete line framing rejects truncated replies and embedded newline co
 
 ## Audio milestone 1
 Android-visible audio output inventory, sound/Bluetooth settings and optional Huawei AI Life handoff are exposed in the device panel and Settings. Existing media session controls now respect advertised capabilities and recheck them when pressed. No ANC, internal EQ, JamesDSP processing or privileged audio routing is implemented in this milestone.
+
+## Controls and widgets milestone
+Global Back/Guide hold duration is configurable, without changing stream controls or existing bindings. Quick Control offers three reorder presets preserving all six tiles. Two optional Home widgets expose battery-side power and internal free space / mounted removable volume count. Neither is automatically inserted into an existing shelf. Storage refresh is throttled. Per-game global bindings, free-form tile editing and deeper telemetry remain future work.

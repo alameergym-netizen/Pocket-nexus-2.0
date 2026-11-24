@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_hold_speed">Hold duration</string>
+    <string name="horizon_hold_speed_sub">Time before a global Back or Guide hold action runs. Streaming hotkeys are unchanged.</string>
+    <string name="horizon_control_layout">Quick control layout</string>
+    <string name="horizon_control_layout_sub">Choose which controls appear first. Applies when reopening Nexus Control.</string>
+    <string name="horizon_control_classic">Classic</string>
+    <string name="horizon_control_gaming">Gaming first</string>
+    <string name="horizon_control_network">Connectivity first</string>
+    <string name="horizon_widget_power">Battery power</string>
+    <string name="horizon_widget_power_note">Battery-side estimate, not processor power.</string>
+    <string name="horizon_widget_storage">Storage overview</string>
+    <string name="horizon_widget_free">%1$s free</string>
+    <string name="horizon_widget_removable">Mounted removable volumes: %1$d</string>
+    <string name="horizon_widget_removable_unknown">Removable volume count unavailable</string>
+</resources>

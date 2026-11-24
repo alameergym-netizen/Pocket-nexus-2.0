@@ -215,6 +215,19 @@ public class ControlCenterActivity extends Activity {
             }
         });
 
+        // Reorder existing tiles without changing their actions or removing essential controls.
+        Tile[] tiles = {sleep, wifi, bluetooth, shot, quiet, perf};
+        int[] order = HorizonControls.order(PocketPrefs.prefs(this).getInt(HorizonControls.KEY_LAYOUT, 0));
+        row1.removeAllViews();
+        row2.removeAllViews();
+        for (int i = 0; i < order.length; i++) {
+            Tile t = tiles[order[i]];
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, tileH, 1f);
+            if (i % 3 != 2) { lp.setMarginEnd(dp(10)); }
+            (i < 3 ? row1 : row2).addView(t, lp);
+        }
+        first = tiles[order[0]];
+
         // Brightness and volume
         brightness = bar("SUN", getString(R.string.pocket_nc_brightness));
         LinearLayout.LayoutParams bl = matchWrap();

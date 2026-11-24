@@ -64,7 +64,9 @@ public final class WidgetShelf {
     private static final String WEEK = "week";
     private static final String NEWS = "news";
     private static final String APP_WIDGET = "aw:";
-    private static final String[] BUILT_IN = {CLOCK, NOW_PLAYING, WEATHER, WEEK, NEWS, NOTIFICATIONS, DEVICE, PCS};
+    private static final String POWER = "horizon_power";
+    private static final String STORAGE = "horizon_storage";
+    private static final String[] BUILT_IN = {CLOCK, NOW_PLAYING, WEATHER, WEEK, NEWS, NOTIFICATIONS, DEVICE, PCS, POWER, STORAGE};
     private static final int HOST_ID = 0x504E;
     static final int REQUEST_BIND = 7411;
     static final int REQUEST_CONFIGURE = 7412;
@@ -355,6 +357,12 @@ public final class WidgetShelf {
             case NEWS:
                 card = new WidgetCards.NewsCard(activity, kind);
                 break;
+            case POWER:
+                card = new WidgetCards.PowerCard(activity, kind);
+                break;
+            case STORAGE:
+                card = new WidgetCards.StorageCard(activity, kind);
+                break;
             default:
                 card = new WidgetCards.PcsCard(activity, kind);
                 break;
@@ -439,6 +447,12 @@ public final class WidgetShelf {
             case CLOCK:
                 // Nexus Control: the glass panel with the handheld's controls
                 com.limelight.pocket.global.ControlCenterActivity.open(activity);
+                return;
+            case POWER:
+                com.limelight.pocket.device.DeviceInfoPanel.show(activity);
+                return;
+            case STORAGE:
+                com.limelight.pocket.device.HorizonStorage.show(activity);
                 return;
             case PCS:
                 close();
@@ -546,7 +560,7 @@ public final class WidgetShelf {
         List<String> have = widgets();
         int[] names = {R.string.pocket_widget_clock, R.string.pocket_widget_now_playing, R.string.pocket_widget_weather,
                 R.string.pocket_widget_week, R.string.pocket_widget_news, R.string.pocket_device_notifications, R.string.pocket_device_device,
-                R.string.pocket_widget_pcs};
+                R.string.pocket_widget_pcs, R.string.horizon_widget_power, R.string.horizon_widget_storage};
         for (int i = 0; i < BUILT_IN.length; i++) {
             final String kind = BUILT_IN[i];
             if (have.contains(kind)) {

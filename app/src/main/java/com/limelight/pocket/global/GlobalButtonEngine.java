@@ -31,7 +31,6 @@ import com.limelight.pocket.home.HomeStore;
  */
 public final class GlobalButtonEngine {
 
-    private static final long HOLD_MS = 480;
 
     /** The running one (the service's), for what only the service can do. */
     private static GlobalButtonEngine instance;
@@ -207,7 +206,7 @@ public final class GlobalButtonEngine {
             main.removeCallbacks(holdFired);
             GlobalButtons.Action hold = GlobalButtons.get(service, button, GlobalButtons.HOLD);
             if (hold != GlobalButtons.Action.NONE) {
-                main.postDelayed(holdFired, HOLD_MS);
+                main.postDelayed(holdFired, GlobalButtons.holdMs(service));
             }
             return true;
         }

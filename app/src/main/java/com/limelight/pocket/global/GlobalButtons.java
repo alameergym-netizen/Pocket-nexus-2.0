@@ -119,6 +119,11 @@ public final class GlobalButtons {
 
     public static final String KEY_ENABLED = "pocket_gb_enabled";
     public static final String KEY_DOUBLE_MS = "pocket_gb_double_ms";
+    public static final String KEY_HOLD_MS = "horizon_gb_hold_ms";
+
+    public static int holdMs(Context c) {
+        return HorizonControls.holdMs(PocketPrefs.prefs(c).getInt(KEY_HOLD_MS, 480));
+    }
 
     /** On (and the service running): the buttons work in every game. */
     public static boolean enabled(Context c) {

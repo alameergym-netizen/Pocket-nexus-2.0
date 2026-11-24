@@ -146,6 +146,78 @@ public final class WidgetCards {
         }
     }
 
+    /** Optional battery-side power widget. No synthetic FPS or CPU/GPU power figures. */
+    static final class PowerCard extends Card {
+        private final TextView value;
+        PowerCard(Context c, String kind) {
+            super(c, kind, 236);
+            FrameLayout l = layer();
+            l.setBackground(glass());
+            LinearLayout col = column(Gravity.CENTER_VERTICAL);
+            col.setPadding(dp(18), dp(14), dp(18), dp(14));
+            l.addView(col, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            col.addView(caption(c.getString(R.string.horizon_widget_power)));
+            value = text(24f, 0xFFFFFFFF, PocketFonts.semibold());
+            value.setMaxLines(2);
+            col.addView(value, wrap(10));
+            TextView note = text(11f, 0xB3FFFFFF, PocketFonts.medium());
+            note.setMaxLines(2);
+            note.setText(R.string.horizon_widget_power_note);
+            col.addView(note, wrap(8));
+            update();
+        }
+        @Override void update() {
+            value.setText(com.limelight.pocket.device.HorizonPower.batteryPower(getContext()));
+        }
+    }
+
+    /** Local storage capacity plus the number of mounted removable volumes Android exposes. */
+    static final class StorageCard extends Card {
+        private final TextView value, detail;
+        private long lastUpdate = -1;
+        StorageCard(Context c, String kind) {
+            super(c, kind, 236);
+            FrameLayout l = layer();
+            l.setBackground(glass());
+            LinearLayout col = column(Gravity.CENTER_VERTICAL);
+            col.setPadding(dp(18), dp(14), dp(18), dp(14));
+            l.addView(col, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            col.addView(caption(c.getString(R.string.horizon_widget_storage)));
+            value = text(24f, 0xFFFFFFFF, PocketFonts.semibold());
+            col.addView(value, wrap(10));
+            detail = text(12f, 0xB3FFFFFF, PocketFonts.medium());
+            detail.setMaxLines(2);
+            col.addView(detail, wrap(8));
+            update();
+        }
+        @Override void update() {
+            long now = SystemClock.elapsedRealtime();
+            if (lastUpdate >= 0 && now - lastUpdate < 15000) { return; }
+            lastUpdate = now;
+            Context c = getContext();
+            try {
+                android.os.StatFs fs = new android.os.StatFs(android.os.Environment.getDataDirectory().getPath());
+                value.setText(c.getString(R.string.horizon_widget_free,
+                        android.text.format.Formatter.formatShortFileSize(c, fs.getAvailableBytes())));
+            } catch (RuntimeException ex) { value.setText(R.string.horizon_storage_unknown); }
+            detail.setText(R.string.horizon_widget_removable_unknown);
+            if (Build.VERSION.SDK_INT >= 24) {
+                try {
+                    android.os.storage.StorageManager sm = (android.os.storage.StorageManager)c.getSystemService(Context.STORAGE_SERVICE);
+                    if (sm != null) {
+                        int count = 0;
+                        for (android.os.storage.StorageVolume v : sm.getStorageVolumes()) {
+                            String state = v.getState();
+                            if (v.isRemovable() && (android.os.Environment.MEDIA_MOUNTED.equals(state)
+                                    || android.os.Environment.MEDIA_MOUNTED_READ_ONLY.equals(state))) { count++; }
+                        }
+                        detail.setText(c.getString(R.string.horizon_widget_removable, count));
+                    }
+                } catch (RuntimeException ignored) {}
+            }
+        }
+    }
+
     // ---- Clock -------------------------------------------------------------------------------
 
     /** The time over a sky that follows the hour: dawn, day, dusk and night, the sun or the moon. */

@@ -1003,6 +1003,18 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 index -> prefs().edit().putInt(com.limelight.pocket.global.GlobalButtons.KEY_DOUBLE_MS, speeds[index]).apply(),
                 null);
 
+        final int[] holdSpeeds = {350, 480, 650, 800, 1000};
+        String[] holdLabels = new String[holdSpeeds.length];
+        for (int i = 0; i < holdSpeeds.length; i++) { holdLabels[i] = holdSpeeds[i] + " ms"; }
+        addChoice(getString(R.string.horizon_hold_speed), getString(R.string.horizon_hold_speed_sub),
+                holdLabels, () -> {
+                    int now = com.limelight.pocket.global.GlobalButtons.holdMs(this);
+                    for (int i = 0; i < holdSpeeds.length; i++) {
+                        if (holdSpeeds[i] == now) { return i; }
+                    }
+                    return 1;
+                }, index -> prefs().edit().putInt(com.limelight.pocket.global.GlobalButtons.KEY_HOLD_MS,
+                        holdSpeeds[index]).apply(), null);
         addHeader(R.string.pocket_header_everywhere_radial);
         addAction(getString(R.string.pocket_radial_edit), getString(R.string.pocket_radial_edit_everywhere_sub),
                 () -> radialSummary(true), () -> RadialEditorActivity.open(this, true));
@@ -1636,6 +1648,12 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
         addAction(getString(R.string.pocket_nc_title), getString(R.string.pocket_nc_tagline), null,
                 () -> com.limelight.pocket.global.ControlCenterActivity.open(this));
+        final String[] controlLayouts = {getString(R.string.horizon_control_classic),
+                getString(R.string.horizon_control_gaming), getString(R.string.horizon_control_network)};
+        addChoice(getString(R.string.horizon_control_layout), getString(R.string.horizon_control_layout_sub),
+                controlLayouts, () -> com.limelight.pocket.global.HorizonControls.layoutIndex(
+                        prefs().getInt(com.limelight.pocket.global.HorizonControls.KEY_LAYOUT, 0)),
+                index -> prefs().edit().putInt(com.limelight.pocket.global.HorizonControls.KEY_LAYOUT, index).apply(), null);
         addAction(getString(R.string.pocket_device_title), getString(R.string.pocket_set_device_sub), null,
                 () -> com.limelight.pocket.device.DevicePanel.show(this));
 
