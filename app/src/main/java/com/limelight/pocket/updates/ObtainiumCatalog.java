@@ -1,7 +1,13 @@
 package com.limelight.pocket.updates;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
+import android.widget.Toast;
 import com.limelight.R;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
@@ -15,7 +21,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.Locale;
+import java.util.regex.Pattern;
 
 /** Local, read-only catalog imported from Obtainium. Does not fetch, install, or execute URLs. */
 public final class ObtainiumCatalog {
@@ -23,6 +29,8 @@ public final class ObtainiumCatalog {
     private static final int MAX_APPS = 2000;
     private static final String PREFS = "horizon_obtainium_catalog";
     private static final String KEY = "sources";
+    private static final Pattern PACKAGE_ID = Pattern.compile(
+            "[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+");
     private ObtainiumCatalog() {}
 
     static JSONArray parse(String input) throws JSONException {
@@ -101,7 +109,7 @@ public final class ObtainiumCatalog {
 
     private static JSONArray load(Context c) {
         try { return new JSONArray(c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]")); }
-        catch (JSONException e) { return new JSONArray(); }
+        catch (JSONException | ClassCastException e) { return new JSONArray(); }
     }
 
     public static int count(Context c) { return load(c).length(); }
@@ -116,18 +124,61 @@ public final class ObtainiumCatalog {
         for (int i = 0; i < data.length(); i++) {
             JSONObject row = data.optJSONObject(i);
             if (row == null) { continue; }
-            String installed = row.optString("installedVersion");
-            String latest = row.optString("latestVersion");
-            String detail = row.optString("host");
-            if (row.optBoolean("trackOnly")) { detail += " · Track only"; }
-            if (row.optBoolean("prereleases")) { detail += " · Pre-release"; }
-            if (row.optBoolean("disabled")) { detail += " · Disabled"; }
-            if (installed.isEmpty()) { installed = "Unknown"; }
-            if (latest.isEmpty()) { latest = "Unknown"; }
-            items.add(StreamMenuView.Item.info(row.optString("name"), installed + " → " + latest));
-            items.add(StreamMenuView.Item.note(detail));
+            String installed = importedVersion(a, row, "installedVersion");
+            String latest = importedVersion(a, row, "latestVersion");
+            items.add(StreamMenuView.Item.submenu(row.optString("name"), () -> showSource(a, row))
+                    .withValue(installed + " → " + latest));
         }
         a.showConsolePanel(a.getString(R.string.horizon_obtainium_catalog),
                 a.getString(R.string.horizon_obtainium_count, data.length()), null, items);
+    }
+
+    private static String importedVersion(Context context, JSONObject source, String field) {
+        String version = source.optString(field);
+        return version.isEmpty() ? context.getString(R.string.horizon_obtainium_unknown) : version;
+    }
+
+    static PackageInfo installedInfo(Context context, String packageId) {
+        if (packageId == null || packageId.length() > 255 || !PACKAGE_ID.matcher(packageId).matches()) return null;
+        try {
+            return context.getPackageManager().getPackageInfo(packageId, 0);
+        } catch (PackageManager.NameNotFoundException | SecurityException e) {
+            return null;
+        }
+    }
+
+    private static void showSource(ConsoleActivity activity, JSONObject source) {
+        List<StreamMenuView.Item> info = new ArrayList<>();
+        String packageId = source.optString("id");
+        String title = source.optString("name");
+        info.add(StreamMenuView.Item.info(activity.getString(R.string.horizon_obtainium_id), packageId));
+        info.add(StreamMenuView.Item.info(activity.getString(R.string.horizon_obtainium_host), source.optString("host")));
+        PackageInfo installed = installedInfo(activity, packageId);
+        String deviceVersion = activity.getString(R.string.horizon_obtainium_unavailable);
+        if (installed != null) {
+            long code = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
+            String version = installed.versionName == null || installed.versionName.isEmpty()
+                    ? activity.getString(R.string.horizon_obtainium_unknown) : installed.versionName;
+            deviceVersion = activity.getString(R.string.horizon_obtainium_local_version, version, code);
+        }
+        info.add(StreamMenuView.Item.info(activity.getString(R.string.horizon_obtainium_current), deviceVersion));
+        info.add(StreamMenuView.Item.info(activity.getString(R.string.horizon_obtainium_imported_installed),
+                importedVersion(activity, source, "installedVersion")));
+        info.add(StreamMenuView.Item.info(activity.getString(R.string.horizon_obtainium_imported_latest),
+                importedVersion(activity, source, "latestVersion")));
+        if (source.optBoolean("trackOnly")) info.add(StreamMenuView.Item.note(activity.getString(R.string.horizon_obtainium_track_only)));
+        if (source.optBoolean("prereleases")) info.add(StreamMenuView.Item.note(activity.getString(R.string.horizon_obtainium_prerelease)));
+        if (source.optBoolean("disabled")) info.add(StreamMenuView.Item.note(activity.getString(R.string.horizon_obtainium_disabled)));
+        if (installed != null) {
+            info.add(StreamMenuView.Item.action(activity.getString(R.string.horizon_obtainium_android_details), () -> {
+                try {
+                    activity.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", packageId, null)));
+                } catch (RuntimeException e) {
+                    Toast.makeText(activity, R.string.horizon_obtainium_unavailable, Toast.LENGTH_SHORT).show();
+                }
+            }));
+        }
+        activity.pushConsolePage(title, info);
     }
 }
