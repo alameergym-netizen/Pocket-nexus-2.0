@@ -32,6 +32,7 @@ $ScriptPath = $MyInvocation.MyCommand.Path
 $here = Split-Path -Parent $ScriptPath
 $TunnelPort = 47100
 $DefaultCompanionPort = 47110
+$SecureStatusPort = 47111
 $TcpPorts = @(47984, 47989, 48010, 47990)
 $DataDir = "$env:LOCALAPPDATA\ArtemisPocket"
 if ($SelfTest) {
@@ -71,6 +72,8 @@ $script:tray = $null
 $script:adb = $null
 $script:pin = ""
 $script:companionOk = $false
+$script:secureHost = $null
+$script:secureStatusFlag = Join-Path $DataDir "secure-status-enabled"
 $script:bridgeOk = $false
 $script:pcLibraryError = ""
 $script:lastState = ""
@@ -323,6 +326,7 @@ public static class PocketCompanion {
     }
 
     static volatile int cpuPercent = 0;
+    static int statusMonitorStarted;
 
     public static int WifiPort = 47110;
     public static bool SelfTestMode = false;
@@ -340,6 +344,11 @@ public static class PocketCompanion {
         Thread accept = new Thread(AcceptLoop);
         accept.IsBackground = true;
         accept.Start();
+        StartStatusMonitor();
+    }
+
+    public static void StartStatusMonitor() {
+        if (Interlocked.Exchange(ref statusMonitorStarted, 1) != 0) { return; }
         Thread cpu = new Thread(CpuLoop);
         cpu.IsBackground = true;
         cpu.Start();
@@ -457,7 +466,7 @@ public static class PocketCompanion {
         return int.TryParse(text, out v) ? v : fallback;
     }
 
-    static string Status() {
+    public static string Status() {
         MemoryStatusEx m = new MemoryStatusEx();
         m.dwLength = (uint)Marshal.SizeOf(typeof(MemoryStatusEx));
         int ram = GlobalMemoryStatusEx(ref m) ? (int)m.dwMemoryLoad : -1;
@@ -1769,6 +1778,93 @@ function Write-Status {
     try { Set-Content -Path $StatusFile -Value $lines -Encoding UTF8 } catch { }
 }
 
+# ---- Secure status (separate port and credentials) -------------------------------------------
+function Get-NexusSecureCertificate {
+    $identityFile = Join-Path $DataDir "secure-status-certificate.txt"
+    if (Test-Path -LiteralPath $identityFile) {
+        $thumbprint = (Get-Content -LiteralPath $identityFile -Raw -ErrorAction Stop).Trim()
+        if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw "Invalid secure status certificate reference" }
+        return Get-Item -LiteralPath "Cert:\CurrentUser\My\$thumbprint" -ErrorAction Stop
+    }
+
+    $certificate = New-SelfSignedCertificate -Subject "CN=Pocket Nexus Host Status" -Type SSLServerAuthentication -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 -KeyExportPolicy NonExportable -NotAfter (Get-Date).AddYears(3) -ErrorAction Stop
+    try {
+        [IO.File]::WriteAllText($identityFile, $certificate.Thumbprint)
+        return $certificate
+    } catch {
+        Remove-Item -LiteralPath $certificate.PSPath -DeleteKey -ErrorAction SilentlyContinue
+        throw
+    }
+}
+
+function Start-NexusSecureStatus {
+    if ($script:secureHost) { return }
+    if ($CompanionPort -eq $SecureStatusPort) { throw "The secure status port $SecureStatusPort is used by the legacy listener. Change the Wi-Fi port first." }
+    if (-not ("PocketNexus.NexusSecureHost" -as [type])) {
+        Add-Type -Path (Join-Path $here "NexusSecureHost.cs") -ErrorAction Stop
+    }
+    $status = [Delegate]::CreateDelegate([Func[string]], [PocketCompanion].GetMethod("Status"))
+    $certificate = Get-NexusSecureCertificate
+    $credentials = Join-Path $DataDir "secure-status-devices.txt"
+    [PocketCompanion]::StartStatusMonitor()
+    $script:secureHost = [PocketNexus.NexusSecureHost]::new($certificate, $credentials, [Net.IPAddress]::Any, $SecureStatusPort, $status)
+}
+
+function Update-NexusSecureMenu {
+    if ($script:secureToggle) {
+        $script:secureToggle.Checked = Test-Path -LiteralPath $script:secureStatusFlag
+        $script:secureIssue.Enabled = [bool]$script:secureHost
+        $script:secureRevoke.Enabled = [bool]$script:secureHost
+    }
+    if ($script:hostSummary) { $script:hostSummary.Text = Get-HostDashboardText }
+}
+
+function Switch-NexusSecureStatus {
+    if (Test-Path -LiteralPath $script:secureStatusFlag) {
+        Remove-Item -LiteralPath $script:secureStatusFlag -ErrorAction Stop
+        if ($script:secureHost) { $script:secureHost.Stop() }
+        $script:secureHost = $null
+    } else {
+        Start-NexusSecureStatus
+        try {
+            [IO.File]::WriteAllText($script:secureStatusFlag, "1")
+        } catch {
+            $script:secureHost.Stop()
+            $script:secureHost = $null
+            throw
+        }
+    }
+    Update-NexusSecureMenu
+}
+
+function Request-NexusSecureDevice([bool]$revoke) {
+    if (-not $script:secureHost) { return }
+    Add-Type -AssemblyName Microsoft.VisualBasic -ErrorAction Stop
+    $names = $script:secureHost.DeviceNames()
+    $message = if ($revoke) { "Enter the device name to revoke." } else { "Enter a name for this handheld. Issuing a key for an existing name replaces that device's key." }
+    if ($names.Length -gt 0) { $message += [Environment]::NewLine + "Devices: " + ($names -join ", ") }
+    $name = [Microsoft.VisualBasic.Interaction]::InputBox($message, "Nexus Host secure status").Trim()
+    if (-not $name) { return }
+    if ($revoke) {
+        $revoked = $script:secureHost.Revoke($name)
+        $note = if ($revoked) { "Device access revoked." } else { "No device by that name." }
+    } else {
+        if ($names -contains $name) {
+            $confirm = [System.Windows.Forms.MessageBox]::Show("Replace the existing key for $name?", "Nexus Host secure status", "YesNo")
+            if ($confirm -ne "Yes") { return }
+        }
+        $pairing = $script:secureHost.Issue($name)
+        try {
+            [System.Windows.Forms.Clipboard]::SetText($pairing)
+        } catch {
+            $script:secureHost.Revoke($name) | Out-Null
+            throw "Could not copy the pairing code. Issue a new code to try again."
+        }
+        $note = "Pairing code copied. Transfer it privately to the handheld's PC options > Secure host status. Clear the clipboard when finished."
+    }
+    [void][System.Windows.Forms.MessageBox]::Show($note, "Nexus Host secure status")
+}
+
 # ---- The cable ------------------------------------------------------------------------------
 function Get-ExpectedReverseMappings([int]$controlPort) {
     $mappings = @{}
@@ -1978,6 +2074,7 @@ function Get-HostDashboardText {
     return (@(
         ("COMPANION      " + $(if ($script:companionOk) { "Listener started" } else { "Listener unavailable" })),
         ("CONTROL PORT   " + $CompanionPort),
+        ("SECURE STATUS  " + $(if ($script:secureHost) { "TLS on TCP $SecureStatusPort" } elseif (Test-Path -LiteralPath $script:secureStatusFlag) { "Listener unavailable" } else { "Disabled" })),
         ("USB BRIDGE     " + (Get-HostUsbLabel $script:bridgeOk ([bool]$script:adb) $script:lastState)),
         ("PC LIBRARY     " + $(if ($script:pcLibraryError) { "Unavailable" } else { "Initialized" })),
         ("STREAM HOST    " + $endpoint),
@@ -2074,6 +2171,20 @@ function Start-Tray {
     [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
     $statusItem = $menu.Items.Add("Open Nexus Host")
     $statusItem.add_Click({ try { Show-HostDashboard } catch { Write-Log ("Dashboard: " + $_.Exception.Message) } })
+    $secureMenu = $menu.Items.Add("Secure status")
+    $script:secureToggle = $secureMenu.DropDownItems.Add("Enable TLS status listener")
+    $script:secureToggle.add_Click({
+        try { Switch-NexusSecureStatus } catch { [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Nexus Host secure status") }
+    })
+    $script:secureIssue = $secureMenu.DropDownItems.Add("Copy device pairing code")
+    $script:secureIssue.add_Click({
+        try { Request-NexusSecureDevice $false } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not issue a device code. Check the device name and listener settings.", "Nexus Host secure status") }
+    })
+    $script:secureRevoke = $secureMenu.DropDownItems.Add("Revoke device")
+    $script:secureRevoke.add_Click({
+        try { Request-NexusSecureDevice $true } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not revoke this device.", "Nexus Host secure status") }
+    })
+    Update-NexusSecureMenu
     $logItem = $menu.Items.Add("Open the log")
     $logItem.add_Click({ Start-Process notepad.exe -ArgumentList "`"$LogFile`"" })
     $startItem = New-Object System.Windows.Forms.ToolStripMenuItem "Start with Windows"
@@ -2154,6 +2265,7 @@ function Invoke-SelfTest {
     $hello = $reader.ReadLine()
     Check ($hello -like "OK 1 *") ("hello: " + $hello)
     $writer.WriteLine("PING"); Check ($reader.ReadLine() -eq "PONG") "PING"
+    $writer.WriteLine("STATUS"); Check ($reader.ReadLine() -match '^STATUS cpu=-?[0-9]+ ram=-?[0-9]+ up=[0-9]+ bat=-?[0-9]+ ac=[01]$') "Windows status format"
     $writer.WriteLine("POWER shutdown"); Check ($reader.ReadLine() -eq "ERR selftest") "selftest blocks host power operations"
     $writer.WriteLine("MIC 48000 2"); Check ($reader.ReadLine() -eq "ERR selftest") "selftest blocks microphone output"
     $writer.WriteLine("STEAM INSTALL 100"); Check ($reader.ReadLine() -eq "ERR selftest") "selftest blocks real Steam installs"
@@ -2370,6 +2482,10 @@ if ($SelfTest) {
 
 $script:adb = Get-Adb
 Start-Servers
+if (Test-Path -LiteralPath $script:secureStatusFlag) {
+    try { Start-NexusSecureStatus }
+    catch { Say ("Secure status could not start: " + $_.Exception.Message) "Yellow" }
+}
 Write-Status
 if ($script:companionOk) {
     Say ("PC helper ready  -  Wi-Fi link PIN: " + $script:pin) "Green"

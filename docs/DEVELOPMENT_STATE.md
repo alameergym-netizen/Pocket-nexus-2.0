@@ -2,6 +2,11 @@
 
 Read docs/HORIZON_SYSTEM_BLUEPRINT.md, HORIZON.md and HORIZON_FOUNDATION_GATE.md. Integration branch horizon-foundation, not ci-logs. Inspect live PRs and exact CI before any merge. Preserve existing features, user data, original Horizon design, Back/Guide mapping, Android RP6 and Windows Vibepollo. Develop in substantial batches toward next release gate. Never force push, merge stale CI, expose plaintext APC1 to public internet or require root.
 
+## Current checkpoint — 2026-11-25
+- #58/#59 were integrated at \`1544050c5f329ba21a5095f76359d92bec5aee3b\`. The exact combined head \`9d627d37b7a8bc82aa8adfcf4a59b2abd9e7d7c1\` passed ARM64 APK assembly and Android unit tests in 45502001869, and Android 13 Home workspace and screenshot checks in 45502001827. GitHub reported #59 merged via \`c85b36f51ba13d8f1a5bc7979d5d842b7cfd3d75\`. The integrated push run is 45502987220.
+- Windows Nexus Host secure status candidate adds pinned TLS, private per-device keys and revocation, with a new PC options entry on Android. The Windows archive is packaged deterministically locally. Require Android, Windows and relevant emulator CI on this candidate before integration. The [host notes](HORIZON_HOST.md) record setup and sources for Vibepollo, Playnite, and PyroWave.
+- Engineering 1/14, full acceptance 0/14. G02 still needs attempt admission and coverage across legacy entrances. G03 needs real emulator evidence for Library, Connect, Media, System, game details and settings in addition to existing Home and Control. G08 secure power/library/mic, least-privilege host adapters, and signed installer remain open. RP6 and real Windows/Vibepollo acceptance and owner-held release signing are deferred to the integrated release.
+
 ## Verified foundation
 #29 merged at 98d62c598634749a6da7249e50b6b10f812bee29: 193 Android tests and 43 Windows checks. #31 merged at b6467cc113b71e7c4466006f3035ae10168bc344: 201 Android tests, real PC-stream observation and game presets. #32 merged at 1a645d5629887307b0ff22c68437ac6a5eac86cc: 204 Android tests (45464842745), Android 13 x86_64 same-package/same-signer synthetic upgrade retained three preference files and private file (45464842534). Restore rollback best-effort, explicit release signing guard/version code. Actual private release signer and RP6 migration/upgrade still unverified.
 
