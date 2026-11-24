@@ -29,7 +29,13 @@ function Save-NexusReleaseVersion([string]$Path, [string]$Certificate, [int]$Ver
             lastVersionCode=$Version } | ConvertTo-Json
         [IO.File]::WriteAllText($temp, $json, [Text.UTF8Encoding]::new($false))
         if (Test-Path -LiteralPath $Path) {
-            [IO.File]::Replace($temp, $Path, $null)
+            # Windows PowerShell can marshal $null to an empty path in this overload.
+            # Use an explicit unique backup path; retain it if replacement throws.
+            $backup = $temp + ".previous"
+            [IO.File]::Replace($temp, $Path, $backup)
+            if (Test-Path -LiteralPath $backup) {
+                Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+            }
         } else {
             [IO.File]::Move($temp, $Path)
         }

@@ -26,6 +26,7 @@ try {
     Reject { Assert-NexusReleaseVersion $p $b 20002 } "signer replacement rejected"
     Save-NexusReleaseVersion $p $a 20002
     Check ((Get-Content $p -Raw | ConvertFrom-Json).lastVersionCode -eq 20002) "atomic newer reservation"
+    Check (@(Get-ChildItem -LiteralPath $dir -Filter "*.previous").Count -eq 0) "successful replacement removes temporary backup"
     $lock.Dispose(); $lock = Open-NexusReleaseLock $p
     Reject { Assert-NexusReleaseVersion $p $a 20002 } "reservation survives reopen"
     Set-Content $p -Value '{"format":1,"lastVersionCode":"invalid"}'
