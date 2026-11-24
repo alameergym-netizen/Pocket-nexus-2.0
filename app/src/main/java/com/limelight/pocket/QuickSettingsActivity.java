@@ -1584,6 +1584,9 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private String updateStatus;
 
     private void buildSystemTab() {
+        addHeader(R.string.horizon_recovery_heading);
+        addAction(getString(R.string.horizon_other_launcher), getString(R.string.horizon_other_launcher_sub),
+                null, () -> com.limelight.pocket.apps.HomeScreen.openOtherLauncher(this));
         // Optional permissions are visible together; never request them merely by opening settings.
         addHeader(R.string.horizon_permissions_title);
         for (com.limelight.pocket.device.HorizonPermissions.Capability capability

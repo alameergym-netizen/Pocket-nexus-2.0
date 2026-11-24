@@ -76,6 +76,10 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
         <!-- Cloud gaming in a real browser tab (Chrome), and links opened in apps -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
