@@ -61,3 +61,6 @@ Connection check no longer assumes 150 Mbps from a wired interface. Single-host 
 
 ## Validation candidate — updater
 Development builds reject update downloads and installation. Release downloads accept HTTPS on explicitly allowed GitHub hosts, enforce a 512 MiB bound and remove incomplete files. The staged APK must match the installed package, have a greater version code and the same current signing certificate set before being renamed and again before installation. Android remains the final APK verifier. Key rotation is deliberately unsupported. Full Android CI and real-device validation are still required.
+
+## Alpha 1 CI baseline
+The validation candidate passed its Android build and all 100 recorded unit tests, and PR #1 was merged into the development branch. Physical device validation remains open. See [device test checklist](HORIZON_ALPHA1.md).
