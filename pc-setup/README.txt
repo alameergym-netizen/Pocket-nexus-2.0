@@ -25,6 +25,11 @@ busy, or your network needs another), right-click its icon next to the clock > "
 or run  PocketNexus-PC.bat -WifiPort 47120 . On the handheld, set the same port in the PC's
 options > "Pocket Nexus PC Wi-Fi port" (or stream once over the USB cable: it picks it up).
 
+Legacy Wi-Fi control can be disabled from the Nexus Host tray. Restart Nexus Host after your
+stream or transfer finishes. Legacy power, library and mic commands will then be accepted
+only over loopback, including the existing USB bridge. It does not change a firewall rule
+or the ports for streaming or encrypted status. Existing installations keep their Wi-Fi setting.
+
 Secure host status (development)
   - Keep NexusSecureHost.cs beside PocketNexus-PC.ps1. Open the Windows tray menu and choose
     Secure status > Enable TLS status listener. This starts TCP 47111 on the PC.
