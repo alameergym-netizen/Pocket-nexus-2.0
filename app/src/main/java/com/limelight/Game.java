@@ -1914,7 +1914,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onDestroy() {
         horizonInputVisible = false;
-        HorizonStreamObserver.instance().ended(horizonStreamTicket);
+        if (!horizonShutdownDispatched) HorizonStreamObserver.instance().ended(horizonStreamTicket);
         super.onDestroy();
         if (instance == this) {
             com.limelight.pocket.apps.HomeScreen.streaming = false;
@@ -1988,7 +1988,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onStop() {
         horizonInputVisible = false;
-        HorizonStreamObserver.instance().ended(horizonStreamTicket);
+        if (!connecting && !connected && !horizonShutdownDispatched) {
+            HorizonStreamObserver.instance().ended(horizonStreamTicket);
+        }
         super.onStop();
 
         // Artemis Pocket: the screen went off or the app was left mid-game. The game keeps
@@ -5434,6 +5436,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private void stopConnection() {
         if (connecting || connected) {
             final boolean wasConnected = connected;
+            final boolean shouldQuitRemote = wasConnected && quitOnStop && httpConn != null;
+            final long stoppingTicket = horizonStreamTicket;
+            HorizonStreamObserver.instance().stopping(stoppingTicket);
             connecting = connected = false;
             updatePipAutoEnter();
 
@@ -5453,21 +5458,19 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             new Thread() {
                 public void run() {
                     try {
-                    conn.stop();
-                    // A cancelled negotiation is not proof we own a running remote app.
-                    if (wasConnected && httpConn != null && quitOnStop) {
-                        try {
-                            sleep(1000);
-                            httpConn.quitApp();
-                            if (!pocketSwitching) {
-                                Game.this.runOnUiThread(() -> Toast.makeText(Game.this, Game.this.getResources().getString(R.string.applist_quit_success) + " " + appName, Toast.LENGTH_LONG).show());
+                        conn.stop(shouldQuitRemote ? () -> {
+                            try {
+                                sleep(1000);
+                                httpConn.quitApp();
+                                if (!pocketSwitching) {
+                                    Game.this.runOnUiThread(() -> Toast.makeText(Game.this, Game.this.getResources().getString(R.string.applist_quit_success) + " " + appName, Toast.LENGTH_LONG).show());
+                                }
+                            } catch (Exception e) {
+                                Game.this.runOnUiThread(() -> Toast.makeText(Game.this, e.getMessage(), Toast.LENGTH_LONG).show());
                             }
-                        } catch (Exception e) {
-                            Game.this.runOnUiThread(() -> Toast.makeText(Game.this, e.getMessage(), Toast.LENGTH_LONG).show());
-                        }
-                    }
+                        } : null);
                     } finally {
-                        // Also release the resume barrier after a cleanup exception.
+                        HorizonStreamObserver.instance().ended(stoppingTicket);
                         ResumeTicket.markStopFinished(shutdownOwner);
                     }
                 }
@@ -5594,7 +5597,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     displayedFailureDialog = true;
                     LimeLog.severe("Connection terminated: " + errorCode);
                     if (errorCode == MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
-                        HorizonStreamObserver.instance().ended(horizonStreamTicket);
+                        HorizonStreamObserver.instance().stopping(horizonStreamTicket);
                     } else {
                         HorizonStreamObserver.instance().failed(horizonStreamTicket);
                     }
@@ -5707,11 +5710,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 // A stopped/replaced activity must not dispatch a pending PC launch.
                 if (!connecting || isFinishing() || isDestroyed() || instance != Game.this
-                        || HorizonStreamObserver.instance().snapshot().ticket != horizonStreamTicket
-                        || HorizonStreamObserver.instance().snapshot().terminal()) return;
+                        || !HorizonStreamObserver.instance().connected(horizonStreamTicket)) return;
                 connected = true;
                 connecting = false;
-                HorizonStreamObserver.instance().connected(horizonStreamTicket);
                 pocketSessionStartMs = android.os.SystemClock.elapsedRealtime();
                 pocketLastBatteryAlert = 101;
                 timerHandler.removeCallbacks(pocketBatteryWatch);

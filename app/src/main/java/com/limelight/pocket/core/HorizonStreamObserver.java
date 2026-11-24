@@ -38,8 +38,15 @@ public final class HorizonStreamObserver {
         return session.ticket;
     }
 
-    public synchronized void connected(long ticket) {
+    /** Accept connection completion exactly once for the current launching attempt. */
+    public synchronized boolean connected(long ticket) {
+        if (ticket <= 0 || session.ticket != ticket || session.state != HorizonSession.State.LAUNCHING) return false;
         apply(ticket, HorizonSession.Event.STARTED);
+        return true;
+    }
+
+    public synchronized void stopping(long ticket) {
+        apply(ticket, HorizonSession.Event.STOP);
     }
 
     public synchronized void failed(long ticket) {

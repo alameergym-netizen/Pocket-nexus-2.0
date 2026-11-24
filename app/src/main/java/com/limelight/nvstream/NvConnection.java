@@ -91,20 +91,30 @@ public class NvConnection {
     }
 
     public void stop() {
-        // Only this connection's native owner may interrupt the process-global bridge.
-        // A cancelled queued/negotiating worker releases its own permit when it exits.
+        stop(null);
+    }
+
+    /**
+     * Optional remote cleanup runs only for the native owner, after native shutdown,
+     * while its global connection permit is still held. Never hold the bridge monitor
+     * across network I/O; queued connections still cannot negotiate until permit release.
+     */
+    public void stop(Runnable remoteCleanup) {
         if (!lease.requestStop(MoonBridge::interruptConnection)) return;
-        synchronized (MoonBridge.class) {
-            if (!lease.leaveNative()) return;
-            try {
+        boolean ownsPermit = false;
+        try {
+            synchronized (MoonBridge.class) {
+                if (!lease.leaveNative()) return;
+                ownsPermit = true;
                 try {
                     MoonBridge.stopConnection();
                 } finally {
                     MoonBridge.cleanupBridge();
                 }
-            } finally {
-                connectionAllowed.release();
             }
+            if (remoteCleanup != null) remoteCleanup.run();
+        } finally {
+            if (ownsPermit) connectionAllowed.release();
         }
     }
 
