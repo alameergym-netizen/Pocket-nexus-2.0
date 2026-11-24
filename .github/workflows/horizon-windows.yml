@@ -30,6 +30,23 @@ jobs:
         run: |
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/PocketNexus-PC.ps1 -SelfTest -WifiPort 47119 2>&1 | Tee-Object -FilePath horizon-windows.log
           exit $LASTEXITCODE
+      - name: Test Android upgrade preflight policy
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/Test-NexusUpgrade.ps1 -SelfTest
+          exit $LASTEXITCODE
+      - name: Package development Windows helper
+        shell: pwsh
+        run: python pc-setup/tests/package_host.py dist/NexusHost-dev.zip
+      - name: Upload tested development Windows helper
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexusHost-dev
+          path: |
+            dist/NexusHost-dev.zip
+            dist/NexusHost-dev.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload Windows diagnostics
         if: always()
         uses: actions/upload-artifact@v4

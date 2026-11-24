@@ -1,3 +1,5 @@
 # Horizon Control workspace candidate
 
 This is a structural change, not the final approved Shell. Replaces the narrow floating card with a bounded responsive workspace: wide layout splits actions and device/adjustments, small layout stacks them in a scrollable region; header/footer fixed. All six existing actions and order presets, telemetry, brightness/volume, B/Guide closure, motion preference and theme focus tint retained. Touch taps on slider halves step values. Controller up/down allows moving out of sliders on split layout; left/right still adjust. Four pure layout policy tests. No new privileges, real hardware writes or stream-menu changes. Android UI screenshots and real RP6 focus, clipping, sleep/brightness/volume and external app handoff require verification. User's final design approval remains required.
+
+The candidate also rebuilds the workspace after configuration changes and adds a real Android 13 emulator workflow: seeded returning-user launch, existing Back mapping, controller focus navigation in split and compact layouts, and screenshot artifacts. Test results are pending. No root, real user data or production APK publication.

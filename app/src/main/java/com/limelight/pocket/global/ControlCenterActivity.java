@@ -115,6 +115,21 @@ public class ControlCenterActivity extends Activity {
     }
 
     @Override
+    public void onConfigurationChanged(android.content.res.Configuration config) {
+        super.onConfigurationChanged(config);
+        if (closing || root == null) return;
+        if (panel != null) panel.animate().cancel();
+        root.animate().cancel();
+        root.setAlpha(1f);
+        d = getResources().getDisplayMetrics().density;
+        root.removeAllViews();
+        build();
+        refresh();
+        Intent current = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if (current != null) battery.onReceive(this, current);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         refresh();
@@ -183,6 +198,7 @@ public class ControlCenterActivity extends Activity {
         head.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         clock = text("", 20f, 0xFFFFFFFF, PocketFonts.semibold());
         clock.setIncludeFontPadding(false);
+        clock.setText(DateFormat.getTimeFormat(this).format(new Date()));
         head.addView(clock, wrap());
         panel.addView(head, matchWrap());
 
@@ -283,6 +299,8 @@ public class ControlCenterActivity extends Activity {
         brightness.stepper = this::stepBrightness;
         volume.stepper = this::stepVolume;
         // Touch users can tap the left/right half to adjust; gamepad left/right stays unchanged.
+        brightness.setOnClickListener(v -> brightness.step(1));
+        volume.setOnClickListener(v -> volume.step(1));
         brightness.setOnTouchListener((v, event) -> adjustTouch(brightness, event));
         volume.setOnTouchListener((v, event) -> adjustTouch(volume, event));
         if (spec.split) {
@@ -330,7 +348,8 @@ public class ControlCenterActivity extends Activity {
                 if (event.getX() >= 0 && event.getX() < bar.getWidth()
                         && event.getY() >= 0 && event.getY() < bar.getHeight()) {
                     bar.requestFocusFromTouch();
-                    bar.step(event.getX() < bar.getWidth() / 2f ? -1 : 1);
+                    if (event.getX() < bar.getWidth() / 2f) bar.step(-1);
+                    else bar.performClick();
                 }
                 return true;
             case android.view.MotionEvent.ACTION_CANCEL:
