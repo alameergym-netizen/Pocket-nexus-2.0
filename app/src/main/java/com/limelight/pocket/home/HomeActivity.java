@@ -166,6 +166,7 @@ public class HomeActivity extends ConsoleActivity {
     private int heroPos = -1;
     private int focusGeneration;
     private boolean workspace;
+    private boolean workspaceInitialFocusPending;
     private int workspaceColumns;
     private String heroKey;
     private boolean loadedOnce;
@@ -307,6 +308,7 @@ public class HomeActivity extends ConsoleActivity {
                 if (!isFinishing()) {
                     TILE_ART.evictAll();
                     tiles.notifyDataSetChanged();
+                    if (workspace && workspaceInitialFocusPending && !entries.isEmpty()) focusAt(0, 0);
                 }
             });
         });
@@ -510,13 +512,12 @@ public class HomeActivity extends ConsoleActivity {
             target = Math.max(0, Math.min(heroPos, entries.size() - 1));
         }
         heroKey = null;
-        if (workspace && firstLoad) {
-            // Before cards arrive Android can focus the empty detail surface or dock.
-            // The initial game owns the first controller focus, not a placeholder action.
-            target = 0;
-            updateHero(target);
-            if (row.isInTouchMode()) row.requestFocusFromTouch();
-            focusAt(target, 0);
+        if (workspace && firstLoad) workspaceInitialFocusPending = true;
+        if (workspace && workspaceInitialFocusPending) {
+            // Initial focus belongs to the first actual tile, not the empty detail pane.
+            // Keep pending through async list/art refresh until a tile really gains focus.
+            updateHero(0);
+            focusAt(0, 0);
             return;
         }
         View focus = getCurrentFocus();
@@ -543,8 +544,16 @@ public class HomeActivity extends ConsoleActivity {
                 return;
             }
             RecyclerView.ViewHolder holder = row.findViewHolderForAdapterPosition(position);
-            if (holder != null && holder.itemView.requestFocus()) {
-                return;
+            if (holder != null) {
+                View tile = holder.itemView;
+                // Request focus on the actual child; a RecyclerView parent request can
+                // select a different focusable descendant or leave detail focused.
+                boolean focused = workspace && workspaceInitialFocusPending && row.isInTouchMode()
+                        ? tile.requestFocusFromTouch() : tile.requestFocus();
+                if (focused && tile.hasFocus()) {
+                    if (workspace) workspaceInitialFocusPending = false;
+                    return;
+                }
             }
             if (heroPos != position || heroKey == null) {
                 updateHero(position);
@@ -561,8 +570,10 @@ public class HomeActivity extends ConsoleActivity {
         View focus = getCurrentFocus();
         boolean inside = focus != null && (row.hasFocus() || focus == play || focus == info || focus == more
                 || (dock != null && dock.hasFocus()));
-        if (hasFocus && !inside && !entries.isEmpty() && !isConsolePanelShowing()) {
-            focusAt(heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
+        if (hasFocus && (!inside || (workspace && workspaceInitialFocusPending))
+                && !entries.isEmpty() && !isConsolePanelShowing()) {
+            focusAt(workspace && workspaceInitialFocusPending ? 0
+                    : heroPos >= 0 && heroPos < entries.size() ? heroPos : 0, 0);
         }
     }
 
@@ -2590,6 +2601,7 @@ public class HomeActivity extends ConsoleActivity {
             v.setOnFocusChangeListener((view, has) -> {
                 focusLook(h, has, true);
                 if (has) {
+                    if (workspace) workspaceInitialFocusPending = false;
                     int pos = h.getBindingAdapterPosition();
                     if (pos != RecyclerView.NO_POSITION) {
                         if (pos != heroPos) {

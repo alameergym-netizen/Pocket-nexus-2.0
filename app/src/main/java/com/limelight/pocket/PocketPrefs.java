@@ -98,7 +98,7 @@ public final class PocketPrefs {
     }
 
     public static boolean matchesHotkey(String hotkey, KeyEvent event) {
-        if (hotkey == null || hotkey.length() < 3) {
+        if (HorizonBackKey.reservedForNavigation(event) || hotkey == null || hotkey.length() < 3) {
             return false;
         }
         try {
@@ -160,22 +160,17 @@ public final class PocketPrefs {
     }
 
     public static void setButtonKey(Context context, String prefKey, KeyEvent event) {
-        prefs(context).edit().putString(prefKey, encodeKey(event)).apply();
+        String value = KEY_BACK_KEY.equals(prefKey) ? HorizonBackKey.encode(event) : encodeKey(event);
+        if (value != null) prefs(context).edit().putString(prefKey, value).apply();
     }
 
     public static void resetButtonKey(Context context, String prefKey) {
         prefs(context).edit().remove(prefKey).apply();
     }
 
-    /** Back: "auto" is Android's Back key (not a mouse's back button). */
+    /** Dedicated Back only; Android fallback, virtual navigation and face buttons are not shortcuts. */
     public static boolean matchesBack(String spec, KeyEvent event) {
-        if (KEY_AUTO.equals(spec)) {
-            int source = event.getSource();
-            boolean fromMouse = (source & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE
-                    || source == InputDevice.SOURCE_MOUSE_RELATIVE;
-            return event.getKeyCode() == KeyEvent.KEYCODE_BACK && !fromMouse;
-        }
-        return matchesHotkey(spec, event);
+        return HorizonBackKey.matches(spec, event);
     }
 
     /**
@@ -184,6 +179,12 @@ public final class PocketPrefs {
      * controllers keep working as plain Guide.
      */
     public static boolean matchesHome(String spec, KeyEvent event) {
+        boolean physicalHome = (event.getKeyCode() == KeyEvent.KEYCODE_HOME
+                || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_MODE)
+                && event.getScanCode() > 0 && event.getDeviceId() >= 0
+                && !(event.getScanCode() >= 304 && event.getScanCode() <= 309)
+                && (event.getFlags() & KeyEvent.FLAG_FALLBACK) == 0;
+        if (HorizonBackKey.reservedForNavigation(event) && !physicalHome) return false;
         if (KEY_AUTO.equals(spec)) {
             if (event.getKeyCode() == KeyEvent.KEYCODE_HOME) {
                 return true;
@@ -194,6 +195,7 @@ public final class PocketPrefs {
             }
             return false;
         }
+        if (physicalHome && spec != null && spec.equals("k:" + event.getKeyCode())) return true;
         return matchesHotkey(spec, event);
     }
 
@@ -201,7 +203,8 @@ public final class PocketPrefs {
         if (KEY_AUTO.equals(spec)) {
             return context.getString(autoLabel);
         }
-        String name = describeHotkey(spec);
+        String name = HorizonBackKey.describe(spec);
+        if (name == null) name = describeHotkey(spec);
         return name != null ? name : context.getString(autoLabel);
     }
 

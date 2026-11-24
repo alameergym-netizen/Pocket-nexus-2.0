@@ -51,8 +51,8 @@ def control(tree):
     return has(tree, "Nexus Control") and has(tree, "QUICK ACTIONS")
 
 def open_control():
-    key("BACK")
-    return wait_for("Control workspace via existing Back mapping", control)
+    key("F8")
+    return wait_for("Control workspace via explicit test Back mapping", control)
 
 def setup_device(density):
     adb("shell", "am", "force-stop", PKG)
@@ -77,7 +77,7 @@ def main(apk):
                     "pref\tbool\tpocket_first_run_done_v1\ttrue\n"
                     "pref\tbool\tpocket_gb_enabled\ttrue\n"
                     "pref\tstring\tpocket_gb_back_tap\tcontrol\n"
-                    "pref\tstring\tpocket_key_back\tauto\n"
+                    "pref\tstring\tpocket_key_back\tk:138\n"
                     "pref\tint\thorizon_control_layout\t0\n", encoding="utf-8")
     adb("push", str(seed), seed_dir + "/seed.txt")
     launch()
@@ -90,6 +90,12 @@ def main(apk):
             if time.monotonic() > deadline:
                 raise AssertionError("Seed was not applied")
             time.sleep(0.5)
+    time.sleep(2)
+    key("BUTTON_B")
+    time.sleep(1)
+    assert not control(snap()), "B opened Nexus Control"
+    # A synthetic Android Back is not a verified dedicated hardware Back.
+    launch()
     time.sleep(2)
     tree = open_control()
     for name in ("Sleep", "Wi-Fi", "Bluetooth", "Screenshot", "Do not disturb", "Brightness", "Volume"):

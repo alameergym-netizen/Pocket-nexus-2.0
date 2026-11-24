@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_back_key_reserved">Use the dedicated Back button, not B or Android navigation.</string>
+</resources>
