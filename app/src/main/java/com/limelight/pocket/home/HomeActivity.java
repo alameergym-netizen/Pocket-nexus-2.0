@@ -2512,6 +2512,10 @@ public class HomeActivity extends ConsoleActivity {
         public void onBindViewHolder(@NonNull TileHolder h, int position) {
             HomeStore.Entry e = entries.get(position);
             sizeTile(h);
+            // A recycled cover must not inherit the previous game's artwork fade.
+            h.image.animate().cancel();
+            h.image.setAlpha(1f);
+            h.image.setTag(R.id.pocketHeroLogo, null);
             focusLook(h, h.itemView.hasFocus(), false);
             if (layout.arrange == com.limelight.pocket.ui.Layouts.PORTAL) {
                 portalLook(h, position == heroPos, false);
@@ -2534,10 +2538,11 @@ public class HomeActivity extends ConsoleActivity {
                 h.label.setVisibility(View.VISIBLE);
                 h.label.setText(R.string.pocket_home_add_short);
                 h.label.setTypeface(PocketFonts.medium());
-                GradientDrawable bg = new GradientDrawable();
+                h.label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 9.5f);
+                h.label.setMaxLines(1);
+                GradientDrawable bg = HorizonHomeStyle.glass(d,
+                        com.limelight.pocket.ui.PocketTheme.accent(HomeActivity.this), false);
                 bg.setCornerRadius(tileRadius);
-                bg.setColor(0x9E1C1C1F);
-                bg.setStroke(Math.max(1, Math.round(0.75f * d)), 0x33FFFFFF);
                 h.label.setBackground(bg);
                 Drawable plus = getDrawable(R.drawable.ic_add);
                 if (plus != null) {
@@ -2570,6 +2575,22 @@ public class HomeActivity extends ConsoleActivity {
             }
             h.image.setImageDrawable(null);
             final String name = displayName(item);
+            // Keep the real game title visible while the cover is being loaded.
+            // The label is not a separate focus target and never changes game identity.
+            h.label.setText(name);
+            h.label.setTypeface(PocketFonts.medium());
+            h.label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f);
+            h.label.setMaxLines(2);
+            h.label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            h.label.setCompoundDrawables(null, null, null, null);
+            h.label.setGravity(Gravity.CENTER);
+            int titlePad = Math.round(6 * d);
+            h.label.setPadding(titlePad, 0, titlePad, 0);
+            GradientDrawable placeholder = HorizonHomeStyle.glass(d,
+                    com.limelight.pocket.ui.PocketTheme.accent(HomeActivity.this), false);
+            placeholder.setCornerRadius(tileRadius);
+            h.label.setBackground(placeholder);
+            h.label.setVisibility(View.VISIBLE);
             work.execute(() -> {
                 Bitmap art = tileArt(item, name, shape);
                 if (art != null) {
@@ -2579,6 +2600,7 @@ public class HomeActivity extends ConsoleActivity {
                     if (key.equals(h.boundKey) && art != null) {
                         boolean fresh = h.image.getDrawable() == null;
                         h.image.setImageBitmap(art);
+                        h.label.setVisibility(View.GONE);
                         if (glowColor == 0 && heroKey != null && key.startsWith(heroKey + "|")) {
                             setGlow(averageColor(art));
                         }
@@ -2607,6 +2629,8 @@ public class HomeActivity extends ConsoleActivity {
         @Override
         public void onViewRecycled(@NonNull TileHolder h) {
             h.boundKey = null;
+            h.image.animate().cancel();
+            h.image.setAlpha(1f);
             h.itemView.animate().cancel();
             h.itemView.setTranslationX(0f);
             focusLook(h, false, false);
