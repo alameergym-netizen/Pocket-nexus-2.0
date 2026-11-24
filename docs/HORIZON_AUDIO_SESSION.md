@@ -1,0 +1,3 @@
+# Audio session integration
+
+Fix inherited misrouting: Game passed playHostAudio to the renderer enableAudioFx argument although PreferenceConfiguration loads checkbox_enable_audiofx separately. Expose the existing effect preference with its original default (false), and close any successfully announced session on stop/cleanup. AudioEffect.queryEffects inventories available Android effect engines, not active processing. No JamesDSP engine, Bluetooth vendor protocol, or root action is bundled. Actual effects may increase latency and require compatible apps and firmware. Validate on RP6 with both settings combinations, start/stop/reconnect, and external DSP enabled/disabled.

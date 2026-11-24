@@ -106,6 +106,12 @@ public final class HorizonAudio {
         }
         if (!found) { rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_unavailable))); }
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_snapshot)));
+        rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_audio_fx_title)));
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_audio_fx_title),
+                a.getString(com.limelight.pocket.PocketPrefs.prefs(a)
+                        .getBoolean("checkbox_enable_audiofx", false) ? R.string.pocket_on : R.string.pocket_off)));
+        rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_fx_sub)));
+        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_audio_effects_inventory), () -> showEffects(a)));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_audio_sound_settings),
                 () -> launch(a, new Intent(Settings.ACTION_SOUND_SETTINGS))));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_audio_bluetooth_settings),
@@ -120,6 +126,27 @@ public final class HorizonAudio {
         } catch (RuntimeException ignored) {}
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_limit)));
         return rows;
+    }
+
+    private static void showEffects(ConsoleActivity a) {
+        List<StreamMenuView.Item> rows = new ArrayList<>();
+        rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_effects_note)));
+        try {
+            android.media.audiofx.AudioEffect.Descriptor[] effects = android.media.audiofx.AudioEffect.queryEffects();
+            if (effects != null) {
+                int shown = 0;
+                for (android.media.audiofx.AudioEffect.Descriptor effect : effects) {
+                    if (effect == null || shown >= 64) { continue; }
+                    String name = effect.name == null || effect.name.trim().isEmpty()
+                            ? a.getString(R.string.horizon_audio_unavailable) : effect.name;
+                    String maker = effect.implementor == null ? "" : effect.implementor;
+                    rows.add(StreamMenuView.Item.info(name,maker));
+                    shown++;
+                }
+            }
+        } catch (RuntimeException ignored) {}
+        if (rows.size() == 1) { rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_unavailable))); }
+        a.showConsolePanel(a.getString(R.string.horizon_audio_effects_inventory),null,null,rows);
     }
 
     private static void launch(ConsoleActivity a, Intent intent) {

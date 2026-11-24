@@ -1654,6 +1654,16 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> com.limelight.pocket.device.HorizonBridge.show(this));
         addAction(getString(R.string.horizon_audio_title), getString(R.string.horizon_audio_sub), null,
                 () -> com.limelight.pocket.device.HorizonAudio.show(this));
+        String[] dspKeys = {"off","bass_restraint","dialogue","soft_treble"};
+        String[] dspLabels = {getString(R.string.pocket_off),getString(R.string.horizon_dsp_bass),
+                getString(R.string.horizon_dsp_dialogue),getString(R.string.horizon_dsp_treble)};
+        addChoice(getString(R.string.horizon_dsp_title),getString(R.string.horizon_dsp_sub),dspLabels,
+                () -> indexOf(dspKeys,prefs().getString(com.limelight.binding.audio.HorizonStreamDsp.KEY_PROFILE,"off")),
+                index -> prefs().edit().putString(com.limelight.binding.audio.HorizonStreamDsp.KEY_PROFILE,dspKeys[index]).apply(),
+                getString(R.string.pocket_off));
+        addToggle(getString(R.string.horizon_audio_fx_title), getString(R.string.horizon_audio_fx_sub),
+                () -> prefs().getBoolean("checkbox_enable_audiofx", false),
+                value -> prefs().edit().putBoolean("checkbox_enable_audiofx",value).apply());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             addAction(getString(R.string.pocket_set_language), getString(R.string.pocket_set_language_sub), null, () -> {
