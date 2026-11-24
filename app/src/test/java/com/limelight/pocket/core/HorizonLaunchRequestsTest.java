@@ -145,4 +145,19 @@ public class HorizonLaunchRequestsTest {
         o.connected(next);
         assertEquals(HorizonSession.State.RUNNING,o.observation().session.state);
     }
+    @Test public void classifiesUncomparablePcAppIdentitySeparatelyFromDifferent() {
+        assertEquals(HorizonLaunchTarget.PcAppMatch.IDLE,
+                HorizonLaunchTarget.compareRunningPcApp(0, "", 23, null));
+        assertEquals(HorizonLaunchTarget.PcAppMatch.UNKNOWN,
+                HorizonLaunchTarget.compareRunningPcApp(23, null, 0, "uuid-only"));
+        assertEquals(HorizonLaunchTarget.PcAppMatch.UNKNOWN,
+                HorizonLaunchTarget.compareRunningPcApp(0, "uuid-only", 23, null));
+        assertEquals(HorizonLaunchTarget.PcAppMatch.DIFFERENT,
+                HorizonLaunchTarget.compareRunningPcApp(23, null, 24, null));
+        assertEquals(HorizonLaunchTarget.PcAppMatch.DIFFERENT,
+                HorizonLaunchTarget.compareRunningPcApp(23, "running", 23, "requested"));
+        assertEquals(HorizonLaunchTarget.PcAppMatch.SAME,
+                HorizonLaunchTarget.compareRunningPcApp(0, "UUID-ONLY", 0, "uuid-only"));
+    }
+
 }

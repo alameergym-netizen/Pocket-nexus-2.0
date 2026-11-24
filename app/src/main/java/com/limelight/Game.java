@@ -5487,6 +5487,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             final long stoppingTicket = horizonStreamTicket;
             HorizonStreamObserver.instance().stopping(stoppingTicket);
             connecting = connected = false;
+            conn.cancelBeforeNative();
             releaseUsbDriver();
             timerHandler.removeCallbacks(pocketPoorCheck);
             pocketAdaptiveDecision.reset();

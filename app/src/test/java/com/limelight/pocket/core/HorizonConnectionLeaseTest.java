@@ -25,6 +25,23 @@ public class HorizonConnectionLeaseTest {
         assertTrue(l.leaveNative()); assertFalse(l.leaveNative());
         assertEquals(1, interrupts[0]); assertTrue(l.cancelled());
     }
+    @Test public void uiCancellationImmediatelyPreventsQueuedNativeEntry() {
+        HorizonConnectionLease waiting = new HorizonConnectionLease();
+        assertTrue(waiting.begin());
+        waiting.cancelBeforeNative();
+        assertTrue(waiting.cancelled());
+        assertFalse(waiting.enterNative());
+        assertFalse(waiting.requestStop(() -> fail("cancelled before native ownership")));
+    }
+    @Test public void uiCancellationLeavesOwnedNativeShutdownForWorker() {
+        HorizonConnectionLease owner = new HorizonConnectionLease();
+        assertTrue(owner.begin());
+        assertTrue(owner.enterNative());
+        owner.cancelBeforeNative();
+        assertFalse(owner.cancelled());
+        assertTrue(owner.requestStop(() -> {}));
+        assertTrue(owner.leaveNative());
+    }
     @Test public void failedNativeStartCannotInterruptSuccessor() {
         HorizonConnectionLease l = new HorizonConnectionLease();
         assertTrue(l.begin()); assertTrue(l.enterNative()); assertTrue(l.leaveNative());
