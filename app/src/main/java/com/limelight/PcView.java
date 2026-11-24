@@ -514,7 +514,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         // and our activity is in the foreground.
         if (managerBinder != null && !runningPolling && inForeground) {
             freezeUpdates = false;
-            managerBinder.startPolling(new ComputerManagerListener() {
+            managerBinder.startPolling(this, new ComputerManagerListener() {
                 @Override
                 public void notifyComputerUpdated(final ComputerDetails details) {
                     if (!freezeUpdates) {
@@ -558,9 +558,9 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
 
             freezeUpdates = true;
 
-            managerBinder.stopPolling();
+            boolean stopped = managerBinder.stopPolling(this);
 
-            if (wait) {
+            if (wait && stopped) {
                 managerBinder.waitForPollingStopped();
             }
 
