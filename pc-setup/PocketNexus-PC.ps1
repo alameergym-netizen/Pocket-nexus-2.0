@@ -73,10 +73,14 @@ $script:lastSessions = 0
 
 if (-not $Quiet) { try { $Host.UI.RawUI.WindowTitle = "Pocket Nexus PC" } catch { } }
 
+function Protect-HostLog([string]$text) {
+    return [regex]::Replace($text, '(?i)(Wi-Fi link PIN:\s*)[0-9]{6}(?![0-9])', '$1[redacted]')
+}
+
 function Write-Log($text) {
     try {
         if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length -gt 1MB)) { Move-Item -Force $LogFile "$LogFile.old" }
-        Add-Content -Path $LogFile -Value ("[" + (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + "] " + $text) -Encoding UTF8
+        Add-Content -Path $LogFile -Value ("[" + (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + "] " + (Protect-HostLog $text)) -Encoding UTF8
     } catch { }
 }
 
@@ -1756,12 +1760,35 @@ function Write-Status {
 }
 
 # ---- The cable ------------------------------------------------------------------------------
+function Get-ExpectedReverseMappings([int]$controlPort) {
+    $mappings = @{}
+    foreach ($p in $TcpPorts) { $mappings["tcp:$p"] = "tcp:$p" }
+    $mappings["tcp:$TunnelPort"] = "tcp:$TunnelPort"
+    $mappings["tcp:$DefaultCompanionPort"] = "tcp:$controlPort"
+    return $mappings
+}
+
+function Get-MissingReverseMappings([string[]]$lines, [int]$controlPort) {
+    $expected = Get-ExpectedReverseMappings $controlPort
+    $actual = @{}
+    foreach ($line in $lines) {
+        if ($line -match '(?:^|\s)(tcp:\d+)\s+(tcp:\d+)\s*$') {
+            $actual[$Matches[1]] = $Matches[2]
+        }
+    }
+    foreach ($key in ($expected.Keys | Sort-Object)) {
+        if ($actual[$key] -ne $expected[$key]) { $key }
+    }
+}
+
 function Set-Reverse {
-    & $script:adb reverse --remove-all 2>$null | Out-Null
-    foreach ($p in $TcpPorts) { & $script:adb reverse "tcp:$p" "tcp:$p" 2>$null | Out-Null }
-    & $script:adb reverse "tcp:$TunnelPort" "tcp:$TunnelPort" 2>$null | Out-Null
-    # The handheld always asks 47110 over the cable: it lands on this PC's Wi-Fi port
-    & $script:adb reverse "tcp:$DefaultCompanionPort" "tcp:$CompanionPort" 2>$null | Out-Null
+    $lines = @(& $script:adb reverse --list 2>$null)
+    if ($LASTEXITCODE -ne 0) { return }
+    $expected = Get-ExpectedReverseMappings $CompanionPort
+    foreach ($key in @(Get-MissingReverseMappings $lines $CompanionPort)) {
+        # Reconcile only Nexus ports; never remove unrelated reverse mappings.
+        & $script:adb reverse $key $expected[$key] 2>$null | Out-Null
+    }
 }
 
 function Reset-UsbMode {
@@ -1792,8 +1819,7 @@ function Invoke-Tick {
             $script:lastState = $state
         } elseif ($state -eq "device") {
             # Keep the port rules alive (they vanish if adb restarts)
-            $rules = ((& $script:adb reverse --list 2>$null) -join " ")
-            if ($rules -notmatch "tcp:$DefaultCompanionPort") { Set-Reverse }
+            Set-Reverse
         }
     }
     $sessions = [PocketBridge]::Sessions
@@ -1907,6 +1933,115 @@ function Stop-Tray {
     [System.Windows.Forms.Application]::Exit()
 }
 
+
+# ---- Nexus Host dashboard (local UI, no new network endpoint) -------------------------------
+$script:hostDashboard = $null
+$script:hostSummary = $null
+
+function Get-HostUsbLabel([bool]$bridge, [bool]$adb, [string]$state) {
+    if (-not $bridge) { return "Bridge port unavailable" }
+    if (-not $adb) { return "ADB unavailable" }
+    if ($state -eq "device") { return "Handheld detected by ADB" }
+    if ($state -match "unauthorized") { return "Awaiting USB debugging approval" }
+    if ($state -match "offline") { return "Handheld offline" }
+    return "No authorized handheld detected"
+}
+
+function Get-HostDashboardText {
+    $endpoint = "Unknown (port check unavailable)"
+    try {
+        $listeners = @(Get-NetTCPConnection -LocalPort 47989 -State Listen -ErrorAction Stop)
+        if ($listeners.Count -gt 0) { $endpoint = "Listening on TCP 47989" }
+        else { $endpoint = "No listener detected" }
+    } catch {
+        # The cmdlet may report no matches as an error. Do not claim host failure.
+        $endpoint = "Listener not confirmed"
+    }
+    return (@(
+        ("COMPANION      " + $(if ($script:companionOk) { "Listener started" } else { "Listener unavailable" })),
+        ("CONTROL PORT   " + $CompanionPort),
+        ("USB BRIDGE     " + (Get-HostUsbLabel $script:bridgeOk ([bool]$script:adb) $script:lastState)),
+        ("PC LIBRARY     " + $(if ($script:pcLibraryError) { "Unavailable" } else { "Initialized" })),
+        ("STREAM HOST    " + $endpoint),
+        ("AUTOSTART      " + $(if (Test-Path $StartupLink) { "Enabled" } else { "Disabled" })),
+        "",
+        "Listener detection is not proof of Vibepollo compatibility or an active game.",
+        "Legacy APC1 control is not encrypted. Use a trusted private network or encrypted overlay."
+    ) -join [Environment]::NewLine)
+}
+
+function Show-HostDashboard {
+    if ($script:hostDashboard -and -not $script:hostDashboard.IsDisposed) {
+        $script:hostSummary.Text = Get-HostDashboardText
+        $script:hostDashboard.Activate()
+        return
+    }
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Nexus Host | Project Horizon"
+    $form.StartPosition = "CenterScreen"
+    $form.ClientSize = New-Object System.Drawing.Size(720, 420)
+    $form.MinimumSize = New-Object System.Drawing.Size(560, 360)
+    $form.BackColor = [System.Drawing.Color]::FromArgb(17, 24, 36)
+    $form.ForeColor = [System.Drawing.Color]::White
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $layout = New-Object System.Windows.Forms.TableLayoutPanel
+    $layout.Dock = "Fill"
+    $layout.Padding = New-Object System.Windows.Forms.Padding(20)
+    $layout.ColumnCount = 1
+    $layout.RowCount = 4
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 42)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 30)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 46)))
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = "NEXUS HOST"
+    $heading.Font = New-Object System.Drawing.Font("Segoe UI", 21, [System.Drawing.FontStyle]::Bold)
+    $heading.Dock = "Fill"
+    $layout.Controls.Add($heading, 0, 0)
+    $subtitle = New-Object System.Windows.Forms.Label
+    $subtitle.Text = "PROJECT HORIZON  /  Windows companion status"
+    $subtitle.ForeColor = [System.Drawing.Color]::FromArgb(164, 191, 230)
+    $subtitle.Dock = "Fill"
+    $layout.Controls.Add($subtitle, 0, 1)
+    $summary = New-Object System.Windows.Forms.TextBox
+    $summary.Multiline = $true
+    $summary.ReadOnly = $true
+    $summary.ScrollBars = "Vertical"
+    $summary.Dock = "Fill"
+    $summary.BackColor = [System.Drawing.Color]::FromArgb(29, 40, 57)
+    $summary.ForeColor = [System.Drawing.Color]::White
+    $summary.BorderStyle = "FixedSingle"
+    $summary.Text = Get-HostDashboardText
+    $layout.Controls.Add($summary, 0, 2)
+    $actions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $actions.Dock = "Fill"
+    $actions.WrapContents = $true
+    foreach ($label in @("Refresh", "Copy pairing PIN", "Close")) {
+        $button = New-Object System.Windows.Forms.Button
+        $button.Text = $label
+        $button.AutoSize = $true
+        $button.BackColor = [System.Drawing.Color]::FromArgb(50, 72, 103)
+        $button.ForeColor = [System.Drawing.Color]::White
+        $button.FlatStyle = "Flat"
+        switch ($label) {
+            "Refresh" { $button.add_Click({ $script:hostSummary.Text = Get-HostDashboardText }) }
+            "Copy pairing PIN" { $button.Enabled = $script:companionOk; $button.add_Click({
+                try { [System.Windows.Forms.Clipboard]::SetText($script:pin) } catch {
+                    [void][System.Windows.Forms.MessageBox]::Show("Could not copy PIN. Use the tray pairing menu.", "Nexus Host")
+                }
+            }) }
+            "Close" { $button.add_Click({ $script:hostDashboard.Close() }) }
+        }
+        [void]$actions.Controls.Add($button)
+    }
+    $layout.Controls.Add($actions, 0, 3)
+    $form.Controls.Add($layout)
+    $script:hostDashboard = $form
+    $script:hostSummary = $summary
+    $form.add_FormClosed({ $script:hostDashboard = $null; $script:hostSummary = $null })
+    $form.Show()
+}
+
 function Start-Tray {
     $script:tray = New-Object System.Windows.Forms.NotifyIcon
     $script:tray.Icon = New-TrayImage
@@ -1919,8 +2054,8 @@ function Start-Tray {
     $portItem = $menu.Items.Add("Wi-Fi port: " + $CompanionPort + "   (change)")
     $portItem.add_Click({ try { Edit-WifiPort } catch { Write-Log ("Wi-Fi port: " + $_.Exception.Message) } })
     [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-    $statusItem = $menu.Items.Add("Status")
-    $statusItem.add_Click({ [void][System.Windows.Forms.MessageBox]::Show((Get-StatusText), "Pocket Nexus PC") })
+    $statusItem = $menu.Items.Add("Open Nexus Host")
+    $statusItem.add_Click({ try { Show-HostDashboard } catch { Write-Log ("Dashboard: " + $_.Exception.Message) } })
     $logItem = $menu.Items.Add("Open the log")
     $logItem.add_Click({ Start-Process notepad.exe -ArgumentList "`"$LogFile`"" })
     $startItem = New-Object System.Windows.Forms.ToolStripMenuItem "Start with Windows"
@@ -1941,7 +2076,7 @@ function Start-Tray {
     $quitItem = $menu.Items.Add("Quit")
     $quitItem.add_Click({ Write-Log "Quit from the tray"; Stop-Tray })
     $script:tray.ContextMenuStrip = $menu
-    $script:tray.add_DoubleClick({ [void][System.Windows.Forms.MessageBox]::Show((Get-StatusText), "Pocket Nexus PC") })
+    $script:tray.add_DoubleClick({ try { Show-HostDashboard } catch { Write-Log ("Dashboard: " + $_.Exception.Message) } })
     $script:tray.Visible = $true
 
     $script:timer = New-Object System.Windows.Forms.Timer
@@ -1962,6 +2097,21 @@ function Invoke-SelfTest {
     function Check($ok, $what) {
         if ($ok) { Write-Host ("  ok    " + $what) } else { Write-Host ("  FAIL  " + $what); $failed.Add($what) }
     }
+    Check ((Get-HostUsbLabel $false $true "device") -eq "Bridge port unavailable") "dashboard bridge failure has priority"
+    Check ((Get-HostUsbLabel $true $false "") -eq "ADB unavailable") "dashboard missing ADB"
+    Check ((Get-HostUsbLabel $true $true "device") -eq "Handheld detected by ADB") "dashboard ADB device"
+    Check ((Get-HostUsbLabel $true $true "error: unauthorized") -eq "Awaiting USB debugging approval") "dashboard pending USB authorization"
+    Check ((Get-HostUsbLabel $true $true "offline") -eq "Handheld offline") "dashboard offline USB"
+    Check ((Get-HostUsbLabel $true $true "") -eq "No authorized handheld detected") "dashboard unknown USB state"
+    $all = @("UsbFfs tcp:47984 tcp:47984", "UsbFfs tcp:47989 tcp:47989", "UsbFfs tcp:48010 tcp:48010", "UsbFfs tcp:47990 tcp:47990", "UsbFfs tcp:47100 tcp:47100", "UsbFfs tcp:47110 tcp:47119", "UsbFfs tcp:9999 tcp:9999")
+    Check (@(Get-MissingReverseMappings $all 47119).Count -eq 0) "all expected USB mappings present; unrelated port ignored"
+    $missing = @(Get-MissingReverseMappings @("UsbFfs tcp:47110 tcp:47119") 47119)
+    Check ($missing.Count -eq 5 -and $missing -contains "tcp:47100") "missing USB routes detected even with correct control route"
+    $wrong = @($all | ForEach-Object { $_ -replace 'tcp:47110 tcp:47119', 'tcp:47110 tcp:47120' })
+    $repair = @(Get-MissingReverseMappings $wrong 47119)
+    Check ($repair.Count -eq 1 -and $repair[0] -eq "tcp:47110") "incorrect control route alone is repaired"
+    Check ((Protect-HostLog "PC helper ready  -  Wi-Fi link PIN: 123456") -eq "PC helper ready  -  Wi-Fi link PIN: [redacted]") "PIN redacted in persistent log"
+    Check ((Protect-HostLog "Handheld linked with the PIN") -eq "Handheld linked with the PIN") "nonsecret PIN event preserved"
     Check ($script:pcLibraryError -eq "") ("PC library compiled and hooked in " + $script:pcLibraryError)
     foreach ($er in $script:pcLibraryErrors) { Write-Host ("        " + $er) }
 
