@@ -28,7 +28,7 @@ public final class HomeItem {
     public final String a;
     /** pclib: the launch command; pcgames: the host; retro: the game's path; shortcut: its id. */
     public final String b;
-    /** pclib, pcgames: the PC's name; shortcut: its intent (a URI), when it was pinned. */
+    /** pclib, pcgames: PC name; retro: source root for new items; shortcut: pinned intent URI. */
     public final String c;
     /** pc: the Apollo app id; pclib: the game's page id. */
     public final int n;
@@ -51,6 +51,8 @@ public final class HomeItem {
             case PC_LIBRARY_GAME:
                 return kind + ":" + a + ":" + n + ":" + b;
             case RETRO:
+                // Preserve existing legacy keys; explicit source-bound items are distinct.
+                return kind + ":" + a + ":" + b + (c.isEmpty() ? "" : ":source:" + c);
             case SHORTCUT:
                 return kind + ":" + a + ":" + b;
             case CLOUD:

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_home_retro_source">ROM source unavailable or ambiguous. Open Retro, select its source and pin the game again.</string>
+</resources>

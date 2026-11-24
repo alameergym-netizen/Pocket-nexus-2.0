@@ -133,18 +133,28 @@ public final class HomeLauncher {
         final Context app = a.getApplicationContext();
         new Thread(() -> {
             final EsdeConfig cfg = RetroLibrary.config(app);
-            final File root = RetroLibrary.romRoot(app);
+            final File root = HorizonHomeRetroSource.choose(item.c,RetroLibrary.romRoot(app),
+                    RetroLibrary.rememberedRoots(app));
             MAIN.post(() -> {
-                if (a.isFinishing()) {
+                if (a.isFinishing() || a.isDestroyed()) {
+                    return;
+                }
+                if (root == null || !HorizonHomeRetroSource.stillSelected(root,item.c,
+                        RetroLibrary.romRoot(a),RetroLibrary.rememberedRoots(a))) {
+                    Toast.makeText(a,R.string.horizon_home_retro_source,Toast.LENGTH_LONG).show();
                     return;
                 }
                 EsdeConfig.SystemDef s = cfg.system(item.a);
-                if (s == null || root == null) {
+                if (s == null) {
                     Toast.makeText(a, R.string.pocket_home_missing, Toast.LENGTH_LONG).show();
                     return;
                 }
                 File dir = s.absolute ? new File(s.folder) : new File(root, s.folder);
-                File file = new File(dir, item.b);
+                File file = HorizonHomeRetroSource.resolve(dir,item.b);
+                if (file == null) {
+                    Toast.makeText(a,R.string.pocket_retro_file_gone,Toast.LENGTH_LONG).show();
+                    return;
+                }
                 RomScanner.Rom rom = new RomScanner.Rom(s.name, item.b, file, file.isDirectory());
                 EsdeConfig.Command cmd = RetroLibrary.gameCommand(a, null, s, rom);
                 RetroLauncher.Result r = RetroLauncher.launch(a, cfg, cmd, file, root);

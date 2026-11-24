@@ -337,7 +337,10 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
 
     // ---- Loading -------------------------------------------------------------------------------
 
+    private final HorizonRetroSelection selection = new HorizonRetroSelection();
+
     private void load(final boolean rescan) {
+        final long request = selection.next();
         hadAccess = RetroLibrary.hasAccess(this);
         if (!hadAccess) {
             showSetup();
@@ -349,7 +352,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
             final File root = RetroLibrary.romRoot(this);
             if (root == null || !root.isDirectory()) {
                 main.post(() -> {
-                    if (!isFinishing()) {
+                    if (!isFinishing() && !isDestroyed() && selection.current(request)) {
                         cfg = c;
                         lib = null;
                         showSetup();
@@ -361,7 +364,7 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                 final RetroLibrary.Library cached = RetroLibrary.cached(this, root);
                 if (cached != null) {
                     main.post(() -> {
-                        if (!isFinishing() && lib == null) {
+                        if (!isFinishing() && !isDestroyed() && selection.current(request) && lib == null) {
                             cfg = c;
                             lib = cached;
                             showEntries();
@@ -369,13 +372,17 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
                     });
                 }
                 else {
-                    main.post(() -> heroIdle(getString(R.string.pocket_retro_looking), root.getAbsolutePath()));
+                    main.post(() -> {
+                        if (!isFinishing() && !isDestroyed() && selection.current(request)) {
+                            heroIdle(getString(R.string.pocket_retro_looking),root.getAbsolutePath());
+                        }
+                    });
                 }
             }
             final RetroLibrary.Library fresh = RetroLibrary.scan(this, root);
             final RetroLibrary.Library fallback = fresh.complete ? null : RetroLibrary.cached(this,root);
             main.post(() -> {
-                if (isFinishing()) {
+                if (isFinishing() || isDestroyed() || !selection.current(request)) {
                     return;
                 }
                 cfg = c;
@@ -1417,7 +1424,8 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
 
     private com.limelight.pocket.home.HomeItem homeItem(RomScanner.Rom rom) {
         return new com.limelight.pocket.home.HomeItem(com.limelight.pocket.home.HomeItem.RETRO,
-                RomScanner.searchName(rom.name), rom.system, rom.relPath, "", 0);
+                RomScanner.searchName(rom.name), rom.system, rom.relPath,
+                lib != null && lib.root != null ? lib.root.getAbsolutePath() : "", 0);
     }
 
     /** A name of your own for the game (its details are looked up by it). */
@@ -1454,6 +1462,14 @@ public class RetroActivity extends ConsoleActivity implements CarouselAdapter.Li
 
     /** Starts the game with its emulator (or this one, once). */
     private void play(final RomScanner.Rom rom, EsdeConfig.Command with) {
+        // A previously opened game or emulator dialog can outlive a storage switch.
+        File active=RetroLibrary.romRoot(this);
+        RomScanner.Rom current=lib==null || rom==null ? null : lib.find(rom.key());
+        if (cfg==null || lib==null || !HorizonRetroSelection.canLaunch(active,lib.root,rom,current)) {
+            Toast.makeText(this,R.string.horizon_retro_source_changed,Toast.LENGTH_LONG).show();
+            load(true);
+            return;
+        }
         final EsdeConfig.SystemDef s = cfg.system(rom.system);
         if (s == null) {
             return;
