@@ -292,6 +292,13 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
             helpButton.setVisibility(View.GONE);
         }
 
+        View emptyAdd = findViewById(R.id.horizonConnectAdd);
+        if (emptyAdd != null) emptyAdd.setOnClickListener(v -> addComputerButton.performClick());
+        View emptyHelp = findViewById(R.id.horizonConnectHelp);
+        if (emptyHelp != null) {
+            emptyHelp.setOnClickListener(v -> helpButton.performClick());
+            emptyHelp.setVisibility(helpButton.getVisibility());
+        }
         noPcFoundLayout = findViewById(R.id.no_pc_found_layout);
         if (pcGridAdapter.getCount() == 0) {
             noPcFoundLayout.setVisibility(View.VISIBLE);
@@ -1470,9 +1477,23 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         TextView play = findViewById(R.id.pocketHeroPlay);
         TextView lastLine = findViewById(R.id.pocketHeroPlaytime);
         int count = pcGridAdapter.getCount();
+        int ready = 0, pairing = 0, offline = 0, unknown = 0;
+        for (int i = 0; i < count; i++) {
+            ComputerDetails details = ((ComputerObject) pcGridAdapter.getItem(i)).details;
+            switch (com.limelight.pocket.streaming.HorizonConnectStatus.classify(details)) {
+                case READY: ready++; break;
+                case PAIRING_REQUIRED: pairing++; break;
+                case OFFLINE: offline++; break;
+                default: unknown++; break;
+            }
+        }
+        TextView summary = findViewById(R.id.horizonConnectSummary);
+        if (summary != null) summary.setText(getString(R.string.horizon_connect_counts, ready, pairing, offline, unknown));
         if (count == 0) {
-            title.setText(R.string.pocket_brand_title);
+            title.setText(R.string.horizon_connect_title);
             subtitle.setText(R.string.pocket_hero_no_pc);
+            ++pocketBackdropToken;
+            getWindow().getDecorView().removeCallbacks(pocketBackdropTask);
             if (play != null) {
                 play.setVisibility(View.GONE);
             }
@@ -1484,7 +1505,7 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
             if (pocketKeyArt() != null) {
                 pocketKeyArt().show(null);
             }
-            pocketHeroLogo().clear(getString(R.string.pocket_brand_title));
+            pocketHeroLogo().clear(getString(R.string.horizon_connect_title));
             return;
         }
         if (position < 0 || position >= count) {
