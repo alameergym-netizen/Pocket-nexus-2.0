@@ -135,6 +135,12 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             UsbDriverService.this.stateListener = stateListener;
         }
 
+        /** Do not clear a successor activity's listeners during old activity cleanup. */
+        public void clearListenersIfOwned(UsbDriverListener inputOwner, UsbDriverStateListener stateOwner) {
+            if (UsbDriverService.this.listener == inputOwner) UsbDriverService.this.listener = null;
+            if (UsbDriverService.this.stateListener == stateOwner) UsbDriverService.this.stateListener = null;
+        }
+
         public void start() {
             UsbDriverService.this.start();
         }
