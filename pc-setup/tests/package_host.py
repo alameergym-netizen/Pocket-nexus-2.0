@@ -16,6 +16,8 @@ FILES = (
     "pc-setup/Stage-NexusHostDev.ps1",
     "pc-setup/Install-NexusHostDev.ps1",
     "pc-setup/Get-NexusSavePreview.ps1",
+    "pc-setup/Invoke-NexusLudusavi.ps1",
+    "pc-setup/Save-NexusGameBackup.ps1",
     "pc-setup/playnite/extension.yaml",
     "pc-setup/playnite/PocketNexusCatalog.psm1",
     "pc-setup/other-handhelds/ArtemisPocket-USB-Setup.bat",
