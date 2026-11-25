@@ -105,10 +105,17 @@ def check_collections():
     controls.key("BUTTON_B")
     controls.key("BUTTON_B")
     controls.wait_for("removal refreshes the active collection on menu dismissal",
-                      lambda t: selected(t, COLLECTION) and resource(t, OPTIONS) is None
+                      lambda t: selected(t, COLLECTION) and controls.focused(t, "Collection options")
                       and node_with_label(t, FIRST) is None)
     controls.capture("09-empty-collection")
-    print("PASS: duplicate collection adds, active selection, restart, and membership removal", flush=True)
+    controls.key("BUTTON_Y")
+    controls.wait_for("controller options for the empty collection", lambda t: controls.has(t, "Delete the collection Weekend"))
+    controls.key("BUTTON_A")
+    controls.wait_for("deletion needs a second confirmation", lambda t: controls.has(t, "Press A again"))
+    controls.key("BUTTON_A")
+    controls.wait_for("deleting an empty shelf returns to All and preserves games", lambda t:
+                      selected(t, "All") and library_with_games(t) and node_with_label(t, COLLECTION) is None)
+    print("PASS: duplicate adds, active selection, restart, membership removal, and empty collection deletion", flush=True)
 
 
 def main(apk):

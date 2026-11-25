@@ -96,6 +96,8 @@ public class LibraryActivity extends ConsoleActivity {
     private int filter = F_ALL;
     private int sort;
     private boolean refreshCollectionOnClose;
+    private TextView optionsAction;
+    private View detailsAction;
     private int heroPos = -1;
     private int heroToken;
     private int focusGeneration;
@@ -267,11 +269,14 @@ public class LibraryActivity extends ConsoleActivity {
 
         detailActions = new LinearLayout(this);
         detailActions.setVisibility(View.GONE);
-        View detailsAction = detailAction(R.string.pocket_hint_details, () -> onButtonX());
+        detailsAction = detailAction(R.string.pocket_hint_details, () -> onButtonX());
         detailsAction.setId(R.id.horizon_library_details_action);
         detailActions.addView(detailsAction, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        View optionsAction = detailAction(R.string.pocket_ul_hint_options, () -> {
-            if (heroPos >= 0 && heroPos < shown.size()) options(shown.get(heroPos));
+        optionsAction = detailAction(R.string.pocket_ul_hint_options, this::openSelectedOptions);
+        optionsAction.setOnKeyListener((view, code, event) -> {
+            if (code != KeyEvent.KEYCODE_BUTTON_A && code != KeyEvent.KEYCODE_BUTTON_Y) return false;
+            if (event.getAction() == KeyEvent.ACTION_UP && !isConsolePanelShowing()) view.performClick();
+            return true;
         });
         optionsAction.setId(R.id.horizon_library_options_action);
         LinearLayout.LayoutParams optionsLp = new LinearLayout.LayoutParams(0, dp(48), 1f);
@@ -327,7 +332,7 @@ public class LibraryActivity extends ConsoleActivity {
         return root;
     }
 
-    private View detailAction(int label, Runnable action) {
+    private TextView detailAction(int label, Runnable action) {
         TextView button = text(12f, PocketFonts.semibold(), 0xFFFFFFFF);
         button.setText(label);
         button.setGravity(Gravity.CENTER);
@@ -448,7 +453,11 @@ public class LibraryActivity extends ConsoleActivity {
         buildTabs();
         cards.notifyDataSetChanged();
         kicker.setText(getString(R.string.horizon_library_workspace_count, shown.size(), all.size(), getString(sortLabel(sort))));
-        detailActions.setVisibility(shown.isEmpty() ? View.GONE : View.VISIBLE);
+        boolean canManageEmptyCollection = shown.isEmpty() && filter >= FIXED;
+        detailActions.setVisibility(shown.isEmpty() && !canManageEmptyCollection ? View.GONE : View.VISIBLE);
+        detailsAction.setVisibility(shown.isEmpty() ? View.GONE : View.VISIBLE);
+        optionsAction.setText(canManageEmptyCollection ? R.string.horizon_library_collection_options : R.string.pocket_ul_hint_options);
+        optionsAction.setFocusableInTouchMode(canManageEmptyCollection);
         if (shown.isEmpty()) {
             empty.setVisibility(View.VISIBLE);
             empty.setText(all.isEmpty() ? R.string.pocket_ul_empty_all : R.string.pocket_ul_empty);
@@ -457,6 +466,7 @@ public class LibraryActivity extends ConsoleActivity {
             meta.setText("");
             ways.setText("");
             heroArt.setImageDrawable(null);
+            if (canManageEmptyCollection) optionsAction.requestFocus();
             return;
         }
         empty.setVisibility(View.GONE);
@@ -790,6 +800,15 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     /** Y: every way to play it, its status, its collections, its page. */
+    private void openSelectedOptions() {
+        if (heroPos >= 0 && heroPos < shown.size()) {
+            options(shown.get(heroPos));
+        } else if (!loading && filter >= FIXED) {
+            String current = filterLabel(filter);
+            showConsolePanel(current, null, null, Collections.singletonList(deleteCollectionItem(current)));
+        }
+    }
+
     private void options(final UniversalLibrary.Game g) {
         List<StreamMenuView.Item> items = new ArrayList<>();
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_ul_play_on)));
@@ -860,16 +879,17 @@ public class LibraryActivity extends ConsoleActivity {
                         show(false);
                     });
         }).withIcon("STAR"));
-        if (filter >= FIXED) {
-            final String current = filterLabel(filter);
-            items.add(StreamMenuView.Item.confirm(getString(R.string.pocket_ul_delete_collection, current), () -> {
-                GameShelf.deleteCollection(this, current);
-                hideConsolePanel();
-                filter = F_ALL;
-                show(false);
-            }).withIcon("TRASH"));
-        }
+        if (filter >= FIXED) items.add(deleteCollectionItem(filterLabel(filter)));
         pushConsolePage(getString(R.string.pocket_ul_collections), items);
+    }
+
+    private StreamMenuView.Item deleteCollectionItem(String name) {
+        return StreamMenuView.Item.confirm(getString(R.string.pocket_ul_delete_collection, name), () -> {
+            GameShelf.deleteCollection(this, name);
+            hideConsolePanel();
+            filter = F_ALL;
+            show(false);
+        }).withIcon("TRASH");
     }
 
     @Override
