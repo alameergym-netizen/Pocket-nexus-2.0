@@ -106,6 +106,11 @@ public final class PocketTheme {
                 Layouts.home(context).id, PocketPrefs.focusStyle(context));
     }
 
+    public static boolean pureOled(Context context) {
+        int index = themeIndex(context);
+        return index >= 0 && THEMES[index].name == R.string.horizon_theme_pure;
+    }
+
     // Exact presets win over legacy presets whose layout/focus are intentionally unspecified.
     // Pure OLED and Mono share their color/material/sound but not their layout and focus.
     static int matchingPreset(int accent, String backdrop, boolean frost, String sound,

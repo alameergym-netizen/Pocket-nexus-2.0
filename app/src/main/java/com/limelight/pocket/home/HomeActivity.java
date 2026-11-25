@@ -166,6 +166,7 @@ public class HomeActivity extends ConsoleActivity {
     private int heroPos = -1;
     private int focusGeneration;
     private boolean workspace;
+    private boolean pureOled;
     private boolean workspaceInitialFocusPending;
     private boolean workspaceArtPrepared;
     private int workspaceColumns;
@@ -385,10 +386,13 @@ public class HomeActivity extends ConsoleActivity {
         resumed = true;
         if (layout != null && (horizonDensity != com.limelight.pocket.ui.HorizonAppearance.density(this)
                 || horizonCorners != com.limelight.pocket.ui.HorizonAppearance.corners(this)
+                || pureOled != com.limelight.pocket.ui.PocketTheme.pureOled(this)
                 || !layout.id.equals(com.limelight.pocket.ui.Layouts.home(this).id))) {
             int keep = Math.max(0, heroPos);
             applyLayout(true);
             tiles.notifyDataSetChanged();
+            heroKey = null;
+            updateHero(keep);
             if (!entries.isEmpty()) { focusAt(Math.min(keep, entries.size() - 1), 0); }
         }
         if (dock != null) {
@@ -558,7 +562,7 @@ public class HomeActivity extends ConsoleActivity {
             return;
         }
         View focus = getCurrentFocus();
-        boolean onActions = workspace ? previousActions || previousDock
+        boolean onActions = workspace || pureOled ? previousActions || previousDock
                 : focus != null && (focus == play || focus == info || focus == more);
         if (onActions) {
             updateHero(target);
@@ -1072,7 +1076,7 @@ public class HomeActivity extends ConsoleActivity {
         final String uuid = artUuid(e.item);
         final String key = e.item.key();
         main.removeCallbacks(heroMotion);
-        if (uuid == null) {
+        if (uuid == null || pureOled) {
             if (keyArt != null) {
                 keyArt.show(null);
             }
@@ -1393,6 +1397,12 @@ public class HomeActivity extends ConsoleActivity {
         if (glow == null) {
             return;
         }
+        if (pureOled) {
+            if (glowAnim != null) glowAnim.cancel();
+            glowColor = 0;
+            glow.setAlpha(0f);
+            return;
+        }
         final int target;
         if (color == 0) {
             target = 0;
@@ -1460,6 +1470,7 @@ public class HomeActivity extends ConsoleActivity {
      */
     private void applyLayout(boolean relayout) {
         layout = com.limelight.pocket.ui.Layouts.home(this);
+        pureOled = com.limelight.pocket.ui.PocketTheme.pureOled(this);
         workspace = com.limelight.pocket.ui.Layouts.HORIZON_WORKSPACE.equals(layout.id)
                 && HorizonHomeWorkspace.supported(getResources().getDisplayMetrics().widthPixels / d,
                         getResources().getDisplayMetrics().heightPixels / d);
@@ -1566,22 +1577,23 @@ public class HomeActivity extends ConsoleActivity {
         }
         else {
             if (dock != null) {
-                dock.view().setVisibility(View.GONE);
+                dock.view().setVisibility(pureOled ? View.VISIBLE : View.GONE);
             }
             int cell = tileW + Math.round((list ? 0 : 22) * d);
-            int width = Math.round(screenW * (list ? 0.44f : 0.62f));
+            int width = Math.round(screenW * (pureOled ? 0.55f : list ? 0.44f : 0.62f));
             if (list) {
                 row.setLayoutManager(new LinearLayoutManager(this, RecyclerView.VERTICAL, false));
             }
             else {
                 int span = Math.max(2, (width - Math.round(30 * d)) / Math.max(1, cell));
                 row.setLayoutManager(new GridLayoutManager(this, span, RecyclerView.VERTICAL, false));
+                if (pureOled) workspaceColumns = span;
             }
             rlp.width = width;
             rlp.height = ViewGroup.LayoutParams.MATCH_PARENT;
             rlp.gravity = Gravity.TOP | Gravity.START;
             rlp.topMargin = Math.round(48 * d);
-            rlp.bottomMargin = Math.round(34 * d);
+            rlp.bottomMargin = Math.round((pureOled ? 92 : 34) * d);
             row.setPadding(Math.round(18 * d), Math.round(12 * d), Math.round(8 * d), Math.round(60 * d));
             row.setHorizontalFadingEdgeEnabled(false);
             row.setVerticalFadingEdgeEnabled(true);
@@ -1589,12 +1601,16 @@ public class HomeActivity extends ConsoleActivity {
             hlp.gravity = Gravity.TOP | Gravity.END;
             hlp.topMargin = Math.round(62 * d);
             hlp.bottomMargin = 0;
-            hlp.width = Math.round(300 * d);
+            hlp.width = pureOled ? Math.max(1, screenW - width - Math.round(48 * d)) : Math.round(300 * d);
             hlp.setMarginStart(0);
             hlp.setMarginEnd(Math.round(30 * d));
             rowLabel.setVisibility(View.GONE);
             if (sideScrim != null) {
-                sideScrim.setVisibility(View.VISIBLE);
+                sideScrim.setVisibility(pureOled ? View.GONE : View.VISIBLE);
+            }
+            if (pureOled) {
+                logoMax = 56;
+                descLines = 1;
             }
         }
         if (workspace) {
@@ -2667,7 +2683,7 @@ public class HomeActivity extends ConsoleActivity {
                         return true;
                     }
                 }
-                if (workspace && event.getAction() == KeyEvent.ACTION_DOWN) {
+                if ((workspace || pureOled) && event.getAction() == KeyEvent.ACTION_DOWN) {
                     int pos = h.getBindingAdapterPosition();
                     if (pos != RecyclerView.NO_POSITION) {
                         boolean rtl = row.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;

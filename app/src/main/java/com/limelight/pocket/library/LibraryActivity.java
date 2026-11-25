@@ -41,6 +41,7 @@ import com.limelight.pocket.home.PlayTime;
 import com.limelight.pocket.ui.ConsoleScreen;
 import com.limelight.pocket.ui.FocusGlow;
 import com.limelight.pocket.ui.PocketFonts;
+import com.limelight.pocket.ui.PocketTheme;
 import com.limelight.pocket.ui.PocketMotion;
 import com.limelight.pocket.ui.StreamMenuView;
 import com.limelight.pocket.ui.TextPrompt;
@@ -107,6 +108,7 @@ public class LibraryActivity extends ConsoleActivity {
     private boolean pagePlay;
 
     private ImageView heroArt;
+    private boolean pureOled;
     private TextView kicker;
     private TextView title;
     private TextView meta;
@@ -200,10 +202,12 @@ public class LibraryActivity extends ConsoleActivity {
 
     private View build() {
         FrameLayout root = new FrameLayout(this);
-        root.setBackground(ConsoleScreen.backdrop(this));
+        pureOled = PocketTheme.pureOled(this);
+        if (pureOled) root.setBackgroundColor(0xFF000000);
+        else root.setBackground(ConsoleScreen.backdrop(this));
         int w = getResources().getDisplayMetrics().widthPixels;
         int h = getResources().getDisplayMetrics().heightPixels;
-        HorizonLibraryLayout spec = HorizonLibraryLayout.forWindow(w / d, h / d);
+        HorizonLibraryLayout spec = HorizonLibraryLayout.forWindow(w / d, h / d, pureOled);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setClipChildren(false);
@@ -244,19 +248,20 @@ public class LibraryActivity extends ConsoleActivity {
         detail.setPadding(dp(12), dp(12), dp(12), dp(10));
         GradientDrawable detailBg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0xF0222935, 0xF0141820});
-        detailBg.setCornerRadius(dp(14));
+        if (pureOled) detailBg.setColor(0xFF000000);
+        detailBg.setCornerRadius(dp(pureOled ? 4 : 14));
         detailBg.setStroke(dp(1), 0x33FFFFFF);
         detail.setBackground(detailBg);
         heroArt = new ImageView(this);
         heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        if (spec.split) {
+        if (spec.artHeight > 0) {
             detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(spec.artHeight)));
         }
         title = text(spec.split ? 22f : 17f, PocketFonts.bold(), 0xFFFFFFFF);
         title.setMaxLines(spec.split ? 2 : 1);
         if (spec.split) title.setSingleLine(false);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2);
-        tl.topMargin = dp(spec.split ? 10 : 0);
+        tl.topMargin = dp(spec.artHeight > 0 ? 10 : 0);
         detail.addView(title, tl);
         meta = text(12f, PocketFonts.medium(), 0xDEFFFFFF);
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, -2);
@@ -904,15 +909,19 @@ public class LibraryActivity extends ConsoleActivity {
 
     /** A cover's shape: as wide as its cell, a box's height (2:3 and a little). */
     private static final class CoverFrame extends FrameLayout {
-        CoverFrame(Context c) {
+        private final int fixedHeight;
+
+        CoverFrame(Context c, int fixedHeight) {
             super(c);
+            this.fixedHeight = fixedHeight;
         }
 
         @Override
         protected void onMeasure(int widthSpec, int heightSpec) {
             int w = MeasureSpec.getSize(widthSpec);
             super.onMeasure(MeasureSpec.makeMeasureSpec(w, MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec(Math.round(w * 1.42f), MeasureSpec.EXACTLY));
+                    MeasureSpec.makeMeasureSpec(fixedHeight > 0 ? fixedHeight : Math.round(w * 1.42f),
+                            MeasureSpec.EXACTLY));
         }
     }
 
@@ -941,10 +950,14 @@ public class LibraryActivity extends ConsoleActivity {
             FrameLayout frame = new FrameLayout(LibraryActivity.this);
             frame.setClipChildren(false);
             frame.setPadding(dp(7), dp(7), dp(7), dp(7));
-            final FrameLayout card = new CoverFrame(LibraryActivity.this);
-            final float radius = dp(12);
+            final FrameLayout card = new CoverFrame(LibraryActivity.this, pureOled ? dp(76) : 0);
+            final float radius = dp(pureOled ? 4 : 12);
             GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF2A2A33, 0xFF15151A});
             bg.setCornerRadius(radius);
+            if (pureOled) {
+                bg.setColor(0xFF000000);
+                bg.setStroke(Math.max(1, dp(1)), 0x55FFFFFF);
+            }
             card.setBackground(bg);
             card.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
@@ -960,14 +973,17 @@ public class LibraryActivity extends ConsoleActivity {
             card.addView(cover, new FrameLayout.LayoutParams(-1, -1));
             TextView name = text(12.5f, PocketFonts.bold(), 0xFFFFFFFF);
             name.setSingleLine(false);
-            name.setMaxLines(4);
-            name.setGravity(Gravity.CENTER);
-            name.setPadding(dp(8), 0, dp(8), 0);
-            card.addView(name, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
+            name.setMaxLines(pureOled ? 2 : 4);
+            name.setGravity(pureOled ? Gravity.START : Gravity.CENTER);
+            name.setPadding(dp(pureOled ? 12 : 8), 0, dp(pureOled ? 16 : 8), 0);
+            FrameLayout.LayoutParams nameLp = new FrameLayout.LayoutParams(-1, -2,
+                    pureOled ? Gravity.TOP : Gravity.CENTER);
+            if (pureOled) nameLp.topMargin = dp(10);
+            card.addView(name, nameLp);
             View shade = new View(LibraryActivity.this);
             shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[]{0x00000000, 0x00000000, 0xB3000000}));
-            card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+            if (!pureOled) card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
             TextView badge = text(8.5f, PocketFonts.bold(), 0xFFFFFFFF);
             badge.setLetterSpacing(0.06f);
             badge.setPadding(dp(6), dp(2), dp(6), dp(2));
@@ -984,7 +1000,7 @@ public class LibraryActivity extends ConsoleActivity {
             card.addView(dot, dlp);
             frame.addView(card, new FrameLayout.LayoutParams(-1, -2));
             final Holder h = new Holder(frame, card, cover, name, badge, dot);
-            FocusGlow.apply(card, radius, false, 1.08f, (v, has) -> {
+            FocusGlow.apply(card, radius, false, pureOled ? 1f : 1.08f, (v, has) -> {
                 if (has) {
                     int p = h.getBindingAdapterPosition();
                     if (p != RecyclerView.NO_POSITION) {
@@ -1050,6 +1066,7 @@ public class LibraryActivity extends ConsoleActivity {
             else {
                 h.dot.setVisibility(View.GONE);
             }
+            if (pureOled) return;
             UniversalLibrary.Way best = g.best();
             final String uuid = HomeActivity.artUuid(best.item);
             final int id = HomeActivity.artId(best.item);
