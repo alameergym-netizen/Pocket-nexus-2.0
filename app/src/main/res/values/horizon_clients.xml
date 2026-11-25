@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <item name="horizon_clients_capabilities" type="id"/>
+    <item name="horizon_clients_fallback" type="id"/>
     <string name="horizon_clients_title">Clients and sources</string>
     <string name="horizon_clients_sub">Every streaming, cloud, console, PC-game, emulator, media and library client Pocket Nexus works with or is evaluating, with what each one really does here.</string>
     <string name="horizon_clients_intro">A description only: nothing here signs in, installs or starts a game. Installed apps are found on this handheld; everything else is labelled as it is.</string>
@@ -46,6 +48,19 @@
     <string name="horizon_clients_note_vibepollo">Primary host. Nexus Host reads its local metadata with a scoped token.</string>
     <string name="horizon_clients_note_playnite">Nexus Host can read an opt-in Playnite export. No launching from it yet.</string>
     <string name="horizon_clients_note_ludusavi">Nexus Host uses a Ludusavi you provide for per-game Windows save snapshots and previews.</string>
+
+    <!-- What Pocket Nexus does with the client, e.g. "Pocket Nexus: opens it · starts its games" -->
+    <string name="horizon_clients_can">Pocket Nexus: %1$s</string>
+    <string name="horizon_clients_can_nothing">Pocket Nexus: nothing with it yet</string>
+    <string name="horizon_clients_can_opens">opens it</string>
+    <string name="horizon_clients_can_starts_games">starts its games</string>
+    <string name="horizon_clients_can_library">shows them in the Library</string>
+    <string name="horizon_clients_can_sees_session">sees the session</string>
+    <string name="horizon_clients_can_resumes">Quick Resume</string>
+    <string name="horizon_clients_can_connects">connects to it on your PC</string>
+    <!-- What Pocket Nexus offers when this client isn't on the handheld or isn't available -->
+    <string name="horizon_clients_fallback">Instead, when it isn\'t available: %1$s</string>
+    <string name="horizon_clients_fallback_using">Not installed: Pocket Nexus uses %1$s</string>
 
     <string name="horizon_clients_package">Package: %1$s</string>
     <string name="horizon_clients_packages_expected">Looks for: %1$s</string>
