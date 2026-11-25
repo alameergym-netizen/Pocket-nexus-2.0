@@ -79,6 +79,9 @@ public class ControlCenterActivity extends Activity {
     private boolean titanium;
     private boolean legacy;
     private final Handler main = new Handler(Looper.getMainLooper());
+    /** Nexus Horizon: the host, session and network cards under the title. */
+    private com.limelight.pocket.ui.HorizonStreamDeck streamDeck;
+    private long streamDeckAt;
 
     private TextView clock;
     private TextView batteryBig;
@@ -217,6 +220,10 @@ public class ControlCenterActivity extends Activity {
         clock.setText(DateFormat.getTimeFormat(this).format(new Date()));
         head.addView(clock, wrap());
         panel.addView(head, matchWrap());
+        streamDeck = null;
+        if (com.limelight.pocket.ui.PocketTheme.horizon(this)) {
+            addStreamDeck(spec.width - 2 * spec.padding);
+        }
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFocusable(false);
@@ -359,6 +366,57 @@ public class ControlCenterActivity extends Activity {
                 first.requestFocusFromTouch();
             }
         });
+    }
+
+    /**
+     * Nexus Horizon's streaming cards, one line each, side by side when they fit across the
+     * panel (else stacked). They open Streaming, the running game there, or Android's network
+     * panel; the focus reaches them UP from the tiles and goes back DOWN.
+     */
+    private void addStreamDeck(int innerWidthDp) {
+        streamDeck = new com.limelight.pocket.ui.HorizonStreamDeck(this, true,
+                new com.limelight.pocket.ui.HorizonStreamDeck.Actions() {
+                    @Override public void openHosts() {
+                        com.limelight.pocket.ui.SectionBar.go(ControlCenterActivity.this, -1,
+                                com.limelight.pocket.ui.SectionBar.STREAMING);
+                    }
+
+                    @Override public void resume(com.limelight.pocket.ui.HorizonStreamCards.Host running) {
+                        openHosts();
+                    }
+
+                    @Override public void openNetwork() {
+                        com.limelight.pocket.ui.HorizonStreamDeck.openNetworkPanel(ControlCenterActivity.this);
+                    }
+                });
+        boolean side = com.limelight.pocket.ui.HorizonStreamCards.sideBySide(innerWidthDp, 3);
+        streamDeck.arrange(!side, true);
+        streamDeck.setEdges(null, null, () -> {
+            if (first != null) first.requestFocus();
+        });
+        streamDeck.setVisibility(View.INVISIBLE);
+        LinearLayout.LayoutParams lp = matchWrap();
+        lp.topMargin = dp(10);
+        panel.addView(streamDeck, lp);
+        streamDeckAt = 0;
+    }
+
+    /** The saved PCs with what Home last saw of them, and the network (every 10 s at most). */
+    private void updateStreamDeck() {
+        final com.limelight.pocket.ui.HorizonStreamDeck deck = streamDeck;
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (deck == null || (streamDeckAt != 0 && now - streamDeckAt < 10_000)) return;
+        streamDeckAt = now;
+        final Context app = getApplicationContext();
+        new Thread(() -> {
+            final java.util.List<com.limelight.pocket.ui.HorizonStreamCards.Host> hosts = com.limelight.pocket.ui
+                    .HorizonStreamDeck.hosts(app, com.limelight.pocket.home.HomeStore.computers(app), null, null);
+            main.post(() -> {
+                if (isFinishing() || deck != streamDeck) return;
+                deck.show(hosts, com.limelight.pocket.ui.HorizonStreamDeck.readLink(app));
+                deck.setVisibility(View.VISIBLE);
+            });
+        }, "horizon-stream-cards").start();
     }
 
     private TextView section(int label) {
@@ -574,6 +632,7 @@ public class ControlCenterActivity extends Activity {
         if (wifi == null) {
             return;
         }
+        updateStreamDeck();
         boolean wifiOn = false;
         try {
             WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
@@ -646,6 +705,7 @@ public class ControlCenterActivity extends Activity {
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
         View focus = getCurrentFocus();
         if (down && first != null && !(focus instanceof Tile) && !(focus instanceof Bar)
+                && !(streamDeck != null && streamDeck.owns(focus))
                 && code != KeyEvent.KEYCODE_BUTTON_B && code != KeyEvent.KEYCODE_BACK
                 && code != KeyEvent.KEYCODE_BUTTON_MODE && code != KeyEvent.KEYCODE_ESCAPE) {
             // Nothing of the panel has the focus yet: the first key puts it on the first tile

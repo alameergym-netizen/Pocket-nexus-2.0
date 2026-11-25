@@ -125,6 +125,16 @@ public class LibraryActivity extends ConsoleActivity {
     private HorizontalScrollView tabScroll;
     private RecyclerView grid;
     private final Cards cards = new Cards();
+    /** Nexus Horizon: the host, session and network cards in the header. */
+    private com.limelight.pocket.ui.HorizonStreamDeck streamDeck;
+    private final Runnable refreshStreamDeck = new Runnable() {
+        @Override public void run() {
+            main.removeCallbacks(this);
+            if (streamDeck == null || isFinishing()) return;
+            updateStreamDeck();
+            main.postDelayed(this, 10_000);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,7 +185,34 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (streamDeck != null) refreshStreamDeck.run();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        main.removeCallbacks(refreshStreamDeck);
+    }
+
+    /** The saved PCs with what Home last saw of them (the Library doesn't poll), and the network. */
+    private void updateStreamDeck() {
+        final Context app = getApplicationContext();
+        io.execute(() -> {
+            final List<com.limelight.pocket.ui.HorizonStreamCards.Host> hosts = com.limelight.pocket.ui.HorizonStreamDeck
+                    .hosts(app, com.limelight.pocket.home.HomeStore.computers(app), null, null);
+            main.post(() -> {
+                if (isFinishing() || isDestroyed() || streamDeck == null) return;
+                streamDeck.show(hosts, com.limelight.pocket.ui.HorizonStreamDeck.readLink(app));
+                streamDeck.setVisibility(View.VISIBLE);
+            });
+        });
+    }
+
+    @Override
     protected void onDestroy() {
+        main.removeCallbacks(refreshStreamDeck);
         heroToken++;
         focusGeneration++;
         if (heroArt != null) heroArt.animate().cancel();
@@ -238,6 +275,33 @@ public class LibraryActivity extends ConsoleActivity {
         kicker.setLetterSpacing(0.06f);
         header.addView(kicker, new LinearLayout.LayoutParams(-2, -2));
         column.addView(header, new LinearLayout.LayoutParams(-1, -2));
+        // Nexus Horizon: where the PC games stream from, in a row under the title, when three
+        // one-line cards fit side by side and the games keep their room (short screens skip it)
+        if (PocketTheme.horizon(this) && h / d >= 400 && com.limelight.pocket.ui.HorizonStreamCards.sideBySide(
+                w / d - 2 * spec.padding, 3)) {
+            streamDeck = new com.limelight.pocket.ui.HorizonStreamDeck(this, true,
+                    new com.limelight.pocket.ui.HorizonStreamDeck.Actions() {
+                        @Override public void openHosts() {
+                            com.limelight.pocket.ui.SectionBar.go(LibraryActivity.this, -1,
+                                    com.limelight.pocket.ui.SectionBar.STREAMING);
+                        }
+
+                        @Override public void resume(com.limelight.pocket.ui.HorizonStreamCards.Host running) {
+                            // Streaming shows the running game with its resume button
+                            openHosts();
+                        }
+
+                        @Override public void openNetwork() {
+                            com.limelight.pocket.ui.HorizonStreamDeck.openNetworkPanel(LibraryActivity.this);
+                        }
+                    });
+            streamDeck.arrange(false, true);
+            streamDeck.setEdges(null, null, () -> focusAt(Math.max(0, heroPos), 0));
+            streamDeck.setVisibility(View.INVISIBLE);
+            LinearLayout.LayoutParams deckLp = new LinearLayout.LayoutParams(-1, -2);
+            deckLp.topMargin = dp(8);
+            column.addView(streamDeck, deckLp);
+        }
 
         tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);

@@ -116,6 +116,12 @@ public final class PocketTheme {
         return index >= 0 && THEMES[index].name == R.string.horizon_theme_titanium;
     }
 
+    /** Nexus Horizon: the streaming cards for the host, the session and the network (HorizonStreamDeck). */
+    public static boolean horizon(Context context) {
+        int index = themeIndex(context);
+        return index >= 0 && THEMES[index].name == R.string.horizon_theme_horizon;
+    }
+
     /** Nexus Legacy: pixel type, square cards and dialog boxes (see LegacyStyle). */
     public static boolean legacy(Context context) {
         int index = themeIndex(context);

@@ -175,6 +175,23 @@ public class HomeActivity extends ConsoleActivity {
     private boolean pureOled;
     private boolean titanium;
     private boolean legacy;
+    /** Nexus Horizon: the host, session and network cards beside the hero (Portal layout). */
+    private boolean horizonFamily;
+    /** The look was Nexus Horizon when the layout was made (the cards may still not fit). */
+    private boolean horizonTheme;
+    private com.limelight.pocket.ui.HorizonStreamDeck streamDeck;
+    private boolean streamDeckFilled;
+    /** When each PC's poll last answered (elapsed realtime), so the cards never show an old answer as now. */
+    private final Map<String, Long> pcSeen = new HashMap<>();
+    private final Runnable refreshStreamDeck = new Runnable() {
+        @Override public void run() {
+            main.removeCallbacks(this);
+            if (!horizonFamily || !resumed) return;
+            updateStreamDeck();
+            main.postDelayed(this, 10_000);
+        }
+    };
+    private final Runnable streamDeckSoon = this::updateStreamDeck;
     private TextView legacyKicker;
     private final java.util.Map<TextView, Typeface> originalType = new java.util.HashMap<>();
     private LinearLayout telemetry;
@@ -407,6 +424,7 @@ public class HomeActivity extends ConsoleActivity {
                 || horizonCorners != com.limelight.pocket.ui.HorizonAppearance.corners(this)
                 || pureOled != com.limelight.pocket.ui.PocketTheme.pureOled(this)
                 || titanium != com.limelight.pocket.ui.PocketTheme.titanium(this)
+                || horizonTheme != com.limelight.pocket.ui.PocketTheme.horizon(this)
                 || !layout.id.equals(com.limelight.pocket.ui.Layouts.home(this).id))) {
             int keep = Math.max(0, heroPos);
             applyLayout(true);
@@ -420,6 +438,7 @@ public class HomeActivity extends ConsoleActivity {
         }
         scheduleAmbient();
         restartTelemetry();
+        refreshStreamDeck.run();
         if (binder != null) {
             startPolling();
         }
@@ -438,6 +457,8 @@ public class HomeActivity extends ConsoleActivity {
         super.onPause();
         resumed = false;
         main.removeCallbacks(refreshTelemetry);
+        main.removeCallbacks(refreshStreamDeck);
+        main.removeCallbacks(streamDeckSoon);
         if (pending != null) hideBlockingCard();
         cancelPending();
         focusGeneration++;
@@ -1536,6 +1557,78 @@ public class HomeActivity extends ConsoleActivity {
         if (resumed) restartTelemetry();
     }
 
+    /**
+     * Nexus Horizon: three cards to the right of the hero (the host, the session, the network),
+     * level with its buttons. Side by side when each has room, otherwise three slim rows; hidden
+     * when even those don't fit, and in every other look.
+     */
+    private void layoutStreamDeck(boolean portal, int screenW, FrameLayout.LayoutParams hero) {
+        horizonTheme = com.limelight.pocket.ui.PocketTheme.horizon(this);
+        boolean wanted = portal && !workspace && horizonTheme;
+        int end = Math.round(24 * d);
+        int room = screenW - (hero.getMarginStart() + Math.max(0, hero.width)) - Math.round(24 * d) - end;
+        if (wanted && room < Math.round(180 * d)) wanted = false;
+        horizonFamily = wanted;
+        if (!wanted) {
+            main.removeCallbacks(refreshStreamDeck);
+            main.removeCallbacks(streamDeckSoon);
+            if (streamDeck != null) streamDeck.setVisibility(View.GONE);
+            return;
+        }
+        if (streamDeck == null) {
+            streamDeck = new com.limelight.pocket.ui.HorizonStreamDeck(this, false,
+                    new com.limelight.pocket.ui.HorizonStreamDeck.Actions() {
+                        @Override public void openHosts() {
+                            SectionBar.go(HomeActivity.this, SectionBar.HOME, SectionBar.STREAMING);
+                        }
+
+                        @Override public void resume(com.limelight.pocket.ui.HorizonStreamCards.Host running) {
+                            // The same way a PC game on Home resumes: the PC is asked first
+                            launchOnPc(new HomeItem(HomeItem.PC, running.runningName != null ? running.runningName : "",
+                                    running.id, "", "", running.runningAppId), false);
+                        }
+
+                        @Override public void openNetwork() {
+                            com.limelight.pocket.ui.HorizonStreamDeck.openNetworkPanel(HomeActivity.this);
+                        }
+                    });
+            streamDeck.setEdges(() -> focusAt(Math.max(0, heroPos), 0), () -> {
+                // Back to the hero's last button (Options; Play when the "Add" tile has none)
+                if (more.getVisibility() == View.VISIBLE) more.requestFocus();
+                else play.requestFocus();
+            });
+            streamDeck.setVisibility(View.INVISIBLE);
+            ((ViewGroup) findViewById(R.id.pocketMain)).addView(streamDeck,
+                    new FrameLayout.LayoutParams(room, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        boolean stacked = !com.limelight.pocket.ui.HorizonStreamCards.sideBySide(room / d, 3);
+        if (stacked != streamDeck.stacked()) streamDeck.arrange(stacked);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(room, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.END);
+        lp.bottomMargin = hero.bottomMargin;
+        lp.setMarginEnd(end);
+        streamDeck.setLayoutParams(lp);
+        streamDeck.setVisibility(streamDeckFilled ? View.VISIBLE : View.INVISIBLE);
+        if (resumed) refreshStreamDeck.run();
+    }
+
+    /** The cards from the saved PCs, what the poll saw of them, and Android's network. */
+    private void updateStreamDeck() {
+        if (streamDeck == null || !horizonFamily) return;
+        final Map<String, ComputerDetails> live = new HashMap<>(livePcs);
+        final Map<String, Long> seen = new HashMap<>(pcSeen);
+        work.execute(() -> {
+            final List<com.limelight.pocket.ui.HorizonStreamCards.Host> hosts =
+                    com.limelight.pocket.ui.HorizonStreamDeck.hosts(this, HomeStore.computers(this), live, seen);
+            main.post(() -> {
+                if (isFinishing() || streamDeck == null || !horizonFamily) return;
+                streamDeck.show(hosts, com.limelight.pocket.ui.HorizonStreamDeck.readLink(this));
+                streamDeckFilled = true;
+                streamDeck.setVisibility(View.VISIBLE);
+            });
+        });
+    }
+
     private void restartTelemetry() {
         main.removeCallbacks(refreshTelemetry);
         if (titanium) refreshTelemetry.run();
@@ -1775,6 +1868,7 @@ public class HomeActivity extends ConsoleActivity {
         }
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
+        layoutStreamDeck(portal, screenW, hlp);
         if (!workspace) finishWorkspaceInitialFocus();
         float widthDp=screenW/d;
         float heightDp=getResources().getDisplayMetrics().heightPixels/d;
@@ -1917,6 +2011,13 @@ public class HomeActivity extends ConsoleActivity {
             boolean portalRow = layout != null && layout.arrange == com.limelight.pocket.ui.Layouts.PORTAL;
             if (workspace && keyCode == KeyEvent.KEYCODE_DPAD_DOWN && event.getAction() == KeyEvent.ACTION_DOWN) {
                 if (dock != null) dock.focusLast();
+                return true;
+            }
+            if (horizonFamily && v == more && streamDeck != null && streamDeck.getVisibility() == View.VISIBLE
+                    && keyCode == (more.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL
+                            ? KeyEvent.KEYCODE_DPAD_LEFT : KeyEvent.KEYCODE_DPAD_RIGHT)) {
+                // Options is the hero's last button: the stream cards are next to it
+                if (event.getAction() == KeyEvent.ACTION_DOWN) streamDeck.first().requestFocus();
                 return true;
             }
             if (keyCode == (portalRow ? KeyEvent.KEYCODE_DPAD_UP : KeyEvent.KEYCODE_DPAD_DOWN)
@@ -2175,6 +2276,12 @@ public class HomeActivity extends ConsoleActivity {
             return;
         }
         livePcs.put(details.uuid, details);
+        pcSeen.put(details.uuid, android.os.SystemClock.elapsedRealtime());
+        if (horizonFamily && resumed) {
+            // Polls arrive in bursts (one per PC): the cards follow once they settle
+            main.removeCallbacks(streamDeckSoon);
+            main.postDelayed(streamDeckSoon, 400);
+        }
         if (pending != null && !currentPcRequest(pcRequest)) {
             cancelPending();
             hideBlockingCard();
