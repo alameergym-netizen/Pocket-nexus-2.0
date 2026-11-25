@@ -27,20 +27,18 @@ using System.Web.Script.Serialization;
 
 public static class FakeSavePreview {
     public static int Main(string[] args) {
-        Console.InputEncoding = new UTF8Encoding(false);
         Console.OutputEncoding = new UTF8Encoding(false);
-        if (args.Length != 5 || args[0] != "--no-manifest-update"
+        if (args.Length != 7 || args[0] != "--no-manifest-update"
                 || (args[1] != "backup" && args[1] != "restore") || args[2] != "--preview"
-                || args[3] != "--api" || args[4] != "--no-cloud-sync") return 9;
-        string title = Console.ReadLine();
-        if (Console.ReadLine() != null) return 8;
+                || args[3] != "--api" || args[4] != "--no-cloud-sync" || args[5] != "--") return 9;
+        string title = args[6];
         var json = new JavaScriptSerializer();
         if (title == "Unknown game") {
             Console.Write(json.Serialize(new { errors = new { unknownGames = new[] { title } } }));
             return 2;
         }
         if (title == "Wrong title") title = "Unexpected game";
-        else if (title != "Caf\u00e9 \"Fixture\" --force") return 7;
+        else if (title != "Caf\u00e9 \\" + "\"Fixture\" --force \\") return 7;
         var files = new Dictionary<string, object> {
             { @"C:\private-fixture\save.dat", new { change = "Different", bytes = 128 } },
             { @"C:\private-fixture\skip.dat", new { change = "Removed", ignored = true } }
@@ -56,7 +54,7 @@ public static class FakeSavePreview {
     }
 }
 '@
-    $game = 'Caf' + [char]0xe9 + ' "Fixture" --force'
+    $game = 'Caf' + [char]0xe9 + ' \"Fixture" --force \'
     $copy = & $candidate -Ludusavi $exe -Action Backup -Game $game
     Check ($copy.Operation -eq 'Backup preview' -and $copy.Game -ceq $game -and $copy.Change -eq 'Different' -and
         $copy.Files -eq 1 -and $copy.DifferentOrRemovedFiles -eq 1 -and $copy.RegistryKeys -eq 1) 'backup preview passes one literal title and reports changes'

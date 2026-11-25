@@ -6,6 +6,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+function Quote-WindowsArgument([string]$Argument) {
+    # Double backslashes before an embedded or closing quote for Windows argv parsing.
+    $escaped = [regex]::Replace($Argument, '(\\*)"', '$1$1\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
+}
+
 function Read-PreviewOutput([Diagnostics.Process]$Process, [Diagnostics.Stopwatch]$Clock) {
     $text = New-Object Text.StringBuilder
     $buffer = New-Object char[] 8192
@@ -24,8 +31,9 @@ function Convert-Preview([string]$Output, [int]$ExitCode) {
     try { $report = ConvertFrom-Json -InputObject $Output -ErrorAction Stop }
     catch { throw 'The executable did not return a supported Ludusavi preview.' }
     if ($report.errors.unknownGames) { throw 'Ludusavi could not find the selected game.' }
-    if ($ExitCode -ne 0 -or $report.errors -or $report.games -isnot [pscustomobject]) {
-        throw 'Ludusavi could not complete this preview.'
+    if ($ExitCode -ne 0) { throw "Ludusavi could not complete this preview (exit $ExitCode)." }
+    if ($report.errors -or $report.games -isnot [pscustomobject]) {
+        throw 'The executable returned an incomplete preview.'
     }
     $games = @($report.games.PSObject.Properties)
     if ($games.Count -ne 1 -or $games[0].Name -cne $Game) {
@@ -61,7 +69,8 @@ if ($exe -isnot [IO.FileInfo] -or $exe.Extension -ne '.exe') { throw 'Choose the
 $start = New-Object Diagnostics.ProcessStartInfo
 $start.FileName = $exe.FullName
 $start.WorkingDirectory = $exe.DirectoryName
-$start.Arguments = '--no-manifest-update ' + $Action.ToLowerInvariant() + ' --preview --api --no-cloud-sync'
+$start.Arguments = '--no-manifest-update ' + $Action.ToLowerInvariant() + ' --preview --api --no-cloud-sync -- ' +
+    (Quote-WindowsArgument $Game)
 $start.UseShellExecute = $false
 $start.CreateNoWindow = $true
 $start.RedirectStandardInput = $true
@@ -76,8 +85,6 @@ try {
     if (-not $started) { throw 'Could not start Ludusavi.' }
     $clock = [Diagnostics.Stopwatch]::StartNew()
     [void]$process.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null)
-    $wire = [Text.Encoding]::UTF8.GetBytes($Game + "`n")
-    $process.StandardInput.BaseStream.Write($wire, 0, $wire.Length)
     $process.StandardInput.Close()
     $output = Read-PreviewOutput $process $clock
     $remaining = [int][Math]::Max(0, 45000 - $clock.ElapsedMilliseconds)
