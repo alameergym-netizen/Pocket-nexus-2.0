@@ -11,7 +11,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,13 +37,35 @@ public class HorizonSecureHostTlsTest {
     @Rule public final TemporaryFolder temporary = new TemporaryFolder();
 
     @Test public void rejectsWrongIdentityBeforeSendingKeyThenReadsStatusWithPinnedIdentity() throws Exception {
-        KeyStore keys = generateFixture();
+        // Robolectric changes the process-wide providers. A fresh JVM leaves JSSE and the
+        // platform crypto services together while using the app's actual socket and framing code.
+        Set<String> classpath = new LinkedHashSet<>();
+        for (Class<?> type : new Class<?>[]{HorizonSecureHostTlsTest.class, HorizonSecureStatus.class,
+                PcCompanion.class, android.content.Context.class, org.junit.Assert.class, org.hamcrest.Matcher.class}) {
+            classpath.add(new File(type.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath());
+        }
+        File report = temporary.newFile("tls-loopback.txt");
+        Process fixture = new ProcessBuilder(javaTool("java").getAbsolutePath(), "-cp",
+                String.join(File.pathSeparator, classpath), getClass().getName(), temporary.getRoot().getPath())
+                .redirectErrorStream(true).redirectOutput(report).start();
+        try {
+            assertTrue("The isolated TLS check exceeded its deadline", fixture.waitFor(45, TimeUnit.SECONDS));
+            assertEquals(new String(Files.readAllBytes(report.toPath()), StandardCharsets.UTF_8), 0, fixture.exitValue());
+        } finally {
+            if (fixture.isAlive()) fixture.destroyForcibly();
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        new HorizonSecureHostTlsTest().checkSocket(new File(args[0]));
+    }
+
+    private void checkSocket(File directory) throws Exception {
+        KeyStore keys = generateFixture(directory);
         char[] password = fixturePassword.toCharArray();
         KeyManagerFactory keyManager = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManager.init(keys, password);
-        // The fixture is a separate Java server. Robolectric can register Android Conscrypt
-        // globally, which cannot reflect into the accepted server socket on this JDK.
-        SSLContext fixture = SSLContext.getInstance("TLSv1.2", "SunJSSE");
+        SSLContext fixture = SSLContext.getInstance("TLSv1.2");
         fixture.init(keyManager.getKeyManagers(), null, null);
 
         ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -65,8 +89,8 @@ public class HorizonSecureHostTlsTest {
             wrong[0] ^= 1;
             String prefix = "NEXUS1:" + server.getLocalPort() + ":";
             HorizonSecureStatus.Pairing wrongPairing = HorizonSecureStatus.Pairing.parse(prefix + hex(wrong) + ":" + KEY);
-            SSLException rejected = assertThrows(SSLException.class, () -> HorizonSecureStatus.requestStatus(
-                    "127.0.0.1", wrongPairing, SSLContext.getInstance("TLSv1.2", "SunJSSE")));
+            SSLException rejected = assertThrows(SSLException.class,
+                    () -> HorizonSecureStatus.requestStatus("127.0.0.1", wrongPairing));
             assertTrue(rejected.getMessage().contains("Host identity changed"));
             denied.get(8, TimeUnit.SECONDS);
 
@@ -83,8 +107,7 @@ public class HorizonSecureHostTlsTest {
             });
 
             HorizonSecureStatus.Pairing correctPairing = HorizonSecureStatus.Pairing.parse(prefix + hex(pinned) + ":" + KEY);
-            String response = HorizonSecureStatus.requestStatus(
-                    "127.0.0.1", correctPairing, SSLContext.getInstance("TLSv1.2", "SunJSSE"));
+            String response = HorizonSecureStatus.requestStatus("127.0.0.1", correctPairing);
             assertEquals("NEXUS1 " + KEY, received.get(8, TimeUnit.SECONDS));
             assertEquals(STATUS, response);
         } finally {
@@ -94,12 +117,15 @@ public class HorizonSecureHostTlsTest {
 
     private final String fixturePassword = UUID.randomUUID().toString();
 
-    private KeyStore generateFixture() throws Exception {
-        File store = new File(temporary.getRoot(), "host-fixture.p12");
-        File trace = new File(temporary.getRoot(), "keytool-output.txt");
-        String keytool = System.getProperty("os.name").startsWith("Windows") ? "keytool.exe" : "keytool";
-        File tool = new File(new File(System.getProperty("java.home"), "bin"), keytool);
-        Process generation = new ProcessBuilder(tool.getAbsolutePath(), "-genkeypair", "-alias", "host",
+    private static File javaTool(String name) {
+        String tool = System.getProperty("os.name").startsWith("Windows") ? name + ".exe" : name;
+        return new File(new File(System.getProperty("java.home"), "bin"), tool);
+    }
+
+    private KeyStore generateFixture(File directory) throws Exception {
+        File store = new File(directory, "host-fixture.p12");
+        File trace = new File(directory, "keytool-output.txt");
+        Process generation = new ProcessBuilder(javaTool("keytool").getAbsolutePath(), "-genkeypair", "-alias", "host",
                 "-keyalg", "RSA", "-keysize", "2048", "-dname", "CN=Synthetic Nexus Host",
                 "-validity", "2", "-storetype", "PKCS12", "-keystore", store.getAbsolutePath(),
                 "-storepass", fixturePassword, "-keypass", fixturePassword, "-noprompt")
