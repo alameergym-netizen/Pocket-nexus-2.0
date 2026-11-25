@@ -18,4 +18,10 @@ Optional Android preflight: from a Windows PowerShell terminal, run Test-NexusUp
 
 From Windows PowerShell, run `Get-NexusSavePreview.ps1 -Ludusavi <path-to-ludusavi.exe> -Action Backup -Game <exact-game-title>` to see which local saves differ from the configured backup. Use `-Action Restore` to compare a configured backup with the live saves. The output shows counts of files and registry keys and flags differing or removed entries without printing paths. The helper runs one preview and disables cloud synchronization and manifest update checks. It uses the local Ludusavi installation and its configuration. Actual backup and restore remain separate actions in Ludusavi. [Ludusavi v0.31.0 CLI](https://github.com/mtkennerly/ludusavi/blob/v0.31.0/docs/cli.md)
 
+### Optional Windows save backup
+
+Close the game and use `Save-NexusGameBackup.ps1 -Ludusavi <path-to-ludusavi.exe> -Game <exact-game-title> -VaultDirectory <existing-folder>`. The companion uses the selected Ludusavi configuration and creates a separate dated ZIP snapshot and mapping for that game in your vault. A Ludusavi restore preview checks the saved file selection and compares it with live data before the snapshot is published. A local SHA-256 receipt records both output files for later comparison. Vault snapshots contain your private saves and paths. Keep them private.
+
+To inspect a snapshot in Ludusavi, select the `NexusSave-*` directory as the restore source and preview the exact game. Restore to live Windows paths remains a deliberate action in Ludusavi. The Windows runtime CI option checks the official pinned Ludusavi 0.31.0 binary against synthetic saves. [Ludusavi backup structure](https://github.com/mtkennerly/ludusavi/blob/v0.31.0/docs/help/backup-structure.md)
+
 G01 remains pending owner signing and physical upgrade/migration checks. Windows production installer, signed distribution, actual GUI validation, encrypted transport and host compatibility remain release work.
