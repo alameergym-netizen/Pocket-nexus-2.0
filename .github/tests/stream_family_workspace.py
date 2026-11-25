@@ -214,13 +214,18 @@ def check_network_touch(prefix):
     tap(resource(home, "horizon_deck_network"))
     deadline = time.monotonic() + 15
     opened = False
+    seen = ""
     while time.monotonic() < deadline:
-        focus = adb("shell", "dumpsys", "window").decode("utf-8", "replace")
-        current = [line for line in focus.splitlines() if "mCurrentFocus" in line]
-        if current and PKG not in current[-1] and "settings" in current[-1].casefold():
+        focus = adb("shell", "dumpsys", "window", "windows").decode("utf-8", "replace")
+        current = [line.strip() for line in focus.splitlines() if "mCurrentFocus" in line]
+        seen = current[-1] if current else "no focus line"
+        if any(PKG not in line and "settings" in line.casefold() for line in current):
             opened = True
             break
         time.sleep(0.5)
+    if not opened:
+        print("Window focus after the tap: " + seen, flush=True)
+        print("Screen: " + describe(snap()), flush=True)
     assert opened, "a tap on the Network card must open Android's network panel"
     capture(prefix + "-network-panel")
     key("BACK")

@@ -428,16 +428,28 @@ public final class HorizonStreamDeck extends LinearLayout {
         return t != null ? t.address : null;
     }
 
-    /** Android's own network panel (Wi-Fi settings before Android 10). */
+    /** Request code for the network panel (its result is not used). */
+    public static final int REQUEST_NETWORK_PANEL = 0x4E50;
+
+    /**
+     * Android's own network panel (Wi-Fi settings before Android 10). Settings only opens its
+     * panels for a caller it can name, so an activity asks for a result.
+     */
     public static void openNetworkPanel(Context context) {
         Intent panel = Build.VERSION.SDK_INT >= 29
                 ? new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
                 : new Intent(Settings.ACTION_WIFI_SETTINGS);
         try {
-            context.startActivity(panel);
+            if (context instanceof android.app.Activity) {
+                ((android.app.Activity) context).startActivityForResult(panel, REQUEST_NETWORK_PANEL);
+            }
+            else {
+                context.startActivity(panel.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            }
         } catch (RuntimeException none) {
             try {
-                context.startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
+                context.startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS)
+                        .addFlags(context instanceof android.app.Activity ? 0 : Intent.FLAG_ACTIVITY_NEW_TASK));
             } catch (RuntimeException ignored) {
                 // Nothing to open on this device
             }
