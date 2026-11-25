@@ -22,6 +22,7 @@ import com.limelight.pocket.ui.RadialMenuView;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
+import com.limelight.pocket.ui.MenuKeyOwnership;
 import com.limelight.pocket.HorizonStartupRecovery;
 import com.limelight.pocket.HorizonSecureStatus;
 import com.limelight.pocket.ResumeTicket;
@@ -394,7 +395,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private long benchmarkStartMs;
     private String benchmarkReport;
     private final Runnable benchmarkTimeout = () -> finishBenchmark(true);
-    private final java.util.HashSet<Integer> streamMenuConsumedKeys = new java.util.HashSet<>();
+    private final MenuKeyOwnership streamMenuKeys = new MenuKeyOwnership();
     private long pocketKeyMonitorUntil;
     private long pocketSessionStartMs;
     private int pocketLastBatteryAlert = 101;
@@ -2787,8 +2788,6 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // Don't leave a stick or button held on the PC while the menu is open
             controllerHandler.releaseAllInputs();
         }
-        streamMenuConsumedKeys.clear();
-
         String game = appName != null ? appName : getString(R.string.app_label);
         StringBuilder sub = new StringBuilder(game).append("  \u00b7  ");
         if (pcName != null) {
@@ -3852,19 +3851,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
      * including their release after the menu closes.
      */
     private boolean handleStreamMenuKey(KeyEvent event, boolean down, int button) {
-        int keyCode = event.getKeyCode();
-        if (streamMenu == null || !streamMenu.isShowing()) {
-            return !down && streamMenuConsumedKeys.remove(keyCode);
-        }
+        boolean showing = streamMenu != null && streamMenu.isShowing();
+        if (!streamMenuKeys.consume(event, showing)) return false;
+        if (!showing) return true;
         if (!down) {
-            streamMenuConsumedKeys.remove(keyCode);
             if (button >= 0 && pocketGestures[button].isDown()) {
                 // The release of the press that opened the menu
                 pocketGestures[button].onUp();
             }
             return true;
         }
-        streamMenuConsumedKeys.add(keyCode);
         if (button == ButtonActions.BUTTON_MENU || button == ButtonActions.BUTTON_HOME) {
             if (event.getRepeatCount() == 0) {
                 PocketSounds.play(this, PocketSounds.BACK);
