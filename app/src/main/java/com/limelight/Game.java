@@ -2947,7 +2947,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private void startBenchmark() {
         if (!connected || !ownsStreamCallback() || decoderRenderer == null || runningBenchmark != null) return;
-        runningBenchmark = new HorizonStreamBenchmark();
+        runningBenchmark = new HorizonStreamBenchmark(prefConfig.fps);
         benchmarkStartMs = android.os.SystemClock.elapsedRealtime();
         decoderRenderer.captureBenchmark(runningBenchmark);
         timerHandler.postDelayed(benchmarkTimeout, 60_000);
@@ -2971,16 +2971,20 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (UsbLink.isUsbAddress(host)) route = R.string.pocket_link_usb;
         else if (negotiated == StreamConfiguration.STREAM_CFG_LOCAL) route = R.string.horizon_benchmark_local;
         else if (negotiated == StreamConfiguration.STREAM_CFG_REMOTE) route = R.string.horizon_benchmark_remote;
-        String loss = decoderRenderer != null && decoderRenderer.pocketStatsAt > 0
-                && android.os.SystemClock.uptimeMillis() - decoderRenderer.pocketStatsAt < 3000
-                ? String.format(Locale.ROOT, "%.2f%%", decoderRenderer.pocketLossPct)
-                : getString(R.string.horizon_assist_unavailable);
+        String unavailable = getString(R.string.horizon_assist_unavailable);
+        double observedLoss = result.observedLossPercent();
+        String loss = observedLoss < 0 ? unavailable : String.format(Locale.ROOT, "%.2f%%", observedLoss);
+        String outputFps = result.outputFramesPerSecond < 0 ? unavailable
+                : String.format(Locale.ROOT, "%.1f", result.outputFramesPerSecond);
+        String longGaps = result.longOutputGaps < 0 ? unavailable : Integer.toString(result.longOutputGaps);
         HorizonPower.Observations power = HorizonPower.observe(this);
         benchmarkReport = getString(R.string.horizon_benchmark_header, codec, getString(route), seconds,
                 prefConfig.width, prefConfig.height, Math.round(prefConfig.fps)) + "\n"
                 + benchmarkPercentiles(R.string.horizon_benchmark_decode, result.decode) + "\n"
                 + benchmarkPercentiles(R.string.horizon_benchmark_intervals, result.output) + "\n"
-                + getString(R.string.horizon_benchmark_loss, loss) + "\n"
+                + getString(R.string.horizon_benchmark_output_rate, outputFps, longGaps) + "\n"
+                + getString(R.string.horizon_benchmark_capture_loss, loss, result.receivedFrames, result.missingFrames,
+                        result.sequenceBreaks) + "\n"
                 + getString(R.string.horizon_benchmark_power,
                         power.thermal < 0 ? getString(R.string.horizon_assist_unavailable) : Integer.toString(power.thermal),
                         power.batterySaver == null ? getString(R.string.horizon_assist_unavailable) : onOff(power.batterySaver))

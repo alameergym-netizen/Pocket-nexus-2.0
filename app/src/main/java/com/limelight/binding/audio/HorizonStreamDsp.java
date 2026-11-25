@@ -9,11 +9,37 @@ package com.limelight.binding.audio;
 public final class HorizonStreamDsp {
     public static final String KEY_PROFILE = "horizon_stream_dsp";
     private final Biquad[] left, right;
+    private final double leftGain, rightGain;
+    private static final int[] CUSTOM_FREQUENCIES = {120, 480, 2_200, 6_500};
     private static final double HEADROOM = 0.7943282347; // -2 dB
-    private HorizonStreamDsp(Biquad[] left, Biquad[] right) {
-        this.left=left;
-        this.right=right;
+    private HorizonStreamDsp(Biquad[] left, Biquad[] right, double leftGain, double rightGain) {
+        this.left = left;
+        this.right = right;
+        this.leftGain = leftGain;
+        this.rightGain = rightGain;
     }
+
+    static HorizonStreamDsp createCustom(int sampleRate, int channels, int[] bands, int preamp, int balance) {
+        if (channels != 2 || sampleRate < 16_000 || sampleRate > 192_000
+                || bands == null || bands.length != CUSTOM_FREQUENCIES.length) return null;
+        int count = 0;
+        for (int band : bands) if (band < 0) count++;
+        Biquad[] left = new Biquad[count];
+        Biquad[] right = new Biquad[count];
+        int slot = 0;
+        for (int i = 0; i < bands.length; i++) {
+            if (bands[i] >= 0) continue;
+            int reduction = Math.max(-9, bands[i]);
+            left[slot] = new Biquad(sampleRate, CUSTOM_FREQUENCIES[i], 0.9, reduction);
+            right[slot] = new Biquad(sampleRate, CUSTOM_FREQUENCIES[i], 0.9, reduction);
+            slot++;
+        }
+        int trim = Math.max(-12, Math.min(preamp, 0));
+        int pan = Math.max(-6, Math.min(balance, 6));
+        return new HorizonStreamDsp(left, right, level(trim - Math.max(0, pan)), level(trim + Math.min(0, pan)));
+    }
+
+    private static double level(int db) { return HEADROOM * Math.pow(10, db / 20.0); }
 
     public static HorizonStreamDsp create(String mode, int sampleRate, int channels) {
         if (channels != 2 || sampleRate < 16000 || sampleRate > 192000 || mode == null) { return null; }
@@ -30,7 +56,7 @@ public final class HorizonStreamDsp {
             l[i]=new Biquad(sampleRate,b[0],b[1],b[2]);
             r[i]=new Biquad(sampleRate,b[0],b[1],b[2]);
         }
-        return new HorizonStreamDsp(l,r);
+        return new HorizonStreamDsp(l, r, HEADROOM, HEADROOM);
     }
 
     /** Input remains unchanged; false means caller must bypass. Single audio callback thread. */
@@ -38,7 +64,7 @@ public final class HorizonStreamDsp {
         if (input==null || output==null || input==output || input.length==0
                 || (input.length&1)!=0 || output.length<input.length) { return false; }
         for (int i=0;i<input.length;i+=2) {
-            double l=input[i]*HEADROOM, r=input[i+1]*HEADROOM;
+            double l=input[i]*leftGain, r=input[i+1]*rightGain;
             for (Biquad b:left) { l=b.step(l); }
             for (Biquad b:right) { r=b.step(r); }
             output[i]=pcm(l);

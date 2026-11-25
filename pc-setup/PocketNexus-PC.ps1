@@ -2447,7 +2447,7 @@ function Show-HostDashboard {
     $actions = New-Object System.Windows.Forms.FlowLayoutPanel
     $actions.Dock = "Fill"
     $actions.WrapContents = $true
-    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Save Vault", "Close")) {
+    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Audio output", "Save Vault", "Close")) {
         $button = New-Object System.Windows.Forms.Button
         $button.Text = $label
         $button.AutoSize = $true
@@ -2468,6 +2468,10 @@ function Show-HostDashboard {
             "GPU telemetry" { $button.add_Click({
                 try { Show-HostGpuTelemetry }
                 catch { [void][System.Windows.Forms.MessageBox]::Show("GPU telemetry could not open. Check the Nexus Host installation.", "Nexus Host") }
+            }) }
+            "Audio output" { $button.add_Click({
+                try { & (Join-Path $here "Show-NexusAudioOutput.ps1") -Owner $script:hostDashboard }
+                catch { [void][System.Windows.Forms.MessageBox]::Show("Audio output could not open. Check the Nexus Host installation.", "Nexus Host") }
             }) }
             "Save Vault" { $button.add_Click({
                 try { & (Join-Path $here "Show-NexusSaveVault.ps1") -Owner $script:hostDashboard }

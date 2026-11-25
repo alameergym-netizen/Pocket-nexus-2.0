@@ -152,6 +152,21 @@ def main(apk):
     prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8")
     assert '<int name="horizon_scene_display_cap" value="30"' in prefs, "display scene choice was not saved"
     capture("07-stream-display-scene")
+    tap_label(streaming, "Custom stream equalizer")
+    wait_for("custom EQ and explicit step controls", lambda t: has(t, "Decrease Bass · 120 Hz"))
+    key("DPAD_DOWN")
+    key("DPAD_LEFT")
+    eq = wait_for("controller reduces the first band", lambda t: has(t, "-1 dB"))
+    tap_label(eq, "Decrease Bass · 120 Hz")
+    eq = wait_for("touch reduces the same band", lambda t: has(t, "-2 dB"))
+    tap_label(eq, "Increase Bass · 120 Hz")
+    eq = wait_for("touch can also increase the band", lambda t: has(t, "-1 dB"))
+    capture("10-stream-equalizer")
+    tap_label(eq, "Use custom EQ on next stream")
+    streaming = wait_for("EQ editor returns to Streaming settings", lambda t: has(t, cap) and not has(t, "Bass · 120 Hz"))
+    prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8")
+    assert '<int name="horizon_eq_bass" value="-1"' in prefs
+    assert '<string name="horizon_stream_dsp">custom</string>' in prefs
     tap_label(streaming, "Libraries")
     library_settings = wait_for("RomM catalog entry in Library settings", lambda t: has(t, "RomM catalog"))
     tap_label(library_settings, "RomM catalog")
@@ -181,12 +196,15 @@ def main(apk):
     settings = wait_for("settings after launcher recovery", lambda t: has(t, "Settings") and has(t, "System"))
     tap_label(settings, "System")
     device = wait_for("System settings", lambda t: has(t, "Compatibility stream start"))
-    for _ in range(8):
-        if has(device, "Retroid Bridge"):
+    # Tapping System focuses its first row. D-pad focus scrolls the actual Settings
+    # container to each next row, independent of display size and touch-scroll inertia.
+    for _ in range(50):
+        if focused(device, "Retroid Bridge"):
             break
-        adb("shell", "input", "swipe", "1000", "850", "1000", "280", "300")
+        key("DPAD_DOWN")
+        time.sleep(0.2)
         device = snap()
-    assert has(device, "Retroid Bridge"), "Hardware diagnostics could not be reached"
+    assert focused(device, "Retroid Bridge"), "Hardware diagnostics could not be reached by controller"
     tap_label(device, "Retroid Bridge")
     bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
     capture("09-hardware-readings")
