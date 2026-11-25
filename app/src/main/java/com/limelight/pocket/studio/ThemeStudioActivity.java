@@ -580,8 +580,11 @@ public class ThemeStudioActivity extends ConsoleActivity {
         }
         summary.setText(line);
         applyButton.setAlpha(same ? 0.55f : 1f);
+        int preset = HorizonThemeStudio.presetIndex(preview);
+        String shown = !same ? name : preset >= 0 ? getString(PocketTheme.THEMES[preset].name)
+                : getString(R.string.horizon_studio_custom_mix);
         previewView.setContentDescription(getString(R.string.horizon_studio_preview_desc,
-                sceneTabs[scene].getText(), same ? getString(R.string.horizon_studio_showing_applied) : name, line));
+                sceneTabs[scene].getText(), shown, line));
     }
 
     private void updateScenes() {

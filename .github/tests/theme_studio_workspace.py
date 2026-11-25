@@ -120,7 +120,8 @@ def setup_device(density, font_scale="1.0"):
 
 
 def studio(tree):
-    return has(tree, "Apply look") and has(tree, "Horizon looks")
+    # The actions stay pinned on screen; the list may have scrolled past its first header
+    return has(tree, "Apply look") and has(tree, "Close without applying")
 
 
 def open_studio():
@@ -274,7 +275,7 @@ def main(apk):
     # Compact handheld with larger text: list, preview and both actions stay reachable
     setup_device(480, "1.3")
     open_studio()
-    wait_for("compact studio focus", lambda t: focused(t, "Nexus"))
+    wait_for("compact studio focus", lambda t: focused(t, "Nexus") and contains(t, "Home preview of Nexus."))
     capture("13-compact-large-text")
     key("DPAD_RIGHT")
     wait_for("actions reachable beside the list", lambda t: focused(t, "Apply look")
