@@ -50,6 +50,11 @@ jobs:
         run: |
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-GpuTelemetry.ps1
           exit $LASTEXITCODE
+      - name: Read Windows audio outputs and capture the live dashboard panel
+        shell: powershell
+        run: |
+          & powershell.exe -STA -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-WindowsAudioOutput.ps1 -Screenshot dist/Nexus-Audio-Output.png
+          exit $LASTEXITCODE
       - name: Check the opt-in Windows save preview
         shell: powershell
         run: |
@@ -98,5 +103,6 @@ jobs:
           path: |
             horizon-windows.log
             dist/Nexus-Save-Vault.png
+            dist/Nexus-Audio-Output.png
           if-no-files-found: warn
           retention-days: 7
