@@ -1,8 +1,8 @@
 """S10 accessibility sweep on Android 13: Home, Library, game details, Nexus Control and every
-Settings tab, at the handheld size and at a compact size with 130% text. Each screen is checked
-for controls a screen reader cannot name, controls whose touch target is under 40 dp, and a
-focused control drawn off screen. Findings are written to a JSON report; with --enforce the run
-fails on any finding on the screens listed in ENFORCED."""
+Settings tab, at the handheld size and at a compact size with 130% text. With --enforce the run
+fails on any control a screen reader cannot name, any touch target under 24 dp (WCAG 2.2 AA) and
+a focused control drawn off screen. Targets between 24 and 40 dp are reported as advice. Rows
+partly scrolled out of their list are skipped, since their size and contents are not all shown."""
 from pathlib import Path
 import json
 import re
@@ -14,9 +14,10 @@ import xml.etree.ElementTree as ET
 PKG = "com.pocketnexus.console.debug"
 RESULTS = Path("accessibility-results")
 SCROLLERS = ("ScrollView", "RecyclerView", "HorizontalScrollView", "ListView", "ViewPager", "WebView")
-MIN_TARGET_DP = 40
-# Screens whose findings fail the run with --enforce (the rest are reported).
-ENFORCED = set()
+# WCAG 2.2 AA target size (2.5.8) is enforced; 40 dp is reported as advice.
+MIN_TARGET_DP = 24
+ADVISORY_TARGET_DP = 40
+ENFORCED_ISSUES = {"unlabeled", "small-target", "focus-off-screen"}
 
 
 def adb(*args, timeout=25):
@@ -113,29 +114,52 @@ def named(node):
     return any((t or d).strip() for t, d in map(labels, node.iter("node")))
 
 
+def clipped(box, viewport):
+    """Partly scrolled out of its list (or the screen): its size and contents are not all shown."""
+    left, top, right, bottom = box
+    v_left, v_top, v_right, v_bottom = viewport
+    return top <= v_top + 1 or bottom >= v_bottom - 1 or left <= v_left + 1 or right >= v_right - 1
+
+
+def walk(node, viewport, out):
+    for child in node.findall("node"):
+        out.append((child, viewport))
+        inner = bounds(child) if child.get("scrollable") == "true" else viewport
+        walk(child, inner, out)
+
+
 def audit(name, tree, density):
     findings = []
-    screen = bounds(next(tree.iter("node")))
-    min_px = MIN_TARGET_DP * density / 160
-    for node in tree.iter("node"):
+    root = next(tree.iter("node"))
+    screen = bounds(root)
+    nodes = [(root, screen)]
+    walk(root, screen, nodes)
+    px = density / 160
+    for node, viewport in nodes:
         cls = node.get("class", "")
         actionable = node.get("clickable") == "true" or node.get("focusable") == "true" \
             or node.get("long-clickable") == "true"
         if not actionable or node.get("enabled") != "true" or any(s in cls for s in SCROLLERS):
             continue
-        left, top, right, bottom = bounds(node)
+        box = bounds(node)
+        left, top, right, bottom = box
         if right <= left or bottom <= top:
             continue
         ident = {"class": cls.rsplit(".", 1)[-1], "id": node.get("resource-id", "").rsplit("/", 1)[-1],
                  "text": (node.get("text") or node.get("content-desc") or "")[:40], "bounds": node.get("bounds")}
-        if not named(node):
-            findings.append(dict(ident, issue="unlabeled"))
-        if node.get("clickable") == "true" and (right - left < min_px or bottom - top < min_px):
-            findings.append(dict(ident, issue="small-target"))
         if node.get("focused") == "true" and (right <= screen[0] or left >= screen[2]
                                               or bottom <= screen[1] or top >= screen[3]):
             findings.append(dict(ident, issue="focus-off-screen"))
-    # One finding per control and issue
+        if viewport != screen and clipped(box, viewport):
+            continue
+        if not named(node):
+            findings.append(dict(ident, issue="unlabeled"))
+        if node.get("clickable") == "true":
+            short = min(right - left, bottom - top) / px
+            if short < MIN_TARGET_DP:
+                findings.append(dict(ident, issue="small-target"))
+            elif short < ADVISORY_TARGET_DP:
+                findings.append(dict(ident, issue="advisory-under-40dp"))
     unique = {(f["issue"], f["class"], f["id"], f["text"], f["bounds"]): f for f in findings}
     return list(unique.values())
 
@@ -248,11 +272,16 @@ def main(apk, enforce):
     sweep("wide", 320, "1.0")
     sweep("compact-130", 480, "1.3")
     (RESULTS / "report.json").write_text(json.dumps(REPORT, indent=2), encoding="utf-8")
-    total = sum(len(v) for screens in REPORT.values() for v in screens.values())
-    enforced = sum(len(v) for screens in REPORT.values() for s, v in screens.items() if s in ENFORCED)
-    print("TOTAL findings: %d (enforced screens: %d)" % (total, enforced), flush=True)
+    counts = {}
+    for screens in REPORT.values():
+        for found in screens.values():
+            for f in found:
+                counts[f["issue"]] = counts.get(f["issue"], 0) + 1
+    enforced = sum(n for issue, n in counts.items() if issue in ENFORCED_ISSUES)
+    screens = sum(len(v) for v in REPORT.values())
+    print("TOTAL across %d screen captures: %s; enforced findings: %d" % (screens, json.dumps(counts, sort_keys=True), enforced), flush=True)
     if enforce and enforced:
-        raise AssertionError("Accessibility findings on enforced screens")
+        raise AssertionError("Accessibility findings that must be fixed: %d" % enforced)
 
 
 if __name__ == "__main__":

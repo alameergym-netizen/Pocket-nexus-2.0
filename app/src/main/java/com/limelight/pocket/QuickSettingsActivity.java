@@ -2444,7 +2444,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
         chev.setImageResource(res);
         chev.setImageTintList(ContextCompat.getColorStateList(this, R.color.pocket_row_text_dim));
         chev.setDuplicateParentStateEnabled(true);
-        chev.setLayoutParams(new LinearLayout.LayoutParams(dp(18), dp(18)));
+        // The same 18 dp arrow inside a touch target large enough to tap (WCAG 2.2 target size)
+        chev.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        chev.setPadding(dp(7), dp(7), dp(7), dp(7));
+        chev.setLayoutParams(new LinearLayout.LayoutParams(dp(32), dp(32)));
         return chev;
     }
 
@@ -2513,6 +2516,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
         ImageView left = chevron(R.drawable.ic_chevron_left);
         final TextView value = valueText();
         ImageView right = chevron(R.drawable.ic_chevron_right);
+        left.setContentDescription(getString(R.string.horizon_a11y_choice_previous, title));
+        right.setContentDescription(getString(R.string.horizon_a11y_choice_next, title));
         row.addView(left);
         row.addView(value);
         row.addView(right);

@@ -8,7 +8,9 @@ on:
       - 'app/src/main/java/com/limelight/pocket/library/**'
       - 'app/src/main/java/com/limelight/pocket/global/ControlCenterActivity.java'
       - 'app/src/main/java/com/limelight/pocket/GamePageActivity.java'
-      - 'app/src/main/java/com/limelight/pocket/ui/HorizonAccessibility.java'
+      - 'app/src/main/java/com/limelight/pocket/ui/SectionBar.java'
+      - 'app/src/main/java/com/limelight/pocket/QuickSettingsActivity.java'
+      - 'app/src/main/res/values/horizon_accessibility.xml'
       - '.github/tests/accessibility_sweep.py'
       - '.github/workflows/horizon-accessibility-ui.yml'
 permissions:
