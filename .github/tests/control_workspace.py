@@ -214,7 +214,21 @@ def main(apk):
     wait_for("return to System from hardware diagnostics", lambda t: has(t, "System") and not has(t, "Sampled at"))
     print("PASS: Retroid Bridge opens, refreshes, and returns to System", flush=True)
     tap_label(wait_for("Bridge entry after dismissal", lambda t: has(t, "Retroid Bridge")), "Retroid Bridge")
-    bridge = wait_for("readable hardware tools", lambda t: has(t, "CPU profile preview"))
+    bridge = wait_for("hardware observations before the preview", lambda t: has(t, "Sampled at"))
+    for _ in range(8):
+        action = next((n for n in bridge.iter("node") if n.get("text") == "CPU profile preview"), None)
+        if action is not None:
+            edges = list(map(int, re.findall(r"\d+", action.get("bounds", ""))))
+            if len(edges) == 4 and edges[2] > edges[0] and edges[3] > edges[1]:
+                break
+        # The menu is the last ScrollView, layered over the System Settings scroller.
+        scroller = next(n for n in reversed(list(bridge.iter("node")))
+                        if n.get("class") == "android.widget.ScrollView")
+        left, top, right, bottom = map(int, re.findall(r"\d+", scroller.get("bounds", "")))
+        x = str((left + right) // 2)
+        adb("shell", "input", "swipe", x, str(bottom - 20), x, str(top + 60), "350")
+        time.sleep(0.3)
+        bridge = snap()
     tap_label(bridge, "CPU profile preview")
     key("BUTTON_B")
     time.sleep(1)
