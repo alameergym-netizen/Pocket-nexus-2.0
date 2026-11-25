@@ -116,6 +116,12 @@ public final class PocketTheme {
         return index >= 0 && THEMES[index].name == R.string.horizon_theme_titanium;
     }
 
+    /** Nexus Legacy: pixel type, square cards and dialog boxes (see LegacyStyle). */
+    public static boolean legacy(Context context) {
+        int index = themeIndex(context);
+        return index >= 0 && THEMES[index].name == R.string.horizon_theme_legacy;
+    }
+
     // Exact presets win over legacy presets whose layout/focus are intentionally unspecified.
     // Pure OLED and Mono share their color/material/sound but not their layout and focus.
     static int matchingPreset(int accent, String backdrop, boolean frost, String sound,

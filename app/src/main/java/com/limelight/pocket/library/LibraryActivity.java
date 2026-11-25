@@ -44,6 +44,7 @@ import com.limelight.pocket.ui.FocusGlow;
 import com.limelight.pocket.ui.PocketFonts;
 import com.limelight.pocket.ui.PocketTheme;
 import com.limelight.pocket.ui.TitaniumStyle;
+import com.limelight.pocket.ui.LegacyStyle;
 import com.limelight.pocket.ui.PocketMotion;
 import com.limelight.pocket.ui.StreamMenuView;
 import com.limelight.pocket.ui.TextPrompt;
@@ -112,6 +113,7 @@ public class LibraryActivity extends ConsoleActivity {
     private ImageView heroArt;
     private boolean pureOled;
     private boolean titanium;
+    private boolean legacy;
     private TextView launchSources;
     private TextView kicker;
     private TextView title;
@@ -208,8 +210,13 @@ public class LibraryActivity extends ConsoleActivity {
         FrameLayout root = new FrameLayout(this);
         pureOled = PocketTheme.pureOled(this);
         titanium = PocketTheme.titanium(this);
+        legacy = PocketTheme.legacy(this);
         if (pureOled) root.setBackgroundColor(0xFF000000);
         else if (titanium) root.setBackgroundColor(TitaniumStyle.BACKGROUND);
+        else if (legacy) {
+            root.setBackgroundColor(LegacyStyle.BACKGROUND);
+            root.setForeground(LegacyStyle.scanlines(this));
+        }
         else root.setBackground(ConsoleScreen.backdrop(this));
         int w = getResources().getDisplayMetrics().widthPixels;
         int h = getResources().getDisplayMetrics().heightPixels;
@@ -222,10 +229,12 @@ public class LibraryActivity extends ConsoleActivity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView heading = text(24f, PocketFonts.display(), 0xFFFFFFFF);
+        TextView heading = text(24f, legacy ? LegacyStyle.typeface(this) : PocketFonts.display(),
+                legacy ? LegacyStyle.GOLD : 0xFFFFFFFF);
         heading.setText(R.string.horizon_library_workspace_title);
+        heading.setAllCaps(legacy);
         header.addView(heading, new LinearLayout.LayoutParams(0, -2, 1f));
-        kicker = text(10f, PocketFonts.bold(), 0xCCFFFFFF);
+        kicker = text(10f, legacy ? LegacyStyle.typeface(this) : PocketFonts.bold(), 0xCCFFFFFF);
         kicker.setLetterSpacing(0.06f);
         header.addView(kicker, new LinearLayout.LayoutParams(-2, -2));
         column.addView(header, new LinearLayout.LayoutParams(-1, -2));
@@ -257,24 +266,35 @@ public class LibraryActivity extends ConsoleActivity {
         if (pureOled) detailBg.setColor(0xFF000000);
         detailBg.setCornerRadius(dp(pureOled ? 4 : 14));
         detailBg.setStroke(dp(1), 0x33FFFFFF);
-        detail.setBackground(titanium ? TitaniumStyle.surface(this) : detailBg);
+        detail.setBackground(titanium ? TitaniumStyle.surface(this) : legacy ? LegacyStyle.dialog(this) : detailBg);
+        if (legacy) {
+            detail.setTag(R.id.horizon_legacy_panel, Boolean.TRUE);
+            TextView index = text(10f, LegacyStyle.typeface(this), LegacyStyle.GOLD);
+            index.setId(R.id.horizon_legacy_kicker);
+            index.setText(R.string.horizon_legacy_library_kicker);
+            index.setAllCaps(true);
+            index.setLetterSpacing(0.12f);
+            detail.addView(index, new LinearLayout.LayoutParams(-1, -2));
+        }
         heroArt = new ImageView(this);
         heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
         if (titanium) heroArt.setVisibility(View.GONE);
         if (spec.artHeight > 0) {
             detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(spec.artHeight)));
         }
-        title = text(spec.split ? 22f : 17f, PocketFonts.bold(), 0xFFFFFFFF);
+        title = text(spec.split ? 22f : 17f, legacy ? LegacyStyle.typeface(this) : PocketFonts.bold(),
+                legacy ? LegacyStyle.INK : 0xFFFFFFFF);
+        title.setAllCaps(legacy);
         title.setMaxLines(spec.split ? 2 : 1);
         if (spec.split) title.setSingleLine(false);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2);
         tl.topMargin = dp(spec.artHeight > 0 ? 10 : 0);
         detail.addView(title, tl);
-        meta = text(12f, PocketFonts.medium(), 0xDEFFFFFF);
+        meta = text(12f, legacy ? LegacyStyle.typeface(this) : PocketFonts.medium(), legacy ? LegacyStyle.DIM : 0xDEFFFFFF);
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, -2);
         ml.topMargin = dp(5);
         detail.addView(meta, ml);
-        ways = text(11f, PocketFonts.medium(), 0xB3FFFFFF);
+        ways = text(11f, legacy ? LegacyStyle.typeface(this) : PocketFonts.medium(), legacy ? LegacyStyle.DIM : 0xB3FFFFFF);
         LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(-1, -2);
         wl.topMargin = dp(4);
         detail.addView(ways, wl);
@@ -977,14 +997,15 @@ public class LibraryActivity extends ConsoleActivity {
             frame.setClipChildren(false);
             frame.setPadding(dp(7), dp(7), dp(7), dp(7));
             final FrameLayout card = new CoverFrame(LibraryActivity.this, titanium ? dp(70) : pureOled ? dp(76) : 0);
-            final float radius = dp(titanium ? 5 : pureOled ? 4 : 12);
+            final float radius = legacy ? 0 : dp(titanium ? 5 : pureOled ? 4 : 12);
             GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF2A2A33, 0xFF15151A});
             bg.setCornerRadius(radius);
             if (pureOled) {
                 bg.setColor(0xFF000000);
                 bg.setStroke(Math.max(1, dp(1)), 0x55FFFFFF);
             }
-            card.setBackground(titanium ? TitaniumStyle.surface(LibraryActivity.this) : bg);
+            card.setBackground(titanium ? TitaniumStyle.surface(LibraryActivity.this)
+                    : legacy ? LegacyStyle.card(LibraryActivity.this, false) : bg);
             card.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
@@ -1032,7 +1053,7 @@ public class LibraryActivity extends ConsoleActivity {
             card.addView(dot, dlp);
             frame.addView(card, new FrameLayout.LayoutParams(-1, -2));
             final Holder h = new Holder(frame, card, cover, name, badge, dot);
-            FocusGlow.apply(card, radius, false, pureOled || titanium ? 1f : 1.08f, (v, has) -> {
+            FocusGlow.apply(card, radius, false, pureOled || titanium || legacy ? 1f : 1.08f, (v, has) -> {
                 if (has) {
                     int p = h.getBindingAdapterPosition();
                     if (p != RecyclerView.NO_POSITION) {

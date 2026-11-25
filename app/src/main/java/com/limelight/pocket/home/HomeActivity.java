@@ -174,6 +174,9 @@ public class HomeActivity extends ConsoleActivity {
     private boolean workspace;
     private boolean pureOled;
     private boolean titanium;
+    private boolean legacy;
+    private TextView legacyKicker;
+    private final java.util.Map<TextView, Typeface> originalType = new java.util.HashMap<>();
     private LinearLayout telemetry;
     private TextView titaniumBattery, titaniumThermal, titaniumDisplay;
     private final Runnable refreshTelemetry = new Runnable() {
@@ -1416,7 +1419,7 @@ public class HomeActivity extends ConsoleActivity {
         if (glow == null) {
             return;
         }
-        if (pureOled || titanium) {
+        if (pureOled || titanium || legacy) {
             if (glowAnim != null) glowAnim.cancel();
             glowColor = 0;
             glow.setAlpha(0f);
@@ -1480,6 +1483,37 @@ public class HomeActivity extends ConsoleActivity {
         }
         else {
             swap.run();
+        }
+    }
+
+    /**
+     * Nexus Legacy: pixel type on the details, the title in capitals, a "select a game" line
+     * over it and faint scanlines over the screen. Any other look gets its original type back.
+     */
+    private void applyLegacyType() {
+        TextView[] views = {title, desc, source, whenView, play, rowLabel, info, featured, homeSummary};
+        for (TextView v : views) {
+            if (v == null) continue;
+            if (!originalType.containsKey(v)) originalType.put(v, v.getTypeface());
+            v.setTypeface(legacy ? com.limelight.pocket.ui.LegacyStyle.typeface(this) : originalType.get(v));
+        }
+        if (title != null) title.setAllCaps(legacy);
+        if (legacy && legacyKicker == null && heroView instanceof ViewGroup) {
+            legacyKicker = new TextView(this);
+            legacyKicker.setId(R.id.horizon_legacy_kicker);
+            legacyKicker.setText(R.string.horizon_legacy_kicker);
+            legacyKicker.setTextColor(com.limelight.pocket.ui.LegacyStyle.GOLD);
+            legacyKicker.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f);
+            legacyKicker.setLetterSpacing(0.12f);
+            legacyKicker.setAllCaps(true);
+            legacyKicker.setTypeface(com.limelight.pocket.ui.LegacyStyle.typeface(this));
+            legacyKicker.setPadding(0, 0, 0, Math.round(4 * d));
+            ((ViewGroup) heroView).addView(legacyKicker, 0);
+        }
+        if (legacyKicker != null) legacyKicker.setVisibility(legacy ? View.VISIBLE : View.GONE);
+        View main = findViewById(R.id.pocketMain);
+        if (main instanceof FrameLayout) {
+            ((FrameLayout) main).setForeground(legacy ? com.limelight.pocket.ui.LegacyStyle.scanlines(this) : null);
         }
     }
 
@@ -1549,7 +1583,9 @@ public class HomeActivity extends ConsoleActivity {
         layout = com.limelight.pocket.ui.Layouts.home(this);
         pureOled = com.limelight.pocket.ui.PocketTheme.pureOled(this);
         titanium = com.limelight.pocket.ui.PocketTheme.titanium(this);
+        legacy = com.limelight.pocket.ui.PocketTheme.legacy(this);
         layoutTelemetry();
+        applyLegacyType();
         workspace = com.limelight.pocket.ui.Layouts.HORIZON_WORKSPACE.equals(layout.id)
                 && HorizonHomeWorkspace.supported(getResources().getDisplayMetrics().widthPixels / d,
                         getResources().getDisplayMetrics().heightPixels / d);
@@ -1582,7 +1618,7 @@ public class HomeActivity extends ConsoleActivity {
         tileH = Math.round(h * scale * d);
         float originalRadius = com.limelight.pocket.ui.LibraryLayout.STYLE_ICON.equals(shape)
                 ? (list ? 12 : (portal ? 12 : 16)) : 10;
-        tileRadius = com.limelight.pocket.ui.HorizonAppearance.radius(
+        tileRadius = legacy ? 0f : com.limelight.pocket.ui.HorizonAppearance.radius(
                 horizonCorners, originalRadius, Math.min(w, h) * scale) * d;
         int screenW = getResources().getDisplayMetrics().widthPixels;
         FrameLayout.LayoutParams rlp = (FrameLayout.LayoutParams) row.getLayoutParams();
@@ -1656,10 +1692,11 @@ public class HomeActivity extends ConsoleActivity {
         }
         else {
             if (dock != null) {
-                dock.view().setVisibility(pureOled || titanium ? View.VISIBLE : View.GONE);
+                dock.view().setVisibility(pureOled || titanium || legacy ? View.VISIBLE : View.GONE);
             }
             int cell = tileW + Math.round((list ? 0 : 22) * d);
-            int width = Math.round(screenW * (titanium ? 0.48f : pureOled ? 0.55f : list ? 0.44f : 0.62f));
+            int width = Math.round(screenW * (titanium ? 0.48f : pureOled ? 0.55f : legacy ? 0.56f
+                    : list ? 0.44f : 0.62f));
             if (list) {
                 row.setLayoutManager(new LinearLayoutManager(this, RecyclerView.VERTICAL, false));
             }
@@ -1673,7 +1710,7 @@ public class HomeActivity extends ConsoleActivity {
             rlp.gravity = Gravity.TOP | Gravity.START;
             int telemetrySpace = titanium ? Math.round(36 * Math.max(1f, getResources().getConfiguration().fontScale)) : 0;
             rlp.topMargin = Math.round((48 + telemetrySpace) * d);
-            rlp.bottomMargin = Math.round((pureOled || titanium ? 92 : 34) * d);
+            rlp.bottomMargin = Math.round((pureOled || titanium || legacy ? 92 : 34) * d);
             row.setPadding(Math.round(18 * d), Math.round(12 * d), Math.round(8 * d), Math.round(60 * d));
             row.setHorizontalFadingEdgeEnabled(false);
             row.setVerticalFadingEdgeEnabled(true);
@@ -1681,21 +1718,26 @@ public class HomeActivity extends ConsoleActivity {
             hlp.gravity = Gravity.TOP | Gravity.END;
             hlp.topMargin = Math.round((titanium ? 55 + telemetrySpace : 62) * d);
             hlp.bottomMargin = 0;
-            hlp.width = pureOled || titanium ? Math.max(1, screenW - width - Math.round(48 * d)) : Math.round(300 * d);
+            hlp.width = pureOled || titanium || legacy ? Math.max(1, screenW - width - Math.round(48 * d))
+                    : Math.round(300 * d);
             hlp.setMarginStart(0);
             hlp.setMarginEnd(Math.round(30 * d));
             rowLabel.setVisibility(View.GONE);
             if (sideScrim != null) {
-                sideScrim.setVisibility(pureOled || titanium ? View.GONE : View.VISIBLE);
+                sideScrim.setVisibility(pureOled || titanium || legacy ? View.GONE : View.VISIBLE);
             }
-            if (pureOled || titanium) {
+            if (pureOled || titanium || legacy) {
                 logoMax = 56;
-                descLines = 1;
+                descLines = legacy ? 2 : 1;
             }
             if (titanium) {
                 int pad = Math.round(12 * d);
                 heroView.setPadding(pad, pad, pad, pad);
                 heroView.setBackground(TitaniumStyle.surface(this));
+            }
+            if (legacy) {
+                // A dialog box (its padding comes from the frame) instead of glass over art
+                heroView.setBackground(com.limelight.pocket.ui.LegacyStyle.dialog(this));
             }
         }
         if (workspace) {
@@ -1739,7 +1781,7 @@ public class HomeActivity extends ConsoleActivity {
         int brandMode=HorizonHomeStyle.brandMode(widthDp);
         homeBrand.setText(brandMode==2?R.string.horizon_home_brand:R.string.horizon_home_mark);
         homeBrand.setVisibility(brandMode==0?View.GONE:View.VISIBLE);
-        summaryRoom=!workspace && !titanium && HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
+        summaryRoom=!workspace && !titanium && !legacy && HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
         homeSummary.setVisibility(summaryRoom && loadedOnce?View.VISIBLE:View.GONE);
         homeSummary.setBackground(HorizonHomeStyle.glass(d,com.limelight.pocket.ui.PocketTheme.accent(this),false));
         featuredRoom=(workspace || (shelf && !portal)) && heroRoom>=190;

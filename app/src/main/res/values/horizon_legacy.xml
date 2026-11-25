@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="horizon_legacy_kicker" type="id" />
+    <item name="horizon_legacy_panel" type="id" />
+    <string name="horizon_legacy_kicker">Select a game</string>
+    <string name="horizon_legacy_library_kicker">Game index</string>
+</resources>
