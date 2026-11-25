@@ -1481,6 +1481,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
     /** The libraries: layouts, game pages, sorting, trophies, art. */
     private void buildLibraryTab() {
         addAction(getString(R.string.horizon_romm_title), getString(R.string.horizon_romm_settings_sub), null, rommCatalog::show);
+        addAction(getString(R.string.horizon_clients_title), getString(R.string.horizon_clients_sub), null,
+                () -> com.limelight.pocket.clients.ClientsActivity.open(this));
         addHeader(R.string.pocket_header_layout);
 
         final String[] modeLabels = {getString(R.string.pocket_view_carousel), getString(R.string.pocket_view_grid),
