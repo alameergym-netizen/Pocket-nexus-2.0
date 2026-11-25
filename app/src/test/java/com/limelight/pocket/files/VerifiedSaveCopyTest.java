@@ -36,7 +36,11 @@ public class VerifiedSaveCopyTest {
         assertTrue(VerifiedSaveCopy.isBackup(second));
         assertTrue(second.isFile());
 
-        VerifiedSaveCopy.restore(first, folder, cache);
+        VerifiedSaveCopy.Preview preview = VerifiedSaveCopy.preview(first);
+        assertEquals(saveName, preview.name);
+        assertEquals(original.length, preview.size);
+        assertTrue(preview.digest.matches("[a-f0-9]{64}"));
+        VerifiedSaveCopy.restore(first, folder, cache, preview);
         assertArrayEquals(original, Files.readAllBytes(new File(folder, "حفظゲーム (2).sav").toPath()));
         assertArrayEquals(new byte[] {2, 3}, Files.readAllBytes(save.toPath()));
         assertArrayEquals(firstBackup, Files.readAllBytes(first.toPath()));
@@ -50,7 +54,7 @@ public class VerifiedSaveCopyTest {
         VerifiedSaveCopy.create(save, recovery, cache);
         File backup = new File(recovery, "Backup - slot.srm.nexussave");
 
-        VerifiedSaveCopy.restore(backup, recovery, cache);
+        VerifiedSaveCopy.restore(backup, recovery, cache, VerifiedSaveCopy.preview(backup));
         File recovered = new File(recovery, "slot.srm");
         assertTrue(recovered.isFile());
         assertEquals(0L, recovered.length());
@@ -61,6 +65,8 @@ public class VerifiedSaveCopyTest {
         File recovery = directory.newFolder("recovery");
         File backup = directory.newFile("slot.nexussave");
         byte[] valid = envelope("slot.sav", new byte[] {3, 9, -22});
+        Files.write(backup.toPath(), valid);
+        VerifiedSaveCopy.Preview confirmed = VerifiedSaveCopy.preview(backup);
         byte[] editedPayload = valid.clone();
         editedPayload[valid.length - 33] ^= 1;
         byte[] editedName = valid.clone();
@@ -69,7 +75,8 @@ public class VerifiedSaveCopyTest {
                 editedPayload, editedName, Arrays.copyOf(valid, valid.length - 1), Arrays.copyOf(valid, valid.length + 1)
         }) {
             Files.write(backup.toPath(), invalid);
-            assertThrows(IOException.class, () -> VerifiedSaveCopy.restore(backup, recovery, cache));
+            assertThrows(IOException.class, () -> VerifiedSaveCopy.preview(backup));
+            assertThrows(IOException.class, () -> VerifiedSaveCopy.restore(backup, recovery, cache, confirmed));
             assertArrayEquals(new String[0], recovery.list());
             assertArrayEquals(new String[0], cache.list());
         }
@@ -81,11 +88,26 @@ public class VerifiedSaveCopyTest {
         File backup = directory.newFile("slot.nexussave");
         for (String name : new String[] {"../outside.sav", "/outside.sav", "..\\outside.sav", "..", "slot.sav:other", "slot\nsav"}) {
             Files.write(backup.toPath(), envelope(name, new byte[] {3}));
-            assertThrows(IOException.class, () -> VerifiedSaveCopy.restore(backup, recovery, cache));
+            assertThrows(IOException.class, () -> VerifiedSaveCopy.preview(backup));
         }
         assertFalse(new File(directory.getRoot(), "outside.sav").exists());
         assertArrayEquals(new String[0], recovery.list());
         assertArrayEquals(new String[0], cache.list());
+    }
+
+    @Test public void aValidReplacementRequiresASeparatePreview() throws IOException {
+        File cache = directory.newFolder("cache");
+        File recovery = directory.newFolder("recovery");
+        File backup = directory.newFile("slot.nexussave");
+        Files.write(backup.toPath(), envelope("slot.sav", new byte[] {4}));
+        VerifiedSaveCopy.Preview first = VerifiedSaveCopy.preview(backup);
+        assertArrayEquals(new String[0], recovery.list());
+        Files.write(backup.toPath(), envelope("slot.sav", new byte[] {5}));
+        assertThrows(IOException.class, () -> VerifiedSaveCopy.restore(backup, recovery, cache, first));
+        assertArrayEquals(new String[0], recovery.list());
+        assertArrayEquals(new String[0], cache.list());
+        VerifiedSaveCopy.restore(backup, recovery, cache, VerifiedSaveCopy.preview(backup));
+        assertArrayEquals(new byte[] {5}, Files.readAllBytes(new File(recovery, "slot.sav").toPath()));
     }
 
     @Test public void oversizedAndCancelledBackupsLeaveNoStagingOrDestination() throws IOException {

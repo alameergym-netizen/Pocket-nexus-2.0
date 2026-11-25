@@ -169,16 +169,18 @@ public class ControlCenterActivity extends Activity {
         root.setFocusable(false);
         float screenWidthDp = getResources().getDisplayMetrics().widthPixels / d;
         float screenHeightDp = getResources().getDisplayMetrics().heightPixels / d;
-        HorizonControlLayout spec = HorizonControlLayout.forWindow(screenWidthDp, screenHeightDp);
+        boolean pureOled = com.limelight.pocket.ui.PocketTheme.pureOled(this);
+        HorizonControlLayout spec = HorizonControlLayout.forWindow(screenWidthDp, screenHeightDp, pureOled);
         int pad = dp(spec.padding);
         panel.setPadding(pad, dp(12), pad, dp(12));
         panel.setClipChildren(false);
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0xFA191D26, 0xFC10141B});
-        bg.setCornerRadius(dp(18));
+        if (pureOled) bg.setColor(0xFF000000);
+        bg.setCornerRadius(dp(pureOled ? 4 : 18));
         bg.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
         panel.setBackground(bg);
-        panel.setElevation(dp(20));
+        panel.setElevation(dp(pureOled ? 0 : 20));
         FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(dp(spec.width), dp(spec.height),
                 Gravity.END | Gravity.CENTER_VERTICAL);
         plp.setMarginEnd(dp(spec.margin));
@@ -269,7 +271,7 @@ public class ControlCenterActivity extends Activity {
             }
             Tile t = tiles[order[i]];
             t.setId(View.generateViewId());
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(86), 1f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(pureOled ? 74 : 86), 1f);
             if (i % spec.columns != spec.columns - 1) lp.setMarginEnd(dp(8));
             tileRow.addView(t, lp);
         }
@@ -713,6 +715,7 @@ public class ControlCenterActivity extends Activity {
     /** Apple TV's focus: the tile turns white (its icon and words dark) and lifts a little. */
     private static void focusLook(View v, GradientDrawable bg, boolean has, boolean on, float d) {
         paintSurface(v, bg, has, on, d);
+        if (com.limelight.pocket.ui.PocketTheme.pureOled(v.getContext())) return;
         v.animate().cancel();
         boolean motion = PocketPrefs.animationsEnabled(v.getContext());
         v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).translationZ(has ? 8 * d : 0)
@@ -736,9 +739,10 @@ public class ControlCenterActivity extends Activity {
             d = c.getResources().getDisplayMetrics().density;
             setOrientation(VERTICAL);
             setGravity(Gravity.CENTER_VERTICAL);
-            int p = Math.round(11 * d);
+            boolean pureOled = com.limelight.pocket.ui.PocketTheme.pureOled(c);
+            int p = Math.round((pureOled ? 6 : 11) * d);
             setPadding(Math.round(12 * d), p, p, p);
-            bg.setCornerRadius(18 * d);
+            bg.setCornerRadius((pureOled ? 4 : 18) * d);
             bg.setColor(0x1FFFFFFF);
             setBackground(bg);
             setFocusable(true);
