@@ -1249,11 +1249,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addAction(getString(R.string.horizon_studio_title), getString(R.string.horizon_studio_sub),
                 () -> getString(R.string.horizon_studio_count,
                         com.limelight.pocket.ui.HorizonThemeStudio.count(this)),
-                () -> com.limelight.pocket.ui.HorizonThemeStudio.show(this, () -> {
-                    PocketSounds.reload(this);
-                    getIntent().putExtra("tab", currentTab);
-                    rowsContainer.postDelayed(this::recreate, 300);
-                }));
+                () -> com.limelight.pocket.studio.ThemeStudioActivity.open(this));
         String[] densityLabels = {getString(R.string.horizon_density_classic),
                 getString(R.string.horizon_density_compact), getString(R.string.horizon_density_large)};
         addChoice(getString(R.string.horizon_density_title), getString(R.string.horizon_density_sub),
@@ -1481,6 +1477,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
     /** The libraries: layouts, game pages, sorting, trophies, art. */
     private void buildLibraryTab() {
         addAction(getString(R.string.horizon_romm_title), getString(R.string.horizon_romm_settings_sub), null, rommCatalog::show);
+        addAction(getString(R.string.horizon_clients_title), getString(R.string.horizon_clients_sub), null,
+                () -> com.limelight.pocket.clients.ClientsActivity.open(this));
         addHeader(R.string.pocket_header_layout);
 
         final String[] modeLabels = {getString(R.string.pocket_view_carousel), getString(R.string.pocket_view_grid),
@@ -2444,7 +2442,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
         chev.setImageResource(res);
         chev.setImageTintList(ContextCompat.getColorStateList(this, R.color.pocket_row_text_dim));
         chev.setDuplicateParentStateEnabled(true);
-        chev.setLayoutParams(new LinearLayout.LayoutParams(dp(18), dp(18)));
+        // The same 18 dp arrow inside a touch target large enough to tap (WCAG 2.2 target size)
+        chev.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        chev.setPadding(dp(7), dp(7), dp(7), dp(7));
+        chev.setLayoutParams(new LinearLayout.LayoutParams(dp(32), dp(32)));
         return chev;
     }
 
@@ -2513,6 +2514,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
         ImageView left = chevron(R.drawable.ic_chevron_left);
         final TextView value = valueText();
         ImageView right = chevron(R.drawable.ic_chevron_right);
+        left.setContentDescription(getString(R.string.horizon_a11y_choice_previous, title));
+        right.setContentDescription(getString(R.string.horizon_a11y_choice_next, title));
         row.addView(left);
         row.addView(value);
         row.addView(right);

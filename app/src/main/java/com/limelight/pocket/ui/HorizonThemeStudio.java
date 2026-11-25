@@ -2,21 +2,23 @@ package com.limelight.pocket.ui;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.widget.Toast;
-import com.limelight.R;
-import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.PocketPrefs;
 import org.json.JSONObject;
 import org.json.JSONException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 
-/** Local, versioned visual snapshots. Never stores or changes game/stream/host credentials. */
+/**
+ * Local, versioned visual snapshots and the storage side of Theme Studio
+ * ({@link com.limelight.pocket.studio.ThemeStudioActivity}). Never stores or changes
+ * game/stream/host credentials. Custom looks keep their original version-1 JSON slots, so looks
+ * saved by earlier builds stay readable.
+ */
 public final class HorizonThemeStudio {
     private static final int SLOTS = 3;
     private static final String PREFIX = "horizon_look_slot_";
+    /** The look in place before the last apply from Theme Studio (HorizonLook text). */
+    static final String KEY_UNDO = "horizon_look_undo";
     private HorizonThemeStudio() {}
 
     static final class Look {
@@ -70,6 +72,16 @@ public final class HorizonThemeStudio {
                     PocketPrefs.colorBackgroundArt(c), PocketPrefs.liveGlass(c));
         }
 
+        static Look of(HorizonLook l) {
+            return new Look(l.accent, l.backdrop, l.material, l.sound, l.layout, l.focus, l.density, l.corners,
+                    l.motion, l.colorArt, l.liveGlass);
+        }
+
+        HorizonLook toLook() {
+            return new HorizonLook(accent, backdrop, material, sound, layout, focus, density, corners,
+                    motion, colorArt, liveGlass);
+        }
+
         void apply(Context c) {
             PocketPrefs.prefs(c).edit().putInt(PocketPrefs.KEY_ACCENT,accent)
                     .putString(PocketPrefs.KEY_BACKDROP,backdrop).putString(PocketPrefs.KEY_MATERIAL,material)
@@ -92,45 +104,82 @@ public final class HorizonThemeStudio {
         catch (JSONException | RuntimeException e) { return null; }
     }
 
+    public static int slots() {
+        return SLOTS;
+    }
+
     public static int count(Context c) {
         int n = 0;
         for (int i=0;i<SLOTS;i++) { if(load(c,i)!=null) { n++; } }
         return n;
     }
 
-    private static boolean save(Context c, int slot) {
-        if (slot < 0 || slot >= SLOTS) { return false; }
+    /** The look the console shows now. */
+    public static HorizonLook current(Context c) {
+        return Look.capture(c).toLook();
+    }
+
+    /** A saved custom look, or null when the slot is empty or unreadable. */
+    public static HorizonLook slot(Context c, int slot) {
+        Look look = load(c, slot);
+        return look == null ? null : look.toLook();
+    }
+
+    /** Saves a look into a custom slot (version-1 JSON, checked by reading it back). */
+    public static boolean saveSlot(Context c, int slot, HorizonLook look) {
+        if (slot < 0 || slot >= SLOTS || look == null || !look.valid()) { return false; }
         try {
-            String raw = Look.capture(c).encode().toString();
+            String raw = Look.of(look).encode().toString();
             Look.decode(raw);
             PocketPrefs.prefs(c).edit().putString(PREFIX+slot,raw).apply();
             return true;
         } catch (JSONException | RuntimeException e) { return false; }
     }
 
-    public static void show(ConsoleActivity a, Runnable changed) {
-        List<StreamMenuView.Item> rows = new ArrayList<>();
-        rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_studio_note)));
-        for (int i=0;i<SLOTS;i++) {
-            final int slot=i;
-            final Look look=load(a,i);
-            rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_studio_slot,i+1)));
-            rows.add(StreamMenuView.Item.note(look==null ? a.getString(R.string.horizon_studio_empty) : look.summary()));
-            rows.add(StreamMenuView.Item.confirm(a.getString(look==null ? R.string.horizon_studio_save : R.string.horizon_studio_replace), () -> {
-                Toast.makeText(a,save(a,slot) ? R.string.horizon_studio_saved : R.string.horizon_studio_error,Toast.LENGTH_SHORT).show();
-                changed.run();
-            }));
-            if (look!=null) {
-                rows.add(StreamMenuView.Item.confirm(a.getString(R.string.horizon_studio_apply), () -> {
-                    Look current=load(a,slot);
-                    if(current!=null) { current.apply(a); changed.run(); }
-                }));
-                rows.add(StreamMenuView.Item.confirm(a.getString(R.string.horizon_studio_delete), () -> {
-                    PocketPrefs.prefs(a).edit().remove(PREFIX+slot).apply();
-                    changed.run();
-                }));
-            }
+    public static void clearSlot(Context c, int slot) {
+        if (slot >= 0 && slot < SLOTS) {
+            PocketPrefs.prefs(c).edit().remove(PREFIX + slot).apply();
         }
-        a.showConsolePanel(a.getString(R.string.horizon_studio_title),null,null,rows);
+    }
+
+    /**
+     * Applies a look and remembers the one it replaces, so Theme Studio can offer it back. Only
+     * appearance keys are written.
+     */
+    public static boolean apply(Context c, HorizonLook look) {
+        if (look == null || !look.valid()) { return false; }
+        HorizonLook before = current(c);
+        if (!before.equals(look)) {
+            PocketPrefs.prefs(c).edit().putString(KEY_UNDO, before.toText()).apply();
+        }
+        Look.of(look).apply(c);
+        return true;
+    }
+
+    /** The look replaced by the last apply from Theme Studio, or null. */
+    public static HorizonLook undo(Context c) {
+        try { return HorizonLook.parse(PocketPrefs.prefs(c).getString(KEY_UNDO, null)); }
+        catch (HorizonLook.Invalid | RuntimeException e) { return null; }
+    }
+
+    /** A theme preset over a base look, exactly as applying it from Settings would leave things. */
+    public static HorizonLook preset(HorizonLook base, int index) {
+        PocketTheme.Preset p = PocketTheme.THEMES[index];
+        return base.withPreset(p.accent, p.backdrop, p.frost, p.sounds, p.layout, p.focus);
+    }
+
+    /** The preset a look shows as, or -1 for a custom mix (same rule as the Settings theme row). */
+    public static int presetIndex(HorizonLook look) {
+        return PocketTheme.matchingPreset(look.accent, look.backdrop, look.frost(), look.sound,
+                look.layout, look.focus);
+    }
+
+    /** True for the looks that bring their own Home, Library and Control layouts. */
+    public static boolean ownLayouts(HorizonLook look) {
+        int i = presetIndex(look);
+        if (i < 0) { return false; }
+        int name = PocketTheme.THEMES[i].name;
+        return name == com.limelight.R.string.horizon_theme_pure || name == com.limelight.R.string.horizon_theme_titanium
+                || name == com.limelight.R.string.horizon_theme_legacy;
     }
 }

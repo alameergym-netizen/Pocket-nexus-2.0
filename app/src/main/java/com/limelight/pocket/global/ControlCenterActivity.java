@@ -77,6 +77,7 @@ public class ControlCenterActivity extends Activity {
     private LinearLayout panel;
     private boolean closing;
     private boolean titanium;
+    private boolean legacy;
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private TextView clock;
@@ -106,7 +107,8 @@ public class ControlCenterActivity extends Activity {
         d = getResources().getDisplayMetrics().density;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
         titanium = com.limelight.pocket.ui.PocketTheme.titanium(this);
-        if (!titanium && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        legacy = com.limelight.pocket.ui.PocketTheme.legacy(this);
+        if (!titanium && !legacy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
             WindowManager.LayoutParams lp = getWindow().getAttributes();
             lp.setBlurBehindRadius(Math.round(18 * d));
@@ -185,8 +187,14 @@ public class ControlCenterActivity extends Activity {
         if (pureOled) bg.setColor(0xFF000000);
         bg.setCornerRadius(dp(pureOled ? 4 : 18));
         bg.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
-        panel.setBackground(titanium ? TitaniumStyle.surface(this) : bg);
-        panel.setElevation(dp(pureOled ? 0 : 20));
+        panel.setBackground(titanium ? TitaniumStyle.surface(this)
+                : legacy ? com.limelight.pocket.ui.LegacyStyle.dialog(this) : bg);
+        if (legacy) {
+            // The dialog frame draws its own rule; keep the workspace padding inside it
+            panel.setPadding(pad + dp(4), dp(16), pad + dp(4), dp(16));
+            panel.setId(R.id.horizon_legacy_panel);
+        }
+        panel.setElevation(dp(pureOled || legacy ? 0 : 20));
         FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(dp(spec.width), dp(spec.height),
                 Gravity.END | Gravity.CENTER_VERTICAL);
         plp.setMarginEnd(dp(spec.margin));
@@ -342,6 +350,7 @@ public class ControlCenterActivity extends Activity {
                 ConsoleActivity.hintB(this, R.string.pocket_hint_close));
         noFocus(hints);
         panel.addView(hints, matchWrap());
+        if (legacy) pixelType(panel, com.limelight.pocket.ui.LegacyStyle.typeface(this));
 
         // With the controller the focus starts on the first tile (also when the screen was
         // last touched: in touch mode a plain request would be refused)
@@ -749,11 +758,26 @@ public class ControlCenterActivity extends Activity {
         return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
+    /** Nexus Legacy: every word on the panel in pixel type (the hint keys keep their glyphs). */
+    private static void pixelType(View v, android.graphics.Typeface face) {
+        if (v instanceof TextView) {
+            Object tag = v.getTag();
+            if (!(tag instanceof String && ((String) tag).startsWith("hint:"))) {
+                ((TextView) v).setTypeface(face);
+            }
+        }
+        else if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) pixelType(g.getChildAt(i), face);
+        }
+    }
+
     /** Apple TV's focus: the tile turns white (its icon and words dark) and lifts a little. */
     private static void focusLook(View v, GradientDrawable bg, boolean has, boolean on, float d) {
         paintSurface(v, bg, has, on, d);
         if (com.limelight.pocket.ui.PocketTheme.pureOled(v.getContext())
-                || com.limelight.pocket.ui.PocketTheme.titanium(v.getContext())) return;
+                || com.limelight.pocket.ui.PocketTheme.titanium(v.getContext())
+                || com.limelight.pocket.ui.PocketTheme.legacy(v.getContext())) return;
         v.animate().cancel();
         boolean motion = PocketPrefs.animationsEnabled(v.getContext());
         v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).translationZ(has ? 8 * d : 0)
@@ -781,7 +805,8 @@ public class ControlCenterActivity extends Activity {
             int p = Math.round((pureOled ? 6 : 11) * d);
             setPadding(Math.round(12 * d), p, p, p);
             boolean titanium = com.limelight.pocket.ui.PocketTheme.titanium(c);
-            bg.setCornerRadius((titanium ? 5 : pureOled ? 4 : 18) * d);
+            boolean legacy = com.limelight.pocket.ui.PocketTheme.legacy(c);
+            bg.setCornerRadius((legacy ? 0 : titanium ? 5 : pureOled ? 4 : 18) * d);
             bg.setColor(0x1FFFFFFF);
             setBackground(bg);
             setFocusable(true);
@@ -862,7 +887,7 @@ public class ControlCenterActivity extends Activity {
             setGravity(Gravity.CENTER_VERTICAL);
             int p = Math.round(12 * d);
             setPadding(p, Math.round(10 * d), Math.round(14 * d), Math.round(10 * d));
-            bg.setCornerRadius(16 * d);
+            bg.setCornerRadius(com.limelight.pocket.ui.PocketTheme.legacy(c) ? 0 : 16 * d);
             bg.setColor(0x1FFFFFFF);
             setBackground(bg);
             setFocusable(true);

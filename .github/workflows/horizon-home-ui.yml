@@ -7,6 +7,7 @@ on:
       - 'app/src/main/java/com/limelight/pocket/home/HomeActivity.java'
       - 'app/src/main/java/com/limelight/pocket/home/HorizonHomeWorkspace.java'
       - 'app/src/main/java/com/limelight/pocket/ui/Layouts.java'
+      - 'app/src/main/java/com/limelight/pocket/ui/SectionBar.java'
       - 'app/src/main/res/values/horizon_home_workspace.xml'
       - '.github/tests/home_workspace.py'
       - '.github/tests/pure_oled_workspace.py'
