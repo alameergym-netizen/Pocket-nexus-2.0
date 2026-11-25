@@ -110,7 +110,7 @@ final class VerifiedFileTransfer {
         return source;
     }
 
-    private static byte[] readDigest(File path, byte[] buffer) throws IOException {
+    static byte[] readDigest(File path, byte[] buffer) throws IOException {
         MessageDigest digest = sha256();
         try (FileInputStream input = new FileInputStream(path)) {
             int length;
@@ -122,12 +122,12 @@ final class VerifiedFileTransfer {
         return digest.digest();
     }
 
-    private static MessageDigest sha256() {
+    static MessageDigest sha256() {
         try { return MessageDigest.getInstance("SHA-256"); }
         catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }
 
-    private static void checkInterrupted() throws InterruptedIOException {
+    static void checkInterrupted() throws InterruptedIOException {
         if (Thread.currentThread().isInterrupted()) throw new InterruptedIOException("Transfer cancelled");
     }
 
@@ -136,7 +136,7 @@ final class VerifiedFileTransfer {
         return parent != null && new File(parent.getCanonicalFile(), file.getName()).equals(file.getCanonicalFile());
     }
 
-    private static void requireOrdinary(File file) throws IOException {
+    static void requireOrdinary(File file) throws IOException {
         if (!ordinaryPath(file) || (!file.isDirectory() && !file.isFile())) {
             throw new IOException("Unsupported file or symbolic link");
         }

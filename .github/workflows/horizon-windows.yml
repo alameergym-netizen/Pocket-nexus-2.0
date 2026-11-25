@@ -48,7 +48,7 @@ jobs:
       - name: Package development Windows helper
         shell: pwsh
         run: python pc-setup/tests/package_host.py dist/NexusHost-dev.zip
-      - name: Verify and stage the Windows development archive
+      - name: Verify, stage, install and remove the Windows development archive
         shell: powershell
         run: |
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-WindowsPackage.ps1 -Archive dist/NexusHost-dev.zip
@@ -60,6 +60,8 @@ jobs:
           path: |
             dist/NexusHost-dev.zip
             dist/NexusHost-dev.zip.sha256
+            pc-setup/Install-NexusHostDev.ps1
+            pc-setup/Stage-NexusHostDev.ps1
           if-no-files-found: error
           retention-days: 7
       - name: Upload Windows diagnostics
