@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$OutputMsi
 )
 $ErrorActionPreference = 'Stop'
+if ($env:GITHUB_ACTIONS -ne 'true') { throw 'Run this certificate fixture on an isolated GitHub Actions Windows runner.' }
 
 function Check($Condition, [string]$Label) {
     if (-not $Condition) { throw "FAILED: $Label" }
@@ -22,12 +23,13 @@ $script = Join-Path (Split-Path $PSScriptRoot) 'Sign-NexusHostMsi.ps1'
 $id = [Guid]::NewGuid().ToString('N')
 $certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Nexus CI only $id" -CertStoreLocation 'Cert:\CurrentUser\My' `
     -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 -KeyExportPolicy NonExportable -NotAfter ((Get-Date).AddDays(1))
-$root = New-Object Security.Cryptography.X509Certificates.X509Store 'Root', 'CurrentUser'
+$root = New-Object Security.Cryptography.X509Certificates.X509Store 'Root', 'LocalMachine'
 $trusted = $false
 try {
     $root.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
     $root.Add($certificate)
     $trusted = $true
+    Write-Host 'Installed disposable trust on the CI runner.'
     $unsignedDigest = (Get-FileHash -LiteralPath $Msi -Algorithm SHA256).Hash
     $options = @{ Msi = $Msi; SignTool = $tool.FullName; CertificateThumbprint = $certificate.Thumbprint; OutputMsi = $OutputMsi }
     Expect-Rejected { & $script @options -ExpectedSha256 ('0' * 64) } 'SHA-256 does not match'
