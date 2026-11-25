@@ -277,7 +277,7 @@ public class LibraryActivity extends ConsoleActivity {
         column.addView(header, new LinearLayout.LayoutParams(-1, -2));
         // Nexus Horizon: where the PC games stream from, in a row under the title, when three
         // one-line cards fit side by side and the games keep their room (short screens skip it)
-        if (PocketTheme.horizon(this) && h / d >= 400 && com.limelight.pocket.ui.HorizonStreamCards.sideBySide(
+        if (PocketTheme.horizon(this) && h / d >= 420 && com.limelight.pocket.ui.HorizonStreamCards.sideBySide(
                 w / d - 2 * spec.padding, 3)) {
             streamDeck = new com.limelight.pocket.ui.HorizonStreamDeck(this, true,
                     new com.limelight.pocket.ui.HorizonStreamDeck.Actions() {

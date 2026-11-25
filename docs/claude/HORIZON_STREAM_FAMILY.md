@@ -5,7 +5,7 @@ Nexus Horizon is the preset with accent `0xFFA8C8E8`, the Art backdrop, frost, C
 | Surface | Where the cards sit | Arrangement |
 |---|---|---|
 | Home | Right of the hero, level with its buttons, below the games row | Side by side when each card gets 140 dp, otherwise three one-line rows. Hidden below 180 dp of room. |
-| Library | A row under the title, above the tabs and the games | One line each, side by side. Only on screens at least 400 dp tall, so short screens keep their room for games. |
+| Library | A row under the title, above the tabs and the games | One line each, side by side. Only on screens at least 420 dp tall (in the app's own dp, after its UI scale), so short screens keep their room for games. |
 | Nexus Control | Under the title and clock, above the tiles | One line each. Side by side when they fit across the panel, otherwise stacked. |
 
 ## What each card claims
