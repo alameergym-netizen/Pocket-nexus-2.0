@@ -44,8 +44,22 @@ def focused(tree, label):
     return any(n.get("focused") == "true" and has(n, label) for n in tree.iter("node"))
 
 
+def describe(tree):
+    """What was on screen: visible labels and the focused one, for the CI log."""
+    if tree is None:
+        return "no screen captured"
+    seen = []
+    for node in tree.iter("node"):
+        text, desc = labels(node)
+        value = (text or desc).strip().replace("\n", " ")
+        if value:
+            seen.append(("*" if node.get("focused") == "true" else "") + value[:60])
+    return " | ".join(seen[:70])
+
+
 def wait_for(label, predicate, timeout=60):
     deadline = time.monotonic() + timeout
+    tree = None
     while time.monotonic() < deadline:
         try:
             tree = snap()
@@ -54,6 +68,7 @@ def wait_for(label, predicate, timeout=60):
         except (ET.ParseError, subprocess.SubprocessError):
             pass
         time.sleep(0.5)
+    print("Screen: " + describe(tree), flush=True)
     raise AssertionError("Did not reach " + label)
 
 

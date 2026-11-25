@@ -159,7 +159,8 @@ public final class ThemePreviewView extends View {
         float w = Math.min(availW, availH * 16f / 9f);
         float h = w * 9f / 16f;
         float left = getPaddingLeft() + (availW - w) / 2f;
-        float top = getPaddingTop() + (availH - h) / 2f;
+        // Top-aligned: the texts under the picture follow it closely on tall panes
+        float top = getPaddingTop();
         frame.set(left, top, left + w, top + h);
         float radius = 14 * density;
 

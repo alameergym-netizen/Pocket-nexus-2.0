@@ -138,7 +138,10 @@ public class ThemeStudioActivity extends ConsoleActivity {
         ViewCompat.setAccessibilityHeading(title, true);
         column.addView(title);
         TextView intro = text(getString(R.string.horizon_studio_intro), 11, 0xA3FFFFFF, false);
-        intro.setPadding(0, dp(2), 0, dp(10));
+        intro.setPadding(0, dp(2), 0, dp(heightDp < 420 ? 6 : 10));
+        // Short screens keep one line; the full sentence stays available to screen readers
+        intro.setMaxLines(heightDp < 420 ? 1 : 3);
+        intro.setEllipsize(android.text.TextUtils.TruncateAt.END);
         column.addView(intro);
 
         LinearLayout body = new LinearLayout(this);
@@ -154,23 +157,19 @@ public class ThemeStudioActivity extends ConsoleActivity {
         listScroll.addView(rows, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        ScrollView previewScroll = new ScrollView(this);
-        previewScroll.setVerticalScrollBarEnabled(false);
-        previewScroll.setFillViewport(true);
-        LinearLayout previewColumn = previewColumn(layout, widthDp, heightDp, fontScale);
-        previewScroll.addView(previewColumn, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout previewPane = previewColumn();
 
         if (layout.split) {
             body.addView(listScroll, new LinearLayout.LayoutParams(dp(layout.listWidth),
                     ViewGroup.LayoutParams.MATCH_PARENT));
             LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
             plp.setMarginStart(dp(16));
-            body.addView(previewScroll, plp);
+            body.addView(previewPane, plp);
         }
         else {
-            body.addView(previewScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            // The picture, its texts and the actions above the list
+            int paneHeight = Math.min(dp(layout.previewHeight + 140), Math.round(heightDp * 0.62f * density));
+            body.addView(previewPane, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, paneHeight));
             LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
             llp.topMargin = dp(8);
             body.addView(listScroll, llp);
@@ -188,6 +187,7 @@ public class ThemeStudioActivity extends ConsoleActivity {
         fillHintBar(this, hints, hintA(this, R.string.pocket_hint_select), hintB(this, R.string.pocket_hint_close),
                 hintShoulders(this, R.string.horizon_studio_hint_scene));
 
+        summary.setMaxLines(heightDp < 420 ? 2 : 3);
         setContentView(root);
         buildRows();
         previewView.setLook(preview, false);
@@ -201,7 +201,11 @@ public class ThemeStudioActivity extends ConsoleActivity {
         }
     }
 
-    private LinearLayout previewColumn(HorizonStudioLayout layout, float widthDp, float heightDp, float fontScale) {
+    /**
+     * Scene tabs, the picture, what it shows and the two actions. The picture takes whatever
+     * height is left, so Apply and Close stay on screen with large text on a short display.
+     */
+    private LinearLayout previewColumn() {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
 
@@ -228,18 +232,7 @@ public class ThemeStudioActivity extends ConsoleActivity {
         col.addView(tabs);
 
         previewView = new ThemePreviewView(this);
-        int previewHeight;
-        if (layout.split) {
-            // Room left for the picture after the header, scene tabs, texts, buttons and hints
-            float previewWidth = widthDp - 2 * layout.padding - layout.listWidth - 16;
-            float textRoom = 120 * Math.max(1f, fontScale);
-            float room = heightDp - 22 - 60 - 40 - 40 - textRoom;
-            previewHeight = Math.round(Math.max(120, Math.min(previewWidth * 9f / 16f, room)));
-        }
-        else {
-            previewHeight = layout.previewHeight;
-        }
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(previewHeight));
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
         vlp.topMargin = dp(8);
         col.addView(previewView, vlp);
 
@@ -249,6 +242,8 @@ public class ThemeStudioActivity extends ConsoleActivity {
         col.addView(status);
         summary = text("", 11, 0xA3FFFFFF, false);
         summary.setPadding(0, dp(2), 0, dp(8));
+        summary.setMaxLines(3);
+        summary.setEllipsize(android.text.TextUtils.TruncateAt.END);
         col.addView(summary);
 
         LinearLayout actions = new LinearLayout(this);
