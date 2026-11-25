@@ -27,6 +27,7 @@ import com.limelight.pocket.HorizonStartupRecovery;
 import com.limelight.pocket.HorizonSecureStatus;
 import com.limelight.pocket.ResumeTicket;
 import com.limelight.pocket.core.HorizonStreamObserver;
+import com.limelight.pocket.core.HorizonStreamSelection;
 import com.limelight.pocket.core.HorizonDeferredTask;
 import com.limelight.pocket.core.HorizonLaunchRequests;
 import com.limelight.pocket.device.HorizonPower;
@@ -522,6 +523,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        horizonSelectionGeneration = HorizonStreamSelection.capture(getIntent());
 
         instance = this;
         boolean startingAutomaticResume = HorizonStartupRecovery.begin(this, this, getIntent());
@@ -1155,8 +1157,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 // Der Decoder erhält die jeweils aktive Oberfläche vom Container
                 decoderRenderer.setRenderTarget(streamContainer.getSurface());
 
+                // Surface callbacks can arrive after the owner selected a different game.
+                if (!HorizonStreamSelection.current(horizonSelectionGeneration)) {
+                    finish();
+                    return;
+                }
+
                 // Starten Sie die NvConnection
-                horizonSelectionGeneration = currentLaunchGeneration();
                 horizonStreamTicket = HorizonStreamObserver.instance().beginAttempt(
                         com.limelight.pocket.core.HorizonLaunchTarget.pc(pocketPcUuid(), appId));
                 connecting = true;

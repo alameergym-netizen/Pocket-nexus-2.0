@@ -10,6 +10,7 @@ import android.util.Base64;
 
 import com.limelight.Game;
 import com.limelight.pocket.core.HorizonProfileOwner;
+import com.limelight.pocket.core.HorizonStreamSelection;
 
 /**
  * Seamless suspend and resume.
@@ -85,6 +86,7 @@ public final class ResumeTicket {
             Bundle extras = gameIntent.getExtras() != null ? new Bundle(gameIntent.getExtras()) : new Bundle();
             extras.remove(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
             extras.remove(EXTRA_CLAIM);
+            HorizonStreamSelection.clear(extras);
             extras.remove(HorizonStartupRecovery.EXTRA_RESUME_START);
             extras.remove(EXTRA_PROFILE_HOST);
             extras.remove(EXTRA_PROFILE_STREAM);
@@ -189,6 +191,7 @@ public final class ResumeTicket {
         prefs(context).edit().putLong(KEY_ARMED_AT,0).apply();
         Intent intent = new Intent(context, Game.class);
         intent.putExtras(extras);
+        HorizonStreamSelection.stamp(intent);
         intent.putExtra(EXTRA_CLAIM,claim.id);
         return intent;
     }
