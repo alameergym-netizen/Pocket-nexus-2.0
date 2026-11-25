@@ -1491,7 +1491,7 @@ public class HomeActivity extends ConsoleActivity {
      * over it and faint scanlines over the screen. Any other look gets its original type back.
      */
     private void applyLegacyType() {
-        TextView[] views = {title, desc, source, whenView, play, rowLabel, info, featured, homeSummary};
+        TextView[] views = {title, desc, source, whenView, play, rowLabel, info, featured, homeSummary, homeBrand};
         for (TextView v : views) {
             if (v == null) continue;
             if (!originalType.containsKey(v)) originalType.put(v, v.getTypeface());
@@ -1781,6 +1781,24 @@ public class HomeActivity extends ConsoleActivity {
         int brandMode=HorizonHomeStyle.brandMode(widthDp);
         homeBrand.setText(brandMode==2?R.string.horizon_home_brand:R.string.horizon_home_mark);
         homeBrand.setVisibility(brandMode==0?View.GONE:View.VISIBLE);
+        if (legacy) {
+            // The pixel variant of the N mark, in the Legacy gold, before the name (or alone)
+            android.graphics.drawable.Drawable mark = androidx.core.content.ContextCompat.getDrawable(this,
+                    R.drawable.ic_pocket_mark_pixel);
+            if (mark != null) {
+                mark = mark.mutate();
+                int size = Math.round(18 * d);
+                mark.setBounds(0, 0, size, size);
+                mark.setTint(com.limelight.pocket.ui.LegacyStyle.GOLD);
+            }
+            homeBrand.setCompoundDrawablesRelative(mark, null, null, null);
+            homeBrand.setCompoundDrawablePadding(Math.round(6 * d));
+            if (brandMode != 2) homeBrand.setText("");
+            homeBrand.setContentDescription(getString(R.string.horizon_home_brand));
+        } else {
+            homeBrand.setCompoundDrawablesRelative(null, null, null, null);
+            homeBrand.setContentDescription(null);
+        }
         summaryRoom=!workspace && !titanium && !legacy && HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
         homeSummary.setVisibility(summaryRoom && loadedOnce?View.VISIBLE:View.GONE);
         homeSummary.setBackground(HorizonHomeStyle.glass(d,com.limelight.pocket.ui.PocketTheme.accent(this),false));
