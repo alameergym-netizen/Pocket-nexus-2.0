@@ -1,12 +1,14 @@
 package com.limelight.binding.audio;
 
+import android.content.Context;
 import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.os.Build;
 import java.lang.ref.WeakReference;
 
-/** Explicitly requested diagnostics for the currently playing PC stream, not device-wide routing. */
+/** Observations and optional output selection for the current PC stream's own AudioTrack. */
 public final class HorizonAudioRoute {
     private static Session active;
 
@@ -37,14 +39,22 @@ public final class HorizonAudioRoute {
     public static final class Snapshot {
         public final int type, sampleRate, channels, bufferFrames, underruns, performanceMode;
         public final String name;
+        public final int preferredType;
+        public final String preferredName;
         public final HorizonAudioStats.Snapshot delivery;
         public final double queuedAudioMs;
-        Snapshot(int type,String name,int sampleRate,int channels,int bufferFrames,int underruns,int performanceMode,
-                 HorizonAudioStats.Snapshot delivery, double queuedAudioMs) {
+        private final Session session;
+
+        private Snapshot(Session session, int type, String name, int sampleRate, int channels, int bufferFrames,
+                 int underruns, int performanceMode, AudioDeviceInfo preferred, HorizonAudioStats.Snapshot delivery,
+                 double queuedAudioMs) {
             this.type=type;this.name=name;this.sampleRate=sampleRate;this.channels=channels;
             this.bufferFrames=bufferFrames;this.underruns=underruns;this.performanceMode=performanceMode;
             this.delivery = delivery;
             this.queuedAudioMs = queuedAudioMs;
+            this.session = session;
+            this.preferredType = preferred == null ? -1 : preferred.getType();
+            this.preferredName = deviceName(preferred);
         }
     }
 
@@ -56,13 +66,14 @@ public final class HorizonAudioRoute {
             if(t.getPlayState()!=AudioTrack.PLAYSTATE_PLAYING) { return null; }
             int type=-1, frames=-1, underruns=-1, mode=-1;
             String name="";
+            AudioDeviceInfo preferred = null;
             if(Build.VERSION.SDK_INT>=23) {
                 AudioDeviceInfo device=t.getRoutedDevice();
                 if(device!=null) {
                     type=device.getType();
-                    CharSequence label=device.getProductName();
-                    if(label!=null) { name=label.toString(); }
+                    name=deviceName(device);
                 }
+                preferred = t.getPreferredDevice();
                 frames=t.getBufferSizeInFrames();
             }
             if(Build.VERSION.SDK_INT>=24) { underruns=t.getUnderrunCount(); }
@@ -79,9 +90,43 @@ public final class HorizonAudioRoute {
             HorizonAudioStats.Snapshot delivery = session.delivery.snapshot();
             double queuedAudioMs = playback == null ? -1 : delivery.queuedAudioMs(
                     channels, sampleRate, playback.framePosition, playback.nanoTime, nowNs);
-            Snapshot result = new Snapshot(type, name, sampleRate, channels, frames, underruns, mode, delivery, queuedAudioMs);
+            Snapshot result = new Snapshot(session, type, name, sampleRate, channels, frames, underruns, mode,
+                    preferred, delivery, queuedAudioMs);
             return current()==session && t.getPlayState()==AudioTrack.PLAYSTATE_PLAYING ? result : null;
         } catch(RuntimeException e) { return null; }
+    }
+
+    private static String deviceName(AudioDeviceInfo device) {
+        CharSequence name = device == null ? null : device.getProductName();
+        return name == null ? "" : name.toString();
+    }
+
+    /** Android can accept this preference and still choose a different route. */
+    public static boolean requestOutput(Context context, Snapshot owner, AudioDeviceInfo selected) {
+        if (Build.VERSION.SDK_INT < 23 || owner == null) return false;
+        try {
+            AudioDeviceInfo current = null;
+            if (selected != null) {
+                AudioManager manager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+                if (manager == null) return false;
+                for (AudioDeviceInfo device : manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                    if (device.getId() == selected.getId() && device.getType() == selected.getType()
+                            && deviceName(device).equals(deviceName(selected))) {
+                        current = device;
+                        break;
+                    }
+                }
+                if (current == null) return false;
+            }
+            synchronized (HorizonAudioRoute.class) {
+                if (active != owner.session) return false;
+                AudioTrack track = active.track.get();
+                return track != null && track.getPlayState() == AudioTrack.PLAYSTATE_PLAYING
+                        && track.setPreferredDevice(current);
+            }
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
     }
 
     private static AudioTimestamp playbackPosition(AudioTrack track) {

@@ -11,6 +11,7 @@ import android.provider.Settings;
 import android.view.KeyEvent;
 import android.widget.Toast;
 import com.limelight.R;
+import com.limelight.binding.audio.HorizonAudioRoute;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ui.StreamMenuView;
@@ -140,17 +141,17 @@ public final class HorizonAudio {
 
     public static List<StreamMenuView.Item> streamRouteRows(Context a) {
         List<StreamMenuView.Item> rows = new ArrayList<>();
-        com.limelight.binding.audio.HorizonAudioRoute.Snapshot s =
-                com.limelight.binding.audio.HorizonAudioRoute.snapshot();
+        HorizonAudioRoute.Snapshot s = HorizonAudioRoute.snapshot();
         if (s == null) {
             rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_route_inactive)));
         } else {
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_actual),
                     s.type < 0 ? a.getString(R.string.horizon_audio_unavailable)
-                            : a.getString(typeLabel(s.type)) + (s.name.isEmpty() ? "" : " · " + s.name)));
+                            : outputLabel(a, s.type, s.name)));
+            if (Build.VERSION.SDK_INT >= 23) addOutputChoices(a, rows, s);
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_format),
                     s.sampleRate + " Hz · " + a.getString(R.string.horizon_route_channels,s.channels)));
-            double ms = com.limelight.binding.audio.HorizonAudioRoute.bufferMs(s.bufferFrames,s.sampleRate);
+            double ms = HorizonAudioRoute.bufferMs(s.bufferFrames,s.sampleRate);
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_buffer),
                     ms < 0 ? a.getString(R.string.horizon_audio_unavailable)
                             : a.getString(R.string.horizon_route_ms,ms)));
@@ -176,6 +177,37 @@ public final class HorizonAudio {
         }
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_route_note)));
         return rows;
+    }
+
+    private static void addOutputChoices(Context context, List<StreamMenuView.Item> rows, HorizonAudioRoute.Snapshot owner) {
+        String system = context.getString(R.string.horizon_route_default);
+        rows.add(StreamMenuView.Item.info(context.getString(R.string.horizon_route_preferred),
+                owner.preferredType < 0 ? system : outputLabel(context, owner.preferredType, owner.preferredName)));
+        rows.add(StreamMenuView.Item.note(context.getString(R.string.horizon_route_preferred_note)));
+        rows.add(StreamMenuView.Item.action(system, () -> chooseOutput(context, owner, null)));
+        try {
+            AudioManager manager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            if (manager == null) return;
+            for (AudioDeviceInfo device : manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                int type = device.getType();
+                int label = typeLabel(type);
+                if (type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || label == R.string.horizon_audio_other
+                        || label == R.string.horizon_audio_earpiece) continue;
+                CharSequence name = device.getProductName();
+                String output = outputLabel(context, type, name == null ? "" : name.toString());
+                rows.add(StreamMenuView.Item.action(output, () -> chooseOutput(context, owner, device)));
+            }
+        } catch (RuntimeException ignored) { }
+    }
+
+    private static void chooseOutput(Context context, HorizonAudioRoute.Snapshot owner, AudioDeviceInfo device) {
+        boolean accepted = HorizonAudioRoute.requestOutput(context, owner, device);
+        Toast.makeText(context, accepted ? R.string.horizon_route_preferred_accepted : R.string.horizon_route_preferred_failed,
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private static String outputLabel(Context context, int type, String name) {
+        return context.getString(typeLabel(type)) + (name.isEmpty() ? "" : " · " + name);
     }
 
     private static void showBluetooth(ConsoleActivity a) {
