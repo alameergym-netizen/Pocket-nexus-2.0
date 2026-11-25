@@ -1249,11 +1249,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addAction(getString(R.string.horizon_studio_title), getString(R.string.horizon_studio_sub),
                 () -> getString(R.string.horizon_studio_count,
                         com.limelight.pocket.ui.HorizonThemeStudio.count(this)),
-                () -> com.limelight.pocket.ui.HorizonThemeStudio.show(this, () -> {
-                    PocketSounds.reload(this);
-                    getIntent().putExtra("tab", currentTab);
-                    rowsContainer.postDelayed(this::recreate, 300);
-                }));
+                () -> com.limelight.pocket.studio.ThemeStudioActivity.open(this));
         String[] densityLabels = {getString(R.string.horizon_density_classic),
                 getString(R.string.horizon_density_compact), getString(R.string.horizon_density_large)};
         addChoice(getString(R.string.horizon_density_title), getString(R.string.horizon_density_sub),

@@ -217,6 +217,12 @@
             android:screenOrientation="sensorLandscape"
             android:enableOnBackInvokedCallback="false"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
+        <!-- Horizon Theme Studio: preview, apply and share looks -->
+        <activity
+            android:name=".pocket.studio.ThemeStudioActivity"
+            android:screenOrientation="sensorLandscape"
+            android:enableOnBackInvokedCallback="false"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
         <activity
             android:name=".pocket.ArtPickerActivity"
             android:screenOrientation="sensorLandscape"
