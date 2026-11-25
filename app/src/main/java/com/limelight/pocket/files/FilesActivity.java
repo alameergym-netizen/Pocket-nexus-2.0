@@ -82,6 +82,7 @@ public class FilesActivity extends Activity {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private Preview preview;
+    private long restorePreviewGeneration;
     /** Where the last folder change went (1: into a folder, -1: up, 0: another place). */
     private int moved;
     private final Runnable showPreview = this::updatePreview;
@@ -411,6 +412,7 @@ public class FilesActivity extends Activity {
     }
 
     private void load(final File folder, final String focus) {
+        restorePreviewGeneration++;
         if (dir != null && place != null) {
             String now = dir.getAbsolutePath();
             String next = folder.getAbsolutePath();
@@ -660,10 +662,13 @@ public class FilesActivity extends Activity {
             File selected = files.get(0);
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_rename), () -> rename(selected)));
             if (selected.isFile()) {
-                boolean restore = VerifiedSaveCopy.isBackup(selected);
-                items.add(StreamMenuView.Item.action(getString(restore
-                        ? R.string.horizon_restore_save_copy : R.string.horizon_create_save_copy),
-                        () -> saveCopy(selected, restore)));
+                if (VerifiedSaveCopy.isBackup(selected)) {
+                    items.add(StreamMenuView.Item.action(getString(R.string.horizon_preview_save_restore),
+                            () -> previewSaveRestore(selected)));
+                } else {
+                    items.add(StreamMenuView.Item.action(getString(R.string.horizon_create_save_copy),
+                            () -> saveCopy(selected, null)));
+                }
             }
         }
         if (!files.isEmpty() && !hasFolder(files)) {
@@ -792,14 +797,52 @@ public class FilesActivity extends Activity {
         });
     }
 
-    private void saveCopy(File selected, boolean restore) {
+    private void previewSaveRestore(File selected) {
+        File folder = selected.getParentFile();
+        long request = ++restorePreviewGeneration;
+        Toast.makeText(this, R.string.pocket_files_working, Toast.LENGTH_SHORT).show();
+        io.execute(() -> {
+            try {
+                VerifiedSaveCopy.Preview backup = VerifiedSaveCopy.preview(selected);
+                boolean conflict = new File(folder, backup.name).exists();
+                main.post(() -> {
+                    if (!canShowRestorePreview(request, folder)) return;
+                    List<StreamMenuView.Item> items = new ArrayList<>();
+                    items.add(StreamMenuView.Item.info(getString(R.string.horizon_save_original_name), backup.name));
+                    items.add(StreamMenuView.Item.info(getString(R.string.horizon_save_payload_size),
+                            Formatter.formatFileSize(this, backup.size)));
+                    items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_digest, backup.digest)));
+                    items.add(StreamMenuView.Item.note(getString(conflict
+                            ? R.string.horizon_save_copy_conflict : R.string.horizon_save_copy_separate)));
+                    items.add(StreamMenuView.Item.action(getString(R.string.horizon_restore_save_copy),
+                            () -> saveCopy(selected, backup)));
+                    menu.show(getString(R.string.horizon_preview_save_restore),
+                            getString(R.string.horizon_save_backup_format), null, items);
+                });
+            } catch (IOException | SecurityException e) {
+                main.post(() -> {
+                    if (canShowRestorePreview(request, folder)) {
+                        Toast.makeText(this, R.string.horizon_save_restore_failed, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
+    }
+
+    private boolean canShowRestorePreview(long request, File folder) {
+        return request == restorePreviewGeneration && folder.equals(dir)
+                && !isFinishing() && !isDestroyed() && hasWindowFocus() && !menu.isShowing();
+    }
+
+    private void saveCopy(File selected, VerifiedSaveCopy.Preview backup) {
         File into = selected.getParentFile();
         File cache = getCacheDir();
+        boolean restore = backup != null;
         Toast.makeText(this, R.string.pocket_files_working, Toast.LENGTH_SHORT).show();
         io.execute(() -> {
             boolean complete = false;
             try {
-                if (restore) VerifiedSaveCopy.restore(selected, into, cache);
+                if (restore) VerifiedSaveCopy.restore(selected, into, cache, backup);
                 else VerifiedSaveCopy.create(selected, into, cache);
                 complete = true;
             } catch (IOException | SecurityException ignored) {
