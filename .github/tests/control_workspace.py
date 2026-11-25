@@ -196,12 +196,15 @@ def main(apk):
     settings = wait_for("settings after launcher recovery", lambda t: has(t, "Settings") and has(t, "System"))
     tap_label(settings, "System")
     device = wait_for("System settings", lambda t: has(t, "Compatibility stream start"))
-    for _ in range(8):
-        if has(device, "Retroid Bridge"):
+    # Tapping System focuses its first row. D-pad focus scrolls the actual Settings
+    # container to each next row, independent of display size and touch-scroll inertia.
+    for _ in range(50):
+        if focused(device, "Retroid Bridge"):
             break
-        adb("shell", "input", "swipe", "1000", "850", "1000", "280", "300")
+        key("DPAD_DOWN")
+        time.sleep(0.2)
         device = snap()
-    assert has(device, "Retroid Bridge"), "Hardware diagnostics could not be reached"
+    assert focused(device, "Retroid Bridge"), "Hardware diagnostics could not be reached by controller"
     tap_label(device, "Retroid Bridge")
     bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
     capture("09-hardware-readings")
