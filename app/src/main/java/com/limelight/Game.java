@@ -2413,6 +2413,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyDown(KeyEvent event) {
+        if (horizonRejectedSelection) return true;
         if (pocketKeyMonitorUntil != 0 && event.getRepeatCount() == 0) {
             if (android.os.SystemClock.uptimeMillis() < pocketKeyMonitorUntil) {
                 showPocketToast(describeKeyForMonitor(event), true, 1800);
@@ -2519,6 +2520,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyUp(KeyEvent event) {
+        if (horizonRejectedSelection) return true;
         if (handlePocketKey(event, false)) {
             return true;
         }
@@ -4542,6 +4544,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     public boolean handleKeyMultiple(KeyEvent event) {
+        if (horizonRejectedSelection) return true;
         // We can receive keys from a software keyboard that don't correspond to any existing
         // KEYCODE value. Android will give those to us as an ACTION_MULTIPLE KeyEvent.
         //
@@ -5105,6 +5108,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     // Returns true if the event was consumed
     // NB: View is only present if called from a view callback
     public boolean handleMotionEvent(View view, MotionEvent event) {
+        if (horizonRejectedSelection) return true;
         if (streamMenu != null && streamMenu.isShowing()) {
             if ((event.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
                 float hx = event.getAxisValue(MotionEvent.AXIS_HAT_X);
@@ -6423,6 +6427,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void onBackPressed() {
+        if (horizonRejectedSelection) return;
         if(prefConfig.enableBackMenu){
             showGameMenu(null);
             return;

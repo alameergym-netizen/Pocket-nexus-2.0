@@ -3,6 +3,8 @@ package com.limelight.pocket.core;
 import android.app.Application;
 import android.content.Intent;
 import android.os.SystemClock;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 
 import com.limelight.Game;
 import com.limelight.pocket.apps.HomeScreen;
@@ -36,6 +38,14 @@ public class HorizonRejectedStreamActivityTest {
             assertTrue(rejected.get().isFinishing());
             rejected.start().resume();
             rejected.get().onWindowFocusChanged(true);
+            // Android can deliver queued input while a finished Activity is being removed.
+            assertTrue(rejected.get().handleKeyDown(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BUTTON_A)));
+            assertTrue(rejected.get().handleKeyUp(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BUTTON_A)));
+            assertTrue(rejected.get().handleKeyMultiple(new KeyEvent(0, "text", 0, 0)));
+            MotionEvent motion = MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+            try { assertTrue(rejected.get().handleMotionEvent(null, motion)); }
+            finally { motion.recycle(); }
+            rejected.get().onBackPressed();
             rejected.pause().stop().destroy();
             assertSame(current, Game.instance);
             assertTrue(HomeScreen.streaming);
