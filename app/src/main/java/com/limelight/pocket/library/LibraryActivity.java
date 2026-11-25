@@ -95,6 +95,7 @@ public class LibraryActivity extends ConsoleActivity {
     private final List<UniversalLibrary.Game> shown = new ArrayList<>();
     private int filter = F_ALL;
     private int sort;
+    private boolean refreshCollectionOnClose;
     private int heroPos = -1;
     private int heroToken;
     private int focusGeneration;
@@ -837,6 +838,7 @@ public class LibraryActivity extends ConsoleActivity {
         for (final String c : GameShelf.collections(this)) {
             items.add(StreamMenuView.Item.value(c, GameShelf.isIn(this, c, g.key) ? "✓" : "", direction -> {
                 boolean now = GameShelf.toggle(this, c, g.key);
+                if (filter >= FIXED && c.equals(filterLabel(filter))) refreshCollectionOnClose = true;
                 PocketSounds.play(this, now ? PocketSounds.TOGGLE_ON : PocketSounds.TOGGLE_OFF);
                 return now ? "✓" : "";
             }));
@@ -845,15 +847,17 @@ public class LibraryActivity extends ConsoleActivity {
             hideConsolePanel();
             TextPrompt.show(this, getString(R.string.pocket_ul_new_collection), getString(R.string.pocket_ul_new_collection_help),
                     "", getString(R.string.pocket_ul_collection_hint), name -> {
-                        if (name == null || name.trim().isEmpty()) {
-                            return;
+                        String activeCollection = filter >= FIXED ? filterLabel(filter) : null;
+                        String added = GameShelf.addToCollection(this, name, g.key);
+                        if (added == null) return;
+                        if (activeCollection != null) {
+                            int index = GameShelf.collections(this).indexOf(activeCollection);
+                            filter = index < 0 ? F_ALL : FIXED + index;
                         }
-                        GameShelf.createCollection(this, name.trim());
-                        GameShelf.toggle(this, name.trim(), g.key);
                         PocketSounds.play(this, PocketSounds.TOGGLE_ON);
-                        Toast.makeText(this, getString(R.string.pocket_ul_added_to, g.title, name.trim()),
+                        Toast.makeText(this, getString(R.string.pocket_ul_added_to, g.title, added),
                                 Toast.LENGTH_SHORT).show();
-                        buildTabs();
+                        show(false);
                     });
         }).withIcon("STAR"));
         if (filter >= FIXED) {
@@ -866,6 +870,14 @@ public class LibraryActivity extends ConsoleActivity {
             }).withIcon("TRASH"));
         }
         pushConsolePage(getString(R.string.pocket_ul_collections), items);
+    }
+
+    @Override
+    protected void onConsolePanelClosed() {
+        if (refreshCollectionOnClose) {
+            refreshCollectionOnClose = false;
+            show(false);
+        }
     }
 
     // ---- The covers -----------------------------------------------------------------------------

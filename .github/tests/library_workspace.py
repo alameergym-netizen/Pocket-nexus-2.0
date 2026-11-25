@@ -13,6 +13,7 @@ DETAILS = "horizon_library_details_action"
 OPTIONS = "horizon_library_options_action"
 FIRST = "Aster Circuit"
 SECOND = "Boreal Drift"
+COLLECTION = "Weekend"
 
 
 def node_with_label(tree, label):
@@ -56,6 +57,58 @@ def show_details(title):
         "details for " + title,
         lambda t: resource(t, "pagePlay") is not None and controls.has(t, title),
     )
+
+
+def open_collections():
+    library = controls.wait_for("game options available for collection", lambda t: resource(t, OPTIONS) is not None)
+    tap(resource(library, OPTIONS))
+    options = controls.wait_for("collection submenu", lambda t: controls.has(t, "Collections"))
+    controls.tap_label(options, "Collections")
+    return controls.wait_for("collection actions", lambda t: controls.has(t, "New collection"))
+
+
+def add_collection(name):
+    controls.tap_label(open_collections(), "New collection")
+    controls.wait_for("collection name field", lambda t: any(n.get("class") == "android.widget.EditText"
+                                                             for n in t.iter("node")))
+    controls.adb("shell", "input", "text", name)
+    controls.adb("shell", "input", "keyevent", "KEYCODE_ENTER")
+
+
+def weekend_membership(tree):
+    return selected(tree, COLLECTION) and library_with_games(tree) and node_with_label(tree, SECOND) is None
+
+
+def check_collections():
+    add_collection(COLLECTION)
+    library = controls.wait_for("new collection persisted to the filter row",
+                                lambda t: node_with_label(t, COLLECTION) is not None)
+    tap(node_with_label(library, COLLECTION))
+    controls.wait_for("only the first game is in Weekend", weekend_membership)
+    add_collection(COLLECTION)
+    controls.wait_for("repeated add keeps the current game in Weekend", weekend_membership)
+    add_collection("AList")
+    controls.wait_for("alphabetically earlier collection does not change the selected shelf",
+                      lambda t: weekend_membership(t) and node_with_label(t, "AList") is not None)
+
+    controls.adb("shell", "am", "force-stop", controls.PKG)
+    controls.launch()
+    library = open_library()
+    tap(node_with_label(library, COLLECTION))
+    controls.wait_for("collection membership survives a process restart", weekend_membership)
+    controls.capture("08-collection-membership")
+
+    open_collections()
+    # AList sorts first and Weekend second. In the submenu, D-pad moves then A toggles.
+    controls.key("DPAD_DOWN")
+    controls.key("BUTTON_A")
+    controls.key("BUTTON_B")
+    controls.key("BUTTON_B")
+    controls.wait_for("removal refreshes the active collection on menu dismissal",
+                      lambda t: selected(t, COLLECTION) and resource(t, OPTIONS) is None
+                      and node_with_label(t, FIRST) is None)
+    controls.capture("09-empty-collection")
+    print("PASS: duplicate collection adds, active selection, restart, and membership removal", flush=True)
 
 
 def main(apk):
@@ -105,6 +158,7 @@ def main(apk):
     tap(node_with_label(playing, "All"))
     controls.wait_for("touch restores All filter", lambda t: selected(t, "All") and library_with_games(t))
     print("PASS: wide split, controller focus, game detail and filter with touch return", flush=True)
+    check_collections()
 
     controls.setup_device(480)
     compact = open_library()
