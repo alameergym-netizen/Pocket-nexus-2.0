@@ -16,6 +16,7 @@ import org.jcodec.codecs.h264.io.model.VUIParameters;
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.pocket.streaming.HorizonDecodeTimestamps;
+import com.limelight.pocket.streaming.HorizonStreamBenchmark;
 import com.limelight.R;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
@@ -55,6 +56,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     public void setForceTightThresholds(boolean v) { this.forceTightThresholds = v; }
     // Toggle at runtime if needed
     private final HorizonDecodeTimestamps decodeTimestamps = new HorizonDecodeTimestamps();
+    private volatile HorizonStreamBenchmark streamBenchmark;
 
     // When preferLowerDelays=true we use this configurable timeout (µs) for output dequeue.
 // When preferLowerDelays=false we force 0µs (non-blocking, latest-frame rendering).
@@ -85,14 +87,27 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private void updateDecodeLatencyStats(long presentationTimeUs) {
         long enqNs = decodeTimestamps.take(presentationTimeUs);
         if (enqNs != HorizonDecodeTimestamps.MISSING) {
-            long decMs = (System.nanoTime() - enqNs) / 1_000_000L;
-            if (decMs >= 0 && decMs < 1000) {
+            long elapsedNs = System.nanoTime() - enqNs;
+            long decMs = elapsedNs / 1_000_000L;
+            if (elapsedNs >= 0 && decMs < 1000) {
+                HorizonStreamBenchmark benchmark = streamBenchmark;
+                if (benchmark != null) benchmark.recordDecode(elapsedNs);
                 activeWindowVideoStats.decoderTimeMs += decMs;
                 if (!USE_FRAME_RENDER_TIME) {
                     activeWindowVideoStats.totalTimeMs += decMs;
                 }
             }
         }
+    }
+
+    public void captureBenchmark(HorizonStreamBenchmark capture) {
+        streamBenchmark = capture;
+    }
+
+    private void recordFrameOutput() {
+        activeWindowVideoStats.totalFramesRendered++;
+        HorizonStreamBenchmark benchmark = streamBenchmark;
+        if (benchmark != null) benchmark.recordOutput(System.nanoTime());
     }
 
     public void setPreferLowerDelays(boolean v) { this.preferLowerDelays = v; }
@@ -1109,7 +1124,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     }
 
                     lastRenderedFrameTimeNanos = frameTimeNanos;
-                    activeWindowVideoStats.totalFramesRendered++;
+                    recordFrameOutput();
                 } catch (IllegalStateException ignored) {
                     try {
                         // Try to avoid leaking the output buffer by releasing it without rendering
@@ -1423,7 +1438,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     }
                                 }
 
-                                activeWindowVideoStats.totalFramesRendered++;
+                                recordFrameOutput();
                             }
                             else {
                                 // For balanced frame pacing case, the Choreographer callback will handle rendering.

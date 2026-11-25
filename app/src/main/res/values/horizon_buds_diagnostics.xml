@@ -18,6 +18,11 @@
     <string name="horizon_route_power_saving">Power saving</string>
     <string name="horizon_route_standard">Standard</string>
     <string name="horizon_route_note">This PC stream snapshot reports Android playback readings. End-to-end audio delay and the Bluetooth codec require separate measurements.</string>
+    <string name="horizon_route_default">Use system default</string>
+    <string name="horizon_route_preferred">Requested stream output</string>
+    <string name="horizon_route_preferred_note">Choose an output for this stream. Reopen this panel to check where Android is playing the audio.</string>
+    <string name="horizon_route_preferred_accepted">Audio preference requested. Reopen the panel to check the active route.</string>
+    <string name="horizon_route_preferred_failed">Could not change this stream’s audio output. The current output or stream may have changed.</string>
     <string name="horizon_buds_title">Bluetooth audio details</string>
     <string name="horizon_buds_note">Android-visible outputs, not necessarily active routes. Rates and channels are reported capabilities, not negotiated values. No ANC, battery or vendor commands.</string>
     <string name="horizon_buds_transport">Reported transport</string>

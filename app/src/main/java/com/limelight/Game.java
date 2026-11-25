@@ -22,6 +22,7 @@ import com.limelight.pocket.ui.RadialMenuView;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
+import com.limelight.pocket.ui.MenuKeyOwnership;
 import com.limelight.pocket.HorizonStartupRecovery;
 import com.limelight.pocket.HorizonSecureStatus;
 import com.limelight.pocket.ResumeTicket;
@@ -33,6 +34,7 @@ import com.limelight.pocket.device.HorizonDisplayScene;
 import com.limelight.pocket.PocketAdaptive;
 import com.limelight.pocket.streaming.HorizonStreamSafety;
 import com.limelight.pocket.streaming.HorizonStreamCompatibility;
+import com.limelight.pocket.streaming.HorizonStreamBenchmark;
 import com.limelight.pocket.PcCompanion;
 import com.limelight.pocket.PocketMic;
 import com.limelight.pocket.PcPower;
@@ -154,6 +156,7 @@ import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
@@ -389,7 +392,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private String pocketBackKey = PocketPrefs.KEY_AUTO;
     private String pocketHomeKey = PocketPrefs.KEY_AUTO;
     private StreamMenuView streamMenu;
-    private final java.util.HashSet<Integer> streamMenuConsumedKeys = new java.util.HashSet<>();
+    private HorizonStreamBenchmark runningBenchmark;
+    private long benchmarkStartMs;
+    private String benchmarkReport;
+    private final Runnable benchmarkTimeout = () -> finishBenchmark(true);
+    private final MenuKeyOwnership streamMenuKeys = new MenuKeyOwnership();
     private long pocketKeyMonitorUntil;
     private long pocketSessionStartMs;
     private int pocketLastBatteryAlert = 101;
@@ -1993,6 +2000,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onDestroy() {
         stopDisplayScene();
+        finishBenchmark(false);
         HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
         horizonInputVisible = false;
@@ -2054,6 +2062,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     protected void onPause() {
         sceneForeground = false;
         stopDisplayScene();
+        finishBenchmark(false);
         // The frame you leave on: the PC's card on Streaming shows it (where you left off)
         if (connected && streamContainer != null) {
             com.limelight.pocket.StreamScreenshot.captureSession(this, streamContainer.getSurfaceView(),
@@ -2799,10 +2808,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // Don't leave a stick or button held on the PC while the menu is open
             controllerHandler.releaseAllInputs();
         }
-        streamMenuConsumedKeys.clear();
-
-        String title = appName != null ? appName : getString(R.string.app_label);
-        StringBuilder sub = new StringBuilder();
+        String game = appName != null ? appName : getString(R.string.app_label);
+        StringBuilder sub = new StringBuilder(game).append("  \u00b7  ");
         if (pcName != null) {
             sub.append(pcName).append("  \u00b7  ");
         }
@@ -2828,8 +2835,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             }
         }
         if (prefConfig != null) {
-            stats.append(prefConfig.width).append("\u00d7").append(prefConfig.height)
-                    .append("  \u00b7  ").append(Math.round(prefConfig.fps)).append(" fps  \u00b7  ");
+            stats.append(getString(R.string.horizon_assist_requested, prefConfig.width,
+                    prefConfig.height, Math.round(prefConfig.fps))).append("  \u00b7  ");
         }
         stats.append(android.text.format.DateFormat.getTimeFormat(this).format(new Date()));
         String live = pocketLiveStats();
@@ -2838,14 +2845,152 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         }
 
         streamMenu.setHeaderExtra(pocketGraph != null && pocketGraph.hasData() ? pocketGraph : null);
-        streamMenu.show(title, sub.toString(), stats.toString(), buildStreamMenuItems(),
+        streamMenu.showGrid(getString(R.string.horizon_game_assist), sub.toString(), stats.toString(), buildGameAssist(),
                 ConsoleActivity.hintA(this, R.string.pocket_hint_select),
-                ConsoleActivity.hintB(this, R.string.pocket_hint_back),
-                new ConsoleActivity.Hint("\u25c0\u25b6", 0xFFFFFFFF, getString(R.string.pocket_hint_change)));
-        // Frosted glass made from the game picture
-        // Live frosted glass: the game keeps moving behind the menu card
-        final android.view.SurfaceView frostSource = streamContainer != null ? streamContainer.getSurfaceView() : null;
-        pocketStartFrost(frostSource, streamMenu::isShowing, bitmap -> streamMenu.setBackdrop(bitmap, frostSource));
+                ConsoleActivity.hintB(this, R.string.pocket_hint_back));
+    }
+
+    private List<StreamMenuView.Item> buildGameAssist() {
+        boolean active = connected && ownsStreamCallback();
+        List<StreamMenuView.Item> tiles = new ArrayList<>();
+        tiles.add(assistPage(R.string.horizon_assist_performance, "STATS", () -> {
+            List<StreamMenuView.Item> rows = new ArrayList<>();
+            String live = pocketLiveStats();
+            rows.add(StreamMenuView.Item.note(live.isEmpty() ? getString(R.string.horizon_assist_no_stats) : live));
+            rows.add(StreamMenuView.Item.value(getString(R.string.pocket_sm_stats),
+                    onOff(prefConfig.enablePerfOverlay), direction -> {
+                        toggleHUD();
+                        return onOff(prefConfig.enablePerfOverlay);
+                    }).withIcon("STATS"));
+            if (active || benchmarkReport != null) {
+                rows.add(assistPage(R.string.horizon_stream_benchmark, "SPEED", this::benchmarkItems));
+            }
+            return rows;
+        }));
+        tiles.add(active && !horizonCompatibility && pocketAdaptiveScope != null
+                ? assistPage(R.string.horizon_assist_autotune, "SPEED", () -> Collections.singletonList(adaptiveBitrateItem()))
+                : assistUnavailable(R.string.horizon_assist_autotune, "SPEED", R.string.horizon_assist_autotune_unavailable));
+        tiles.add(assistUnavailable(R.string.horizon_assist_save, "CLIPBOARD", R.string.horizon_assist_save_pc));
+        tiles.add(active ? StreamMenuView.Item.action(getString(R.string.horizon_assist_capture), this::pocketHandheldScreenshot)
+                .withIcon("SCREENSHOT") : assistUnavailable(R.string.horizon_assist_capture, "SCREENSHOT", R.string.horizon_assist_connect_first));
+        tiles.add(active ? assistPage(R.string.horizon_assist_music, "MUSIC", this::streamMediaItems)
+                : assistUnavailable(R.string.horizon_assist_music, "MUSIC", R.string.horizon_assist_connect_first));
+        tiles.add(assistUnavailable(R.string.horizon_assist_messages, "BELL", R.string.horizon_assist_messages_pc));
+        tiles.add(active ? actionItem(PocketAction.GUIDE, false)
+                : assistUnavailable(R.string.pocket_short_guide, "GUIDE", R.string.horizon_assist_connect_first));
+        tiles.add(active ? assistPage(R.string.horizon_assist_keyboard, "KEYBOARD", () -> Arrays.asList(
+                actionItem(PocketAction.KEYBOARD, false), actionItem(PocketAction.TOUCH_KEYBOARD, false),
+                actionItem(PocketAction.MOUSE, false)))
+                : assistUnavailable(R.string.horizon_assist_keyboard, "KEYBOARD", R.string.horizon_assist_connect_first));
+        tiles.add(active ? assistPage(R.string.horizon_assist_pc_control, "DESKTOP", this::streamPowerItems)
+                : assistUnavailable(R.string.horizon_assist_pc_control, "DESKTOP", R.string.horizon_assist_connect_first));
+        tiles.add(assistPage(R.string.horizon_assist_settings, "LIST", this::buildStreamMenuItems));
+        tiles.add(assistPage(R.string.horizon_assist_switch, "SWAP", () -> {
+            List<StreamMenuView.Item> rows = new ArrayList<>();
+            rows.add(actionItem(PocketAction.ANDROID_HOME, false));
+            if (active) rows.add(actionItem(PocketAction.ALT_TAB, false));
+            if (pocketSignInMode && !pocketSwitching) rows.add(StreamMenuView.Item.action(
+                    getString(R.string.pocket_sm_switch_vdisplay), this::pocketSwitchToVirtualDisplay));
+            return rows;
+        }));
+        tiles.add(assistPage(R.string.horizon_assist_exit, "DISCONNECT", () -> {
+            List<StreamMenuView.Item> rows = new ArrayList<>();
+            rows.add(StreamMenuView.Item.action(getString(R.string.pocket_sm_resume), () -> { }).withIcon("PLAY"));
+            rows.add(StreamMenuView.Item.action(getString(R.string.pocket_sm_disconnect), this::disconnect)
+                    .withValue(getString(R.string.pocket_sm_disconnect_value)).withIcon("DISCONNECT"));
+            if (active) rows.add(StreamMenuView.Item.confirm(getString(R.string.pocket_sm_quit), this::quitNow).withIcon("ALT_F4"));
+            return rows;
+        }));
+        return tiles;
+    }
+
+    private interface AssistRows {
+        List<StreamMenuView.Item> items();
+    }
+
+    private StreamMenuView.Item assistPage(int label, String icon, AssistRows rows) {
+        String title = getString(label);
+        return StreamMenuView.Item.submenu(title, () -> streamMenu.push(title, rows.items())).withIcon(icon);
+    }
+
+    private StreamMenuView.Item assistUnavailable(int label, String icon, int reason) {
+        return assistPage(label, icon, () -> Collections.singletonList(StreamMenuView.Item.note(getString(reason))))
+                .withValue(getString(R.string.horizon_assist_unavailable));
+    }
+
+    private List<StreamMenuView.Item> benchmarkItems() {
+        List<StreamMenuView.Item> rows = new ArrayList<>();
+        rows.add(StreamMenuView.Item.note(getString(R.string.horizon_benchmark_note)));
+        if (runningBenchmark != null) {
+            rows.add(StreamMenuView.Item.action(getString(R.string.horizon_benchmark_stop), () -> finishBenchmark(true)));
+        } else if (connected && ownsStreamCallback() && decoderRenderer != null) {
+            rows.add(StreamMenuView.Item.action(getString(R.string.horizon_benchmark_start), this::startBenchmark));
+        }
+        if (benchmarkReport != null) {
+            for (String line : benchmarkReport.split("\n")) rows.add(StreamMenuView.Item.note(line));
+            rows.add(StreamMenuView.Item.action(getString(R.string.horizon_benchmark_share), () -> {
+                Intent report = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(Intent.EXTRA_TEXT, benchmarkReport);
+                try { startActivity(Intent.createChooser(report, getString(R.string.horizon_benchmark_share))); }
+                catch (android.content.ActivityNotFoundException ignored) { }
+            }));
+        }
+        return rows;
+    }
+
+    private void startBenchmark() {
+        if (!connected || !ownsStreamCallback() || decoderRenderer == null || runningBenchmark != null) return;
+        runningBenchmark = new HorizonStreamBenchmark();
+        benchmarkStartMs = android.os.SystemClock.elapsedRealtime();
+        decoderRenderer.captureBenchmark(runningBenchmark);
+        timerHandler.postDelayed(benchmarkTimeout, 60_000);
+        showPocketToast(getString(R.string.horizon_benchmark_running), true, 1600);
+    }
+
+    private void finishBenchmark(boolean notify) {
+        if (runningBenchmark == null) return;
+        timerHandler.removeCallbacks(benchmarkTimeout);
+        if (decoderRenderer != null) decoderRenderer.captureBenchmark(null);
+        HorizonStreamBenchmark.Result result = runningBenchmark.finish();
+        runningBenchmark = null;
+        int videoFormat = decoderRenderer == null ? 0 : decoderRenderer.getActiveVideoFormat();
+        String codec = getString(R.string.horizon_assist_unavailable);
+        if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_H264) != 0) codec = "H.264";
+        else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_H265) != 0) codec = "HEVC";
+        else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_AV1) != 0) codec = "AV1";
+        long seconds = (android.os.SystemClock.elapsedRealtime() - benchmarkStartMs) / 1000;
+        int negotiated = conn == null ? StreamConfiguration.STREAM_CFG_AUTO : conn.negotiatedStreamRoute();
+        int route = R.string.horizon_benchmark_network;
+        if (UsbLink.isUsbAddress(host)) route = R.string.pocket_link_usb;
+        else if (negotiated == StreamConfiguration.STREAM_CFG_LOCAL) route = R.string.horizon_benchmark_local;
+        else if (negotiated == StreamConfiguration.STREAM_CFG_REMOTE) route = R.string.horizon_benchmark_remote;
+        String loss = decoderRenderer != null && decoderRenderer.pocketStatsAt > 0
+                && android.os.SystemClock.uptimeMillis() - decoderRenderer.pocketStatsAt < 3000
+                ? String.format(Locale.ROOT, "%.2f%%", decoderRenderer.pocketLossPct)
+                : getString(R.string.horizon_assist_unavailable);
+        HorizonPower.Observations power = HorizonPower.observe(this);
+        benchmarkReport = getString(R.string.horizon_benchmark_header, codec, getString(route), seconds,
+                prefConfig.width, prefConfig.height, Math.round(prefConfig.fps)) + "\n"
+                + benchmarkPercentiles(R.string.horizon_benchmark_decode, result.decode) + "\n"
+                + benchmarkPercentiles(R.string.horizon_benchmark_intervals, result.output) + "\n"
+                + getString(R.string.horizon_benchmark_loss, loss) + "\n"
+                + getString(R.string.horizon_benchmark_power,
+                        power.thermal < 0 ? getString(R.string.horizon_assist_unavailable) : Integer.toString(power.thermal),
+                        power.batterySaver == null ? getString(R.string.horizon_assist_unavailable) : onOff(power.batterySaver))
+                + "\n" + getString(R.string.horizon_benchmark_battery, HorizonPower.batteryPower(this));
+        if (notify) showPocketToast(getString(R.string.horizon_benchmark_complete), true, 1800);
+    }
+
+    private String benchmarkPercentiles(int label, HorizonStreamBenchmark.Percentiles values) {
+        if (values.samples == 0) {
+            return getString(label) + " · " + getString(R.string.horizon_assist_unavailable);
+        }
+        return getString(R.string.horizon_benchmark_percentiles, getString(label), values.samples,
+                benchmarkMillis(values.p50Micros), benchmarkMillis(values.p95Micros), benchmarkMillis(values.p99Micros));
+    }
+
+    private static String benchmarkMillis(int micros) {
+        return micros >= 2_000_000 ? "≥2000" : String.format(Locale.ROOT, "%.2f", micros / 1000d);
     }
 
     /** Frame generation mode for this game: the game's own setting if it has one, else the global one. */
@@ -2916,6 +3061,38 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         return com.limelight.pocket.ui.PocketIcons.has(action.name()) ? item.withIcon(action.name()) : item;
     }
 
+    private StreamMenuView.Item adaptiveBitrateItem() {
+        return StreamMenuView.Item.value(getString(R.string.pocket_sm_adaptive),
+                onOff(PocketPrefs.adaptiveStream(this)), direction -> {
+                    boolean on = !PocketPrefs.adaptiveStream(this);
+                    PocketPrefs.prefs(this).edit().putBoolean(PocketPrefs.KEY_ADAPTIVE, on).apply();
+                    return onOff(on);
+                }).withIcon("WIFI");
+    }
+
+    private List<StreamMenuView.Item> streamPowerItems() {
+        List<StreamMenuView.Item> page = new ArrayList<>();
+        for (final PcPower power : PcPower.values()) {
+            boolean secure = HorizonSecureStatus.hasScreenAccess(this, host, pocketPcUuid(), power);
+            Runnable run = () -> pocketPower(power, secure);
+            StreamMenuView.Item item = power.endsStream || secure ? StreamMenuView.Item.confirm(power.label(this), run)
+                    : StreamMenuView.Item.action(power.label(this), run);
+            if (secure) item.withValue(getString(R.string.horizon_secure_screen_route));
+            page.add(item.withIcon(power.icon));
+        }
+        return page;
+    }
+
+    private List<StreamMenuView.Item> streamMediaItems() {
+        List<StreamMenuView.Item> page = new ArrayList<>();
+        for (PocketAction action : new PocketAction[]{PocketAction.VOLUME_UP, PocketAction.VOLUME_DOWN, PocketAction.MUTE}) {
+            page.add(StreamMenuView.Item.repeatable(action.shortLabel(this), () -> performPocketAction(action, -1, false))
+                    .withIcon(action.name()));
+        }
+        page.add(actionItem(PocketAction.PLAY_PAUSE, false));
+        return page;
+    }
+
     private List<StreamMenuView.Item> buildStreamMenuItems() {
         List<StreamMenuView.Item> items = new ArrayList<>();
 
@@ -2980,28 +3157,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (horizonCompatibility) {
             items.add(StreamMenuView.Item.info(getString(R.string.pocket_sm_adaptive), getString(R.string.pocket_off)));
         } else {
-            items.add(StreamMenuView.Item.value(getString(R.string.pocket_sm_adaptive),
-                    onOff(PocketPrefs.adaptiveStream(this)), direction -> {
-                        boolean on = !PocketPrefs.adaptiveStream(this);
-                        PocketPrefs.prefs(this).edit().putBoolean(PocketPrefs.KEY_ADAPTIVE, on).apply();
-                        return onOff(on);
-                    }).withIcon("WIFI"));
+            items.add(adaptiveBitrateItem());
         }
 
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_sm_header_pc)));
         final String powerTitle = getString(R.string.pocket_sm_power);
-        items.add(StreamMenuView.Item.submenu(powerTitle, () -> {
-            List<StreamMenuView.Item> page = new ArrayList<>();
-            for (final PcPower p : PcPower.values()) {
-                boolean secure = HorizonSecureStatus.hasScreenAccess(this, host, pocketPcUuid(), p);
-                Runnable run = () -> pocketPower(p, secure);
-                StreamMenuView.Item item = p.endsStream || secure ? StreamMenuView.Item.confirm(p.label(this), run)
-                        : StreamMenuView.Item.action(p.label(this), run);
-                if (secure) item.withValue(getString(R.string.horizon_secure_screen_route));
-                page.add(item.withIcon(p.icon));
-            }
-            streamMenu.push(powerTitle, page);
-        }).withIcon("QUIT"));
+        items.add(StreamMenuView.Item.submenu(powerTitle, () -> streamMenu.push(powerTitle, streamPowerItems())).withIcon("QUIT"));
         final String shortcutsTitle = getString(R.string.pocket_sm_shortcuts);
         items.add(StreamMenuView.Item.submenu(shortcutsTitle, () -> {
             List<StreamMenuView.Item> page = new ArrayList<>();
@@ -3015,16 +3176,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             streamMenu.push(shortcutsTitle, page);
         }).withIcon("WIN"));
         final String mediaTitle = getString(R.string.pocket_sm_media);
-        items.add(StreamMenuView.Item.submenu(mediaTitle, () -> {
-            List<StreamMenuView.Item> page = new ArrayList<>();
-            PocketAction[] repeat = {PocketAction.VOLUME_UP, PocketAction.VOLUME_DOWN, PocketAction.MUTE};
-            for (final PocketAction a : repeat) {
-                page.add(StreamMenuView.Item.repeatable(a.shortLabel(this), () -> performPocketAction(a, -1, false))
-                        .withIcon(a.name()));
-            }
-            page.add(actionItem(PocketAction.PLAY_PAUSE, false));
-            streamMenu.push(mediaTitle, page);
-        }).withIcon("PLAY_PAUSE"));
+        items.add(StreamMenuView.Item.submenu(mediaTitle, () -> streamMenu.push(mediaTitle, streamMediaItems())).withIcon("PLAY_PAUSE"));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_sm_clip_send), () -> sendClipboard(true))
                 .withIcon("CLIPBOARD"));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_sm_clip_get), () -> getClipboard(0))
@@ -3763,19 +3915,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
      * including their release after the menu closes.
      */
     private boolean handleStreamMenuKey(KeyEvent event, boolean down, int button) {
-        int keyCode = event.getKeyCode();
-        if (streamMenu == null || !streamMenu.isShowing()) {
-            return !down && streamMenuConsumedKeys.remove(keyCode);
-        }
+        boolean showing = streamMenu != null && streamMenu.isShowing();
+        if (!streamMenuKeys.consume(event, showing)) return false;
+        if (!showing) return true;
         if (!down) {
-            streamMenuConsumedKeys.remove(keyCode);
             if (button >= 0 && pocketGestures[button].isDown()) {
                 // The release of the press that opened the menu
                 pocketGestures[button].onUp();
             }
             return true;
         }
-        streamMenuConsumedKeys.add(keyCode);
         if (button == ButtonActions.BUTTON_MENU || button == ButtonActions.BUTTON_HOME) {
             if (event.getRepeatCount() == 0) {
                 PocketSounds.play(this, PocketSounds.BACK);
@@ -5621,6 +5770,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private void stopConnection() {
         if (connecting || connected) {
             stopDisplayScene();
+            finishBenchmark(false);
             final boolean wasConnected = connected;
             final boolean shouldQuitRemote = wasConnected && quitOnStop && httpConn != null;
             final long stoppingTicket = horizonStreamTicket;

@@ -128,11 +128,17 @@ public class StreamMenuView extends FrameLayout {
     private static final class Page {
         final String title;
         final List<Item> items;
+        final int columns;
         int selected;
 
         Page(String title, List<Item> items) {
+            this(title, items, 1);
+        }
+
+        Page(String title, List<Item> items, int columns) {
             this.title = title;
             this.items = items;
+            this.columns = columns;
         }
     }
 
@@ -538,6 +544,21 @@ public class StreamMenuView extends FrameLayout {
 
     public void show(String title, String subtitle, String stats, List<Item> root,
                      ConsoleActivity.Hint... hintItems) {
+        showPage(title, subtitle, stats, new Page(null, root), hintItems);
+    }
+
+    /** The in-game action grid shares the menu's input handling and page stack. */
+    public void showGrid(String title, String subtitle, String stats, List<Item> actions,
+                         ConsoleActivity.Hint... hintItems) {
+        int window = getResources().getConfiguration().screenWidthDp;
+        int width = Math.min(540, Math.max(1, window - 24));
+        int columns = width >= 440 && getResources().getConfiguration().fontScale < 1.4f ? 4 : 2;
+        setPlacement(endSide, width);
+        showPage(title, subtitle, stats, new Page(null, actions, columns), hintItems);
+    }
+
+    private void showPage(String title, String subtitle, String stats, Page root,
+                          ConsoleActivity.Hint... hintItems) {
         titleView.setText(title);
         subtitleView.setText(subtitle);
         subtitleView.setVisibility(subtitle == null || subtitle.isEmpty() ? GONE : VISIBLE);
@@ -545,7 +566,7 @@ public class StreamMenuView extends FrameLayout {
         statsView.setVisibility(stats == null || stats.isEmpty() ? GONE : VISIBLE);
         ConsoleActivity.fillHintBar(getContext(), hints, hintItems);
         stack.clear();
-        stack.add(new Page(null, root));
+        stack.add(root);
         boolean wasShowing = showing;
         showing = true;
         if (!wasShowing) {
@@ -620,7 +641,7 @@ public class StreamMenuView extends FrameLayout {
     public void replaceCurrentPage(List<Item> original, List<Item> items) {
         if (!showing || page().items != original) return;
         int index = stack.size() - 1;
-        stack.set(index, new Page(page().title, items));
+        stack.set(index, new Page(page().title, items, page().columns));
         render(0);
     }
 
@@ -655,10 +676,24 @@ public class StreamMenuView extends FrameLayout {
 
         list.removeAllViews();
         rowViews.clear();
+        LinearLayout tiles = null;
         for (int i = 0; i < page.items.size(); i++) {
             Item item = page.items.get(i);
-            View row = item.header ? buildHeader(item) : buildRow(item, i);
-            list.addView(row);
+            View row;
+            if (page.columns > 1) {
+                if (i % page.columns == 0) {
+                    tiles = new LinearLayout(getContext());
+                    tiles.setWeightSum(page.columns);
+                    list.addView(tiles, new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+                }
+                row = buildTile(item, i);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+                lp.setMargins(dp(3), dp(3), dp(3), dp(3));
+                tiles.addView(row, lp);
+            } else {
+                row = item.header ? buildHeader(item) : buildRow(item, i);
+                list.addView(row);
+            }
             rowViews.add(row);
         }
         scroll.scrollTo(0, 0);
@@ -742,6 +777,43 @@ public class StreamMenuView extends FrameLayout {
         return row;
     }
 
+    private View buildTile(Item item, int index) {
+        LinearLayout tile = new LinearLayout(getContext());
+        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(Gravity.CENTER);
+        tile.setPadding(dp(6), dp(6), dp(6), dp(6));
+        tile.setMinimumHeight(dp(66));
+        tile.setFocusable(false);
+        tile.setContentDescription(item.value == null ? item.title : item.title + ", " + item.value);
+        tile.setOnClickListener(v -> {
+            page().selected = index;
+            updateSelection(false, false);
+            activate();
+        });
+        GradientDrawable surface = new GradientDrawable();
+        surface.setCornerRadius(dp(10));
+        tile.setBackground(surface);
+        RowViews views = new RowViews();
+        if (item.icon != null) {
+            views.icon = new ImageView(getContext());
+            views.icon.setImageDrawable(PocketIcons.drawable(item.icon, dp(22), 0xFFFFFFFF));
+            tile.addView(views.icon, new LinearLayout.LayoutParams(dp(22), dp(22)));
+        }
+        views.title = text(13f, TEXT, true);
+        views.title.setText(item.title);
+        views.title.setGravity(Gravity.CENTER);
+        views.title.setMaxLines(2);
+        views.title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        tile.addView(views.title);
+        views.value = text(10f, TEXT_SOFT, false);
+        views.value.setText(item.value);
+        views.value.setVisibility(item.value == null ? GONE : VISIBLE);
+        views.value.setGravity(Gravity.CENTER);
+        tile.addView(views.value);
+        tile.setTag(views);
+        return tile;
+    }
+
     private void refreshRowValue(Item item, View row, boolean animate) {
         TextView value = ((RowViews) row.getTag()).value;
         String text;
@@ -778,7 +850,11 @@ public class StreamMenuView extends FrameLayout {
             View row = rowViews.get(i);
             boolean selected = i == page.selected;
             RowViews views = (RowViews) row.getTag();
-            tint(views, selected, item.armed, slide);
+            if (page.columns > 1) {
+                ((GradientDrawable) row.getBackground()).setColor(selected ? 0xFFF5F6F8 : 0x24FFFFFF);
+                row.setSelected(selected);
+            }
+            tint(views, selected, item.armed, page.columns == 1 && slide);
             if (!selected && item.armed) {
                 item.armed = false;
                 refreshRowValue(item, row, false);
@@ -786,6 +862,14 @@ public class StreamMenuView extends FrameLayout {
             if (selected) {
                 target = row;
             }
+        }
+        if (page.columns > 1) {
+            pill.setVisibility(INVISIBLE);
+            if (target != null && scrollIntoView) {
+                View group = (View) target.getParent();
+                group.requestRectangleOnScreen(new android.graphics.Rect(0, 0, group.getWidth(), group.getHeight()));
+            }
+            return;
         }
         if (target == null || target.getHeight() == 0) {
             pill.setVisibility(INVISIBLE);
@@ -887,6 +971,10 @@ public class StreamMenuView extends FrameLayout {
 
     private void move(int direction) {
         Page page = page();
+        if (page.columns > 1) {
+            moveTile(0, direction);
+            return;
+        }
         int n = page.items.size();
         if (n == 0) {
             return;
@@ -903,6 +991,24 @@ public class StreamMenuView extends FrameLayout {
             PocketUi.tick(getContext());
             updateSelection(true, true);
         }
+    }
+
+    private void moveTile(int horizontal, int vertical) {
+        Page page = page();
+        int index = page.selected;
+        if (index < 0) return;
+        int column = index % page.columns + horizontal;
+        int row = index / page.columns + vertical;
+        int target = row * page.columns + column;
+        if (column < 0 || column >= page.columns || row < 0 || target >= page.items.size()) return;
+        page.selected = target;
+        PocketUi.tick(getContext());
+        updateSelection(false, true);
+    }
+
+    private void horizontal(int direction) {
+        if (page().columns > 1) moveTile(direction, 0);
+        else stepValue(direction);
     }
 
     private void jumpSection(int direction) {
@@ -1023,10 +1129,10 @@ public class StreamMenuView extends FrameLayout {
                 move(1);
                 break;
             case KeyEvent.KEYCODE_DPAD_LEFT:
-                stepValue(rtl ? 1 : -1);
+                horizontal(rtl ? 1 : -1);
                 break;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
-                stepValue(rtl ? -1 : 1);
+                horizontal(rtl ? -1 : 1);
                 break;
             case KeyEvent.KEYCODE_BUTTON_L1:
                 jumpSection(-1);
@@ -1072,7 +1178,7 @@ public class StreamMenuView extends FrameLayout {
             stickXDir = xDir;
             if (xDir != 0 && Math.abs(x) > Math.abs(y)) {
                 boolean rtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
-                stepValue(rtl ? -xDir : xDir);
+                horizontal(rtl ? -xDir : xDir);
             }
         }
         if (Math.abs(x) > Math.abs(y) && Math.abs(x) > 0.6f) {
