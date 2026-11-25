@@ -212,20 +212,18 @@ def check_home_controller(prefix, stacked):
 def check_network_touch(prefix):
     home = wait_for(prefix + " Home before the network tap", horizon_home)
     tap(resource(home, "horizon_deck_network"))
-    deadline = time.monotonic() + 15
-    opened = False
-    seen = ""
-    while time.monotonic() < deadline:
-        focus = adb("shell", "dumpsys", "window", "windows").decode("utf-8", "replace")
-        current = [line.strip() for line in focus.splitlines() if "mCurrentFocus" in line]
-        seen = current[-1] if current else "no focus line"
-        if any(PKG not in line and "settings" in line.casefold() for line in current):
-            opened = True
-            break
-        time.sleep(0.5)
-    if not opened:
-        print("Window focus after the tap: " + seen, flush=True)
-        print("Screen: " + describe(snap()), flush=True)
+
+    def outside_app(tree):
+        # Android's panel (Settings, or System UI's internet dialog on Android 12+) is on top
+        packages = {n.get("package") for n in tree.iter("node") if n.get("package")}
+        return bool(packages) and PKG not in packages
+    try:
+        panel = wait_for(prefix + " Android's network panel", outside_app, timeout=15)
+        opened = True
+        print("Network panel: " + ", ".join(sorted({n.get("package") for n in panel.iter("node")
+                                                    if n.get("package")})), flush=True)
+    except AssertionError:
+        opened = False
     assert opened, "a tap on the Network card must open Android's network panel"
     capture(prefix + "-network-panel")
     key("BACK")
