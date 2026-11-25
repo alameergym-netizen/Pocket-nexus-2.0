@@ -26,4 +26,5 @@
     <string name="horizon_obtainium_checking_release">Checking GitHub…</string>
     <string name="horizon_obtainium_release_missing">No public stable release found</string>
     <string name="horizon_obtainium_release_failed">Could not check GitHub</string>
+    <string name="horizon_obtainium_github_reimport">Re-import older catalog exports to enable release checks for supported GitHub repository sources.</string>
 </resources>

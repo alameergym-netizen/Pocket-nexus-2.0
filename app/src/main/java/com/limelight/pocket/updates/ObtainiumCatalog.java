@@ -60,9 +60,12 @@ public final class ObtainiumCatalog {
             JSONObject row = new JSONObject();
             row.put("id", id);
             row.put("name", limit(app.optString("name", id), 256));
-            row.put("host", host(url));
-            String repository = ObtainiumGithubRelease.repositoryFrom(url);
-            if (repository != null) row.put("githubRepository", repository);
+            String sourceHost = host(url);
+            row.put("host", sourceHost);
+            if ("github.com".equalsIgnoreCase(sourceHost)) {
+                String repository = ObtainiumGithubRelease.repositoryFrom(url);
+                row.put("githubRepository", repository == null ? "" : repository);
+            }
             row.put("installedVersion", version(app, "installedVersion"));
             row.put("latestVersion", version(app, "latestVersion"));
             row.put("disabled", app.optBoolean("disabled"));
@@ -126,14 +129,17 @@ public final class ObtainiumCatalog {
         if (data.length() == 0) {
             items.add(StreamMenuView.Item.note(a.getString(R.string.horizon_obtainium_empty)));
         }
+        boolean legacyGithub = false;
         for (int i = 0; i < data.length(); i++) {
             JSONObject row = data.optJSONObject(i);
             if (row == null) { continue; }
+            legacyGithub |= "github.com".equalsIgnoreCase(row.optString("host")) && !row.has("githubRepository");
             String installed = importedVersion(a, row, "installedVersion");
             String latest = importedVersion(a, row, "latestVersion");
             items.add(StreamMenuView.Item.submenu(row.optString("name"), () -> showSource(a, row))
                     .withValue(installed + " → " + latest));
         }
+        if (legacyGithub) items.add(StreamMenuView.Item.note(a.getString(R.string.horizon_obtainium_github_reimport)));
         a.showConsolePanel(a.getString(R.string.horizon_obtainium_catalog),
                 a.getString(R.string.horizon_obtainium_count, data.length()), null, items);
     }
