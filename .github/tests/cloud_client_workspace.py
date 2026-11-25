@@ -1,5 +1,6 @@
 """Exercise Nexus cloud client selection with no provider credentials."""
 from pathlib import Path
+import subprocess
 import sys
 
 import control_workspace as controls
@@ -15,8 +16,13 @@ def open_client_choices():
     controls.launch()
     home = controls.wait_for("Home with the Cloud tab", lambda tree: home_ready(tree) and controls.has(tree, "Cloud"))
     controls.tap_label(home, "Cloud")
-    controls.wait_for("Xbox Cloud Gaming service", lambda tree: controls.has(tree, "Xbox Cloud Gaming"))
-    controls.key("BUTTON_Y")
+    cloud = controls.wait_for("Xbox Cloud Gaming card in the Cloud workspace", lambda tree:
+                              resource(tree, "pocketAppCarousel") is not None
+                              and any(n.get("content-desc") == "Xbox Cloud Gaming" for n in tree.iter("node")))
+    card = next(n for n in cloud.iter("node") if n.get("content-desc") == "Xbox Cloud Gaming")
+    x1, y1, x2, y2 = bounds(card)
+    x, y = str((x1 + x2) // 2), str((y1 + y2) // 2)
+    controls.adb("shell", "input", "swipe", x, y, x, y, "850")
     options = controls.wait_for("Xbox Cloud Gaming options", lambda tree: controls.has(tree, "Play with"))
     controls.tap_label(options, "Play with")
 
@@ -54,3 +60,7 @@ if __name__ == "__main__":
         main(sys.argv[2] if sys.argv[1] == "installed" else None)
     finally:
         controls.capture("final")
+        try:
+            (controls.RESULTS / "crash.log").write_bytes(controls.adb("shell", "logcat", "-b", "crash", "-d"))
+        except subprocess.SubprocessError:
+            pass
