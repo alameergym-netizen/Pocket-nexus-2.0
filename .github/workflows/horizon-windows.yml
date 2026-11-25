@@ -40,6 +40,11 @@ jobs:
         run: |
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/Test-NexusUpgrade.ps1 -SelfTest
           exit $LASTEXITCODE
+      - name: Check the opt-in Windows save preview
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-SavePreview.ps1
+          exit $LASTEXITCODE
       - name: Package development Windows helper
         shell: pwsh
         run: python pc-setup/tests/package_host.py dist/NexusHost-dev.zip
