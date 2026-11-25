@@ -144,7 +144,15 @@ def main(apk):
     setup_device(320)
     key("BUTTON_START")
     quick_settings = wait_for("console settings", lambda t: has(t, "Settings") and has(t, "System"))
-    tap_label(quick_settings, "System")
+    tap_label(quick_settings, "Streaming")
+    cap = "Battery Saver brightness cap"
+    streaming = wait_for("stream brightness scene setting", lambda t: has(t, cap))
+    tap_label(streaming, cap)
+    streaming = wait_for("owner can set a scoped brightness limit", lambda t: has(t, cap) and has(t, "30%"))
+    prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8")
+    assert '<int name="horizon_scene_display_cap" value="30"' in prefs, "display scene choice was not saved"
+    capture("07-stream-display-scene")
+    tap_label(streaming, "System")
     recovery = wait_for("Android launcher recovery action", lambda t: has(t, "Recovery")
                         and has(t, "Open another Android launcher") and has(t, "Compatibility stream start"))
     tap_label(recovery, "Compatibility stream start")
