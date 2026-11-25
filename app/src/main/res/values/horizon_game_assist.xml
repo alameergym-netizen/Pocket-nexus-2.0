@@ -33,7 +33,8 @@
     <string name="horizon_benchmark_decode">Input to decoder output</string>
     <string name="horizon_benchmark_intervals">Client output intervals</string>
     <string name="horizon_benchmark_percentiles">%1$s · %2$d samples · p50 %3$s ms · p95 %4$s ms · p99 %5$s ms</string>
-    <string name="horizon_benchmark_loss">Latest stream frame-loss window · %1$s</string>
+    <string name="horizon_benchmark_output_rate">Client output rate %1$s fps · Gaps beyond two requested frame intervals %2$s</string>
+    <string name="horizon_benchmark_capture_loss">Received %2$d · Missing in the observed stream sequence %3$d (%1$s) · Sequence breaks %4$d</string>
     <string name="horizon_benchmark_power">End of run · Android thermal status %1$s · Battery Saver %2$s</string>
     <string name="horizon_benchmark_battery">End of run · Battery-side estimate %1$s</string>
 </resources>
