@@ -45,8 +45,13 @@ def main(wrapper_apk):
                                   controls.has(tree, WRAPPER) and controls.has(tree, "0.24.3"))
     controls.capture("02-cloud-wrapper-installed")
     controls.tap_label(available, WRAPPER)
-    cloud = controls.wait_for("client preference applied", lambda tree:
-                              controls.has(tree, WRAPPER) and resource(tree, "pocketHeroPlay") is not None)
+    def uses_wrapper(tree):
+        subtitle = resource(tree, "pocketHeroSubtitle")
+        return (subtitle is not None and WRAPPER in subtitle.get("text", "")
+                and resource(tree, "pocketAppCarousel") is not None
+                and resource(tree, "pocketHeroPlay") is not None)
+
+    cloud = controls.wait_for("client preference shown on the Cloud workspace", uses_wrapper)
     x1, y1, x2, y2 = bounds(resource(cloud, "pocketHeroPlay"))
     controls.adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
     controls.wait_for("Android opened the installed Better xCloud app", lambda tree:
