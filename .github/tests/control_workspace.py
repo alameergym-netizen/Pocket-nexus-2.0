@@ -201,6 +201,7 @@ def main(apk):
     key("BUTTON_B")
     time.sleep(1)
     wait_for("cancelled CPU preview keeps System visible", lambda t: has(t, "System")
+             and not has(t, "CPU profile preview") and not has(t, "Reading device performance…")
              and not any(n.get("text", "").startswith("Read-only calculation from current limits")
                          for n in t.iter("node")))
 
