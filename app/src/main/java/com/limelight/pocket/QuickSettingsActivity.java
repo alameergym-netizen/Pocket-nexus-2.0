@@ -419,6 +419,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addChoice(getString(R.string.horizon_scene_display_cap), getString(R.string.horizon_scene_display_cap_sub),
                 sceneSteps, () -> com.limelight.pocket.device.HorizonDisplayScene.limitIndex(PocketPrefs.streamBrightnessCap(this)),
                 index -> prefs().edit().putInt(PocketPrefs.KEY_SCENE_DISPLAY_CAP, sceneLimits[index]).apply(), null);
+        addAction(getString(R.string.horizon_eq_title), getString(R.string.horizon_eq_sub), null,
+                () -> com.limelight.pocket.device.HorizonStreamEqPanel.show(this));
 
         addHeader(R.string.pocket_header_quality);
 
@@ -1710,9 +1712,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> com.limelight.pocket.device.HorizonBridge.show(this));
         addAction(getString(R.string.horizon_audio_title), getString(R.string.horizon_audio_sub), null,
                 () -> com.limelight.pocket.device.HorizonAudio.show(this));
-        String[] dspKeys = {"off","bass_restraint","dialogue","soft_treble"};
+        String[] dspKeys = {"off", "bass_restraint", "dialogue", "soft_treble",
+                com.limelight.binding.audio.HorizonStreamEqSettings.CUSTOM};
         String[] dspLabels = {getString(R.string.pocket_off),getString(R.string.horizon_dsp_bass),
-                getString(R.string.horizon_dsp_dialogue),getString(R.string.horizon_dsp_treble)};
+                getString(R.string.horizon_dsp_dialogue), getString(R.string.horizon_dsp_treble), getString(R.string.horizon_eq_custom)};
         addChoice(getString(R.string.horizon_dsp_title),getString(R.string.horizon_dsp_sub),dspLabels,
                 () -> indexOf(dspKeys,prefs().getString(com.limelight.binding.audio.HorizonStreamDsp.KEY_PROFILE,"off")),
                 index -> prefs().edit().putString(com.limelight.binding.audio.HorizonStreamDsp.KEY_PROFILE,dspKeys[index]).apply(),

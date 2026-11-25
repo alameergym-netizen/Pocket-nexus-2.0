@@ -5,4 +5,23 @@
     <string name="horizon_dsp_bass">Bass restraint</string>
     <string name="horizon_dsp_dialogue">Dialogue clarity</string>
     <string name="horizon_dsp_treble">Soft treble</string>
+    <string name="horizon_eq_title">Custom stream equalizer</string>
+    <string name="horizon_eq_sub">Adjust four stereo bands, preamp and balance for your next PC stream.</string>
+    <string name="horizon_eq_description">Stereo PC streaming uses these cuts when Custom is selected. It reserves 2 dB of headroom. Android external effects take precedence. Edits apply on the next stream.</string>
+    <string name="horizon_eq_custom">Custom</string>
+    <string name="horizon_eq_bass">Bass · 120 Hz</string>
+    <string name="horizon_eq_low_mid">Low mid · 480 Hz</string>
+    <string name="horizon_eq_presence">Presence · 2.2 kHz</string>
+    <string name="horizon_eq_treble">Treble · 6.5 kHz</string>
+    <string name="horizon_eq_preamp">Preamp</string>
+    <string name="horizon_eq_balance">Balance</string>
+    <string name="horizon_eq_db">%1$d dB</string>
+    <string name="horizon_eq_center">Centered</string>
+    <string name="horizon_eq_left">Left · %1$d dB</string>
+    <string name="horizon_eq_right">Right · %1$d dB</string>
+    <string name="horizon_eq_enable">Use custom EQ on next stream</string>
+    <string name="horizon_eq_enabled">Custom EQ selected for the next stereo PC stream.</string>
+    <string name="horizon_eq_reset">Reset all custom values</string>
+    <string name="horizon_step_decrease">Decrease %1$s</string>
+    <string name="horizon_step_increase">Increase %1$s</string>
 </resources>
