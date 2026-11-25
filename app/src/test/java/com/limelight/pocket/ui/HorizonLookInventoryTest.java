@@ -69,16 +69,17 @@ public class HorizonLookInventoryTest {
     }
 
     @Test
-    public void onlyPureOledAndTitaniumBringTheirOwnLayouts() {
+    public void onlyPureOledTitaniumAndLegacyBringTheirOwnLayouts() {
         HorizonLook base = HorizonLook.defaults();
         int own = 0;
         for (int i = 0; i < PocketTheme.THEMES.length; i++) {
             if (HorizonThemeStudio.ownLayouts(HorizonThemeStudio.preset(base, i))) {
                 own++;
                 int name = PocketTheme.THEMES[i].name;
-                assertTrue(name == R.string.horizon_theme_pure || name == R.string.horizon_theme_titanium);
+                assertTrue(name == R.string.horizon_theme_pure || name == R.string.horizon_theme_titanium
+                        || name == R.string.horizon_theme_legacy);
             }
         }
-        assertEquals(2, own);
+        assertEquals(3, own);
     }
 }

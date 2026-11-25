@@ -15,6 +15,7 @@ import com.limelight.R;
 import com.limelight.pocket.ui.HorizonAppearance;
 import com.limelight.pocket.ui.HorizonLook;
 import com.limelight.pocket.ui.HorizonThemeStudio;
+import com.limelight.pocket.ui.LegacyStyle;
 import com.limelight.pocket.ui.PocketTheme;
 import com.limelight.pocket.ui.TitaniumStyle;
 
@@ -32,6 +33,7 @@ public final class ThemePreviewView extends View {
     private static final int STANDARD = 0;
     private static final int PURE = 1;
     private static final int TITANIUM = 2;
+    private static final int LEGACY = 3;
 
     /** Abstract art colours (original, muted). */
     private static final int[] ART = {0xFF3B4A6B, 0xFF6B3B4A, 0xFF3B6B5C, 0xFF6B5A3B, 0xFF4E3B6B,
@@ -136,7 +138,8 @@ public final class ThemePreviewView extends View {
             return STANDARD;
         }
         int name = PocketTheme.THEMES[i].name;
-        return name == R.string.horizon_theme_pure ? PURE : name == R.string.horizon_theme_titanium ? TITANIUM : STANDARD;
+        return name == R.string.horizon_theme_pure ? PURE : name == R.string.horizon_theme_titanium ? TITANIUM
+                : name == R.string.horizon_theme_legacy ? LEGACY : STANDARD;
     }
 
     @Override
@@ -194,6 +197,10 @@ public final class ThemePreviewView extends View {
         fh = frame.height();
         // One preview unit is one dp of a 640 x 360 dp console screen
         unit = fh / 360f;
+        if (v == LEGACY) {
+            legacyScene(c, l, s);
+            return;
+        }
         backdrop(c, l, v, s == HOME);
         status(c, l, v);
         if (s == LIBRARY) {
@@ -674,6 +681,186 @@ public final class ThemePreviewView extends View {
                         5 * unit, TitaniumStyle.TEXT);
             }
         }
+    }
+
+    // ---- Nexus Legacy: drawn with the real Legacy frames, pixel mark and scanlines ----------
+
+    private android.graphics.drawable.Drawable legacyDialog, legacyCard, legacyCardFocused, legacyScan;
+
+    private void legacyScene(Canvas c, HorizonLook l, int s) {
+        if (legacyDialog == null) {
+            legacyDialog = LegacyStyle.dialog(getContext());
+            legacyCard = LegacyStyle.card(getContext(), false);
+            legacyCardFocused = LegacyStyle.card(getContext(), true);
+            legacyScan = LegacyStyle.scanlines(getContext());
+        }
+        fill.setShader(null);
+        fill.setColor(LegacyStyle.BACKGROUND);
+        c.drawRect(frame, fill);
+        pixelMark(c, x(.035f), y(.04f), 18 * unit);
+        block(c, x(.965f) - 64 * unit, y(.04f) + 5 * unit, 30 * unit, 8 * unit, LegacyStyle.DIM);
+        block(c, x(.965f) - 26 * unit, y(.04f) + 4 * unit, 22 * unit, 10 * unit, LegacyStyle.DIM);
+        if (s == LIBRARY) {
+            legacyLibrary(c, l);
+        }
+        else if (s == CONTROL) {
+            legacyControl(c);
+        }
+        else {
+            legacyHome(c, l);
+        }
+        legacyScan.setBounds(Math.round(frame.left), Math.round(frame.top), Math.round(frame.right),
+                Math.round(frame.bottom));
+        legacyScan.draw(c);
+    }
+
+    private void legacyHome(Canvas c, HorizonLook l) {
+        float top = y(.16f), bottom = y(.80f), left = x(.035f), right = x(.56f), gap = 8 * unit;
+        int cols = 4;
+        float tw = (right - left - gap * (cols - 1)) / cols, th = tw * 1.5f;
+        for (int i = 0; i < cols * 2; i++) {
+            float x0 = left + (i % cols) * (tw + gap), t = top + (i / cols) * (th + gap);
+            if (t + th > bottom) {
+                break;
+            }
+            legacyCover(c, l, new RectF(x0, t, x0 + tw, t + th), i, i == 0);
+        }
+        RectF panel = new RectF(x(.59f), top, x(.965f), bottom);
+        legacyPanel(c, panel);
+        float px = panel.left + 16 * unit, pw = panel.width() - 32 * unit;
+        block(c, px, panel.top + 18 * unit, pw * .45f, 6 * unit, LegacyStyle.GOLD);
+        block(c, px, panel.top + 32 * unit, pw * .8f, 10 * unit, LegacyStyle.INK);
+        block(c, px, panel.top + 50 * unit, pw * .5f, 6 * unit, LegacyStyle.DIM);
+        block(c, px, panel.top + 62 * unit, pw * .35f, 6 * unit, LegacyStyle.DIM);
+        legacyButton(c, px, panel.bottom - 40 * unit, pw * .45f, 22 * unit);
+        float size = 26 * unit;
+        for (int i = 0; i < 6; i++) {
+            float x0 = x(.035f) + i * (size + 10 * unit);
+            RectF r0 = new RectF(x0, y(.84f), x0 + size, y(.84f) + size);
+            drawFrame(c, legacyCard, r0);
+            block(c, r0.centerX() - 3 * unit, r0.centerY() - 3 * unit, 6 * unit, 6 * unit, LegacyStyle.DIM);
+        }
+    }
+
+    private void legacyLibrary(Canvas c, HorizonLook l) {
+        block(c, x(.08f), y(.05f), fw * .22f, 9 * unit, LegacyStyle.GOLD);
+        float chipX = x(.035f), chipTop = y(.15f);
+        for (int i = 0; i < 4; i++) {
+            float w = (i == 0 ? 40 : 52) * unit, h = 16 * unit;
+            if (i == 0) {
+                block(c, chipX, chipTop, w, h, LegacyStyle.GOLD);
+            }
+            else {
+                drawFrame(c, legacyCard, new RectF(chipX, chipTop, chipX + w, chipTop + h));
+            }
+            chipX += w + 6 * unit;
+        }
+        float top = chipTop + 28 * unit;
+        RectF detail = new RectF(x(.035f), top, x(.33f), y(.95f));
+        legacyPanel(c, detail);
+        float px = detail.left + 14 * unit, pw = detail.width() - 28 * unit;
+        block(c, px, detail.top + 16 * unit, pw * .6f, 6 * unit, LegacyStyle.GOLD);
+        RectF cover = new RectF(px, detail.top + 28 * unit, px + pw, detail.top + 28 * unit + detail.height() * .3f);
+        art(c, l, cover, 0, 0);
+        block(c, px, cover.bottom + 10 * unit, pw * .8f, 9 * unit, LegacyStyle.INK);
+        block(c, px, cover.bottom + 26 * unit, pw * .5f, 6 * unit, LegacyStyle.DIM);
+        float left = x(.36f), right = x(.965f), gap = 8 * unit;
+        int cols = 5;
+        float tw = (right - left - gap * (cols - 1)) / cols, th = tw * 1.5f;
+        for (int i = 0; i < cols * 2; i++) {
+            float x0 = left + (i % cols) * (tw + gap), t = top + (i / cols) * (th + gap);
+            if (t + th > y(.97f)) {
+                break;
+            }
+            legacyCover(c, l, new RectF(x0, t, x0 + tw, t + th), i + 2, i == 0);
+        }
+    }
+
+    private void legacyControl(Canvas c) {
+        RectF panel = new RectF(x(.1f), y(.13f), x(.9f), y(.92f));
+        legacyPanel(c, panel);
+        float pad = 20 * unit;
+        block(c, panel.left + pad, panel.top + pad, panel.width() * .22f, 8 * unit, LegacyStyle.GOLD);
+        int cols = 4;
+        float gap = 8 * unit;
+        float tileW = (panel.width() - 2 * pad - gap * (cols - 1)) / cols;
+        float tileH = Math.min(tileW * .8f, 46 * unit);
+        float top = panel.top + pad + 22 * unit;
+        for (int i = 0; i < 8; i++) {
+            float x0 = panel.left + pad + (i % cols) * (tileW + gap), t = top + (i / cols) * (tileH + gap);
+            RectF tile = new RectF(x0, t, x0 + tileW, t + tileH);
+            if (i == 0) {
+                block(c, tile.left, tile.top, tile.width(), tile.height(), LegacyStyle.GOLD);
+            }
+            drawFrame(c, i == 0 ? legacyCardFocused : legacyCard, tile);
+            block(c, tile.centerX() - 4 * unit, tile.centerY() - 6 * unit, 8 * unit, 8 * unit,
+                    i == 0 ? LegacyStyle.BACKGROUND : LegacyStyle.DIM);
+        }
+        float sliderTop = top + 2 * (tileH + gap) + 8 * unit;
+        for (int i = 0; i < 2; i++) {
+            float t = sliderTop + i * 24 * unit;
+            if (t + 10 * unit > panel.bottom - pad) {
+                break;
+            }
+            float trackLeft = panel.left + pad + 18 * unit, trackRight = panel.right - pad;
+            block(c, panel.left + pad, t, 8 * unit, 8 * unit, LegacyStyle.DIM);
+            block(c, trackLeft, t + 2 * unit, trackRight - trackLeft, 4 * unit, 0x40F3E7C4);
+            block(c, trackLeft, t + 2 * unit, (trackRight - trackLeft) * (i == 0 ? .62f : .4f), 4 * unit,
+                    LegacyStyle.GOLD);
+        }
+    }
+
+    private void legacyCover(Canvas c, HorizonLook l, RectF box, int index, boolean focused) {
+        art(c, l, box, 0, index);
+        if (!focused) {
+            fill.setShader(null);
+            fill.setColor(0x40000000);
+            c.drawRect(box, fill);
+        }
+        drawFrame(c, focused ? legacyCardFocused : legacyCard, box);
+    }
+
+    private void legacyPanel(Canvas c, RectF r0) {
+        drawFrame(c, legacyDialog, r0);
+    }
+
+    private void legacyButton(Canvas c, float left, float top, float w, float h) {
+        block(c, left, top, w, h, LegacyStyle.GOLD);
+        path.reset();
+        float cx = left + h * .55f, cy = top + h / 2f, size = h * .3f;
+        path.moveTo(cx - size * .45f, cy - size * .6f);
+        path.lineTo(cx + size * .6f, cy);
+        path.lineTo(cx - size * .45f, cy + size * .6f);
+        path.close();
+        fill.setColor(LegacyStyle.BACKGROUND);
+        c.drawPath(path, fill);
+        block(c, left + h * 1.05f, cy - h * .1f, w - h * 1.5f, h * .2f, LegacyStyle.BACKGROUND);
+    }
+
+    /** The N mark's pixel variant: two pillars and a stepped diagonal on a 12 x 12 grid. */
+    private void pixelMark(Canvas c, float left, float top, float size) {
+        float cell = size / 12f;
+        block(c, left + cell, top + cell, 2 * cell, 10 * cell, LegacyStyle.GOLD);
+        block(c, left + 9 * cell, top + cell, 2 * cell, 10 * cell, LegacyStyle.GOLD);
+        int[][] diagonal = {{1, 3}, {2, 3}, {2, 4}, {3, 4}, {4, 4}, {4, 5}, {5, 5}, {6, 5}, {6, 6}, {7, 6},
+                {8, 6}, {8, 7}, {9, 7}, {9, 8}, {10, 8}};
+        for (int[] cellAt : diagonal) {
+            block(c, left + cellAt[1] * cell, top + cellAt[0] * cell, cell, cell, 0xB3E0C98A);
+        }
+    }
+
+    private void drawFrame(Canvas c, android.graphics.drawable.Drawable d, RectF r0) {
+        d.setBounds(Math.round(r0.left), Math.round(r0.top), Math.round(r0.right), Math.round(r0.bottom));
+        d.draw(c);
+    }
+
+    private void block(Canvas c, float left, float top, float w, float h, int color) {
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        fill.setShader(null);
+        fill.setColor(color);
+        c.drawRect(left, top, left + w, top + h, fill);
     }
 
     // ---- Pieces ---------------------------------------------------------------------------

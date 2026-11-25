@@ -179,6 +179,7 @@ public final class HorizonThemeStudio {
         int i = presetIndex(look);
         if (i < 0) { return false; }
         int name = PocketTheme.THEMES[i].name;
-        return name == com.limelight.R.string.horizon_theme_pure || name == com.limelight.R.string.horizon_theme_titanium;
+        return name == com.limelight.R.string.horizon_theme_pure || name == com.limelight.R.string.horizon_theme_titanium
+                || name == com.limelight.R.string.horizon_theme_legacy;
     }
 }
