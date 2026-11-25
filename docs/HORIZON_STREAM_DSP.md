@@ -7,3 +7,11 @@ PR #6 passed 109 tests on the earlier baseline. This candidate preserves the 120
 
 ## In-stream delivery diagnostics
 Open PC stream audio route from the stream-specific menu to see the current Android output, track buffer and underruns, highest decoder queue, skipped PCM blocks and partial or failed writes. Reopening takes a new per-stream snapshot. The PCM callback keeps the prior 40 ms queue cutoff, checks the queue once per block, and counts skips without writing a log entry for every one. The EQ resets after an interrupted write. These counters distinguish renderer delivery from the Android track underrun signal. Physical FreeBuds/USB output, CPU cost, and end-to-end latency remain in the device matrix.
+
+The playback backlog estimate compares complete frames accepted by `AudioTrack` with its playback timestamp. Partial writes contribute only accepted samples. The estimate uses timestamps up to one second old and rejects inconsistent readings above two seconds. It requires the active stream's track and uses no background polling. Use a separate measurement for acoustic Bluetooth or whole-stream latency. [Android AudioTrack timestamp](https://developer.android.com/reference/android/media/AudioTrack#getTimestamp(android.media.AudioTimestamp))
+
+## Accessory and external DSP research
+
+LibreBuds is GPL-3.0 and requires Android 13 or newer. Its supported-device list places the Huawei FreeBuds 7i in the expected basic battery and noise-control group. Verify the actual earbuds and firmware using the existing optional app handoff. [LibreBuds device table](https://github.com/librebuds/librebuds/blob/c7b0833e73e15c427719ed2b684060a98f67cb75/README.md#supported-models)
+
+RootlessJamesDSP is GPL-3.0. Its documentation describes internal playback capture, audible delay and coexistence limits with other audio effects. Keep the independent stream PCM equalizer and measure the existing Android effect-session handoff on RP6. [RootlessJamesDSP limitations](https://github.com/timschneeb/RootlessJamesDSP/blob/60d25ae8a53c6f4691c090673df290a73c6b6357/README.md#limitations)

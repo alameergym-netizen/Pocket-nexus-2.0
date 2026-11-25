@@ -1,6 +1,7 @@
 package com.limelight.binding.audio;
 
 import android.media.AudioDeviceInfo;
+import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.os.Build;
 import java.lang.ref.WeakReference;
@@ -37,11 +38,13 @@ public final class HorizonAudioRoute {
         public final int type, sampleRate, channels, bufferFrames, underruns, performanceMode;
         public final String name;
         public final HorizonAudioStats.Snapshot delivery;
+        public final double queuedAudioMs;
         Snapshot(int type,String name,int sampleRate,int channels,int bufferFrames,int underruns,int performanceMode,
-                 HorizonAudioStats.Snapshot delivery) {
+                 HorizonAudioStats.Snapshot delivery, double queuedAudioMs) {
             this.type=type;this.name=name;this.sampleRate=sampleRate;this.channels=channels;
             this.bufferFrames=bufferFrames;this.underruns=underruns;this.performanceMode=performanceMode;
             this.delivery = delivery;
+            this.queuedAudioMs = queuedAudioMs;
         }
     }
 
@@ -69,10 +72,25 @@ public final class HorizonAudioRoute {
                 else if(reported==AudioTrack.PERFORMANCE_MODE_POWER_SAVING) { mode=2; }
                 else if(reported==AudioTrack.PERFORMANCE_MODE_NONE) { mode=0; }
             }
-            Snapshot result=new Snapshot(type,name,t.getSampleRate(),t.getChannelCount(),frames,underruns,mode,
-                    session.delivery.snapshot());
+            int sampleRate = t.getSampleRate();
+            int channels = t.getChannelCount();
+            AudioTimestamp playback = playbackPosition(t);
+            long nowNs = System.nanoTime();
+            HorizonAudioStats.Snapshot delivery = session.delivery.snapshot();
+            double queuedAudioMs = playback == null ? -1 : delivery.queuedAudioMs(
+                    channels, sampleRate, playback.framePosition, playback.nanoTime, nowNs);
+            Snapshot result = new Snapshot(type, name, sampleRate, channels, frames, underruns, mode, delivery, queuedAudioMs);
             return current()==session && t.getPlayState()==AudioTrack.PLAYSTATE_PLAYING ? result : null;
         } catch(RuntimeException e) { return null; }
+    }
+
+    private static AudioTimestamp playbackPosition(AudioTrack track) {
+        try {
+            AudioTimestamp timestamp = new AudioTimestamp();
+            return track.getTimestamp(timestamp) ? timestamp : null;
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     /** Buffer capacity in milliseconds, not measured latency or fill level. */

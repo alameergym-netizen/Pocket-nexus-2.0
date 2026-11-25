@@ -18,12 +18,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
-/** Local, read-only catalog imported from Obtainium. Does not fetch, install, or execute URLs. */
+/** Local catalog imported from Obtainium, with explicit read-only public release checks. */
 public final class ObtainiumCatalog {
     private static final int MAX_BYTES = 2 * 1024 * 1024;
     private static final int MAX_APPS = 2000;
@@ -31,6 +33,7 @@ public final class ObtainiumCatalog {
     private static final String KEY = "sources";
     private static final Pattern PACKAGE_ID = Pattern.compile(
             "[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+");
+    private static final AtomicBoolean CHECK_RUNNING = new AtomicBoolean();
     private ObtainiumCatalog() {}
 
     static JSONArray parse(String input) throws JSONException {
@@ -57,7 +60,12 @@ public final class ObtainiumCatalog {
             JSONObject row = new JSONObject();
             row.put("id", id);
             row.put("name", limit(app.optString("name", id), 256));
-            row.put("host", host(url));
+            String sourceHost = host(url);
+            row.put("host", sourceHost);
+            if ("github.com".equalsIgnoreCase(sourceHost)) {
+                String repository = ObtainiumGithubRelease.repositoryFrom(url);
+                row.put("githubRepository", repository == null ? "" : repository);
+            }
             row.put("installedVersion", version(app, "installedVersion"));
             row.put("latestVersion", version(app, "latestVersion"));
             row.put("disabled", app.optBoolean("disabled"));
@@ -121,14 +129,17 @@ public final class ObtainiumCatalog {
         if (data.length() == 0) {
             items.add(StreamMenuView.Item.note(a.getString(R.string.horizon_obtainium_empty)));
         }
+        boolean legacyGithub = false;
         for (int i = 0; i < data.length(); i++) {
             JSONObject row = data.optJSONObject(i);
             if (row == null) { continue; }
+            legacyGithub |= "github.com".equalsIgnoreCase(row.optString("host")) && !row.has("githubRepository");
             String installed = importedVersion(a, row, "installedVersion");
             String latest = importedVersion(a, row, "latestVersion");
             items.add(StreamMenuView.Item.submenu(row.optString("name"), () -> showSource(a, row))
                     .withValue(installed + " → " + latest));
         }
+        if (legacyGithub) items.add(StreamMenuView.Item.note(a.getString(R.string.horizon_obtainium_github_reimport)));
         a.showConsolePanel(a.getString(R.string.horizon_obtainium_catalog),
                 a.getString(R.string.horizon_obtainium_count, data.length()), null, items);
     }
@@ -169,6 +180,11 @@ public final class ObtainiumCatalog {
         if (source.optBoolean("trackOnly")) info.add(StreamMenuView.Item.note(activity.getString(R.string.horizon_obtainium_track_only)));
         if (source.optBoolean("prereleases")) info.add(StreamMenuView.Item.note(activity.getString(R.string.horizon_obtainium_prerelease)));
         if (source.optBoolean("disabled")) info.add(StreamMenuView.Item.note(activity.getString(R.string.horizon_obtainium_disabled)));
+        String repository = source.optString("githubRepository");
+        if (!source.optBoolean("disabled") && ObtainiumGithubRelease.isRepository(repository)) {
+            info.add(StreamMenuView.Item.submenu(activity.getString(R.string.horizon_obtainium_check_release),
+                    () -> checkGithubRelease(activity, repository)));
+        }
         if (installed != null) {
             info.add(StreamMenuView.Item.action(activity.getString(R.string.horizon_obtainium_android_details), () -> {
                 try {
@@ -180,5 +196,33 @@ public final class ObtainiumCatalog {
             }));
         }
         activity.pushConsolePage(title, info);
+    }
+
+    private static void checkGithubRelease(ConsoleActivity activity, String repository) {
+        if (!CHECK_RUNNING.compareAndSet(false, true)) {
+            Toast.makeText(activity, R.string.horizon_obtainium_checking_release, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        List<StreamMenuView.Item> pending = Collections.singletonList(
+                StreamMenuView.Item.note(activity.getString(R.string.horizon_obtainium_checking_release)));
+        String page = activity.getString(R.string.horizon_obtainium_github_release);
+        activity.pushConsolePage(page, pending);
+        new Thread(() -> {
+            String tag = null;
+            boolean failed = false;
+            try {
+                tag = ObtainiumGithubRelease.latestTag(repository);
+            } catch (IOException | JSONException | RuntimeException ignored) {
+                failed = true;
+            } finally {
+                CHECK_RUNNING.set(false);
+            }
+            String value = failed ? activity.getString(R.string.horizon_obtainium_release_failed)
+                    : tag == null ? activity.getString(R.string.horizon_obtainium_release_missing) : tag;
+            activity.runOnUiThread(() -> {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+                activity.replaceConsolePage(pending, Collections.singletonList(StreamMenuView.Item.info(repository, value)));
+            });
+        }, "NexusCatalogRelease").start();
     }
 }

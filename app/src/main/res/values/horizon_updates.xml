@@ -21,4 +21,10 @@
     <string name="horizon_obtainium_prerelease">Pre-release channel</string>
     <string name="horizon_obtainium_disabled">Source disabled</string>
     <string name="horizon_obtainium_android_details">Open Android app details</string>
+    <string name="horizon_obtainium_check_release">Check public stable GitHub release</string>
+    <string name="horizon_obtainium_github_release">Public GitHub stable release</string>
+    <string name="horizon_obtainium_checking_release">Checking GitHub…</string>
+    <string name="horizon_obtainium_release_missing">No public stable release found</string>
+    <string name="horizon_obtainium_release_failed">Could not check GitHub</string>
+    <string name="horizon_obtainium_github_reimport">Re-import older catalog exports to enable release checks for supported GitHub repository sources.</string>
 </resources>
