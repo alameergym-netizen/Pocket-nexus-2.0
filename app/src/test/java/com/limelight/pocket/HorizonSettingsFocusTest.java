@@ -12,15 +12,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.LooperMode;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 
 import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class)
+@LooperMode(LooperMode.Mode.PAUSED)
 @Config(sdk = 33, application = Application.class, qualifiers = "w960dp-h540dp-land")
 public class HorizonSettingsFocusTest {
-    @Test public void rebuildingFocusedRowsKeepsTheExplicitTabSelected() {
+    @Test(timeout = 60000) public void rebuildingFocusedRowsKeepsTheExplicitTabSelected() {
+        PocketPrefs.prefs(RuntimeEnvironment.getApplication()).edit()
+                .putBoolean(PocketPrefs.KEY_ANIMATIONS, false)
+                .putBoolean(PocketPrefs.KEY_UI_SOUNDS, false)
+                .putBoolean(PocketPrefs.KEY_HAPTICS, false).commit();
         ActivityController<QuickSettingsActivity> controller = Robolectric.buildActivity(QuickSettingsActivity.class).setup().visible();
         try {
             QuickSettingsActivity activity = controller.get();

@@ -244,7 +244,8 @@ if __name__ == "__main__":
     finally:
         RESULTS.mkdir(exist_ok=True)
         for file, args in (("final.png", ("exec-out", "screencap", "-p")),
-                           ("crash.log", ("shell", "logcat", "-b", "crash", "-d"))):
+                           ("crash.log", ("shell", "logcat", "-b", "crash", "-d")),
+                           ("settings-focus.log", ("shell", "logcat", "-d", "-s", "NexusSettingsFocus:D", "*:S"))):
             try:
                 (RESULTS / file).write_bytes(adb(*args, timeout=8))
             except subprocess.SubprocessError:

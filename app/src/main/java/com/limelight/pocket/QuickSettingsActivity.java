@@ -133,6 +133,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
             tab.setFocusable(true);
             tab.setClickable(true);
             tab.setOnFocusChangeListener((v, hasFocus) -> {
+                if (BuildConfig.DEBUG && hasFocus) android.util.Log.d("NexusSettingsFocus",
+                        "focus=" + index + " current=" + currentTab + " moving=" + movingFocus + " touch=" + v.isInTouchMode());
                 if (hasFocus) {
                     PocketUi.tick(this);
                 }
@@ -141,8 +143,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 }
             });
             tab.setOnClickListener(v -> {
+                if (BuildConfig.DEBUG) android.util.Log.d("NexusSettingsFocus", "click=" + index);
                 selectTab(index, false);
                 focusFirstRow();
+                if (BuildConfig.DEBUG) android.util.Log.d("NexusSettingsFocus", "selected=" + currentTab);
             });
             tabBar.addView(tab);
             tabs.add(tab);
@@ -229,6 +233,16 @@ public class QuickSettingsActivity extends ConsoleActivity {
         if (currentTab == TAB_CONNECTION) {
             refreshRows();
         }
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+        if (BuildConfig.DEBUG && (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN
+                || event.getActionMasked() == android.view.MotionEvent.ACTION_UP)) {
+            android.util.Log.d("NexusSettingsFocus", "touch=" + event.getActionMasked()
+                    + " at=" + event.getX() + "," + event.getY() + " tab=" + currentTab);
+        }
+        return super.dispatchTouchEvent(event);
     }
 
     @Override
