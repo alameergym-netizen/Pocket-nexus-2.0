@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioManager;
 import android.net.wifi.WifiManager;
@@ -39,10 +40,12 @@ import com.limelight.R;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.PocketPrefs;
 import com.limelight.pocket.PocketSounds;
+import com.limelight.pocket.device.HorizonPower;
 import com.limelight.pocket.ui.PocketFonts;
 import com.limelight.pocket.ui.PocketIcons;
 import com.limelight.pocket.ui.PocketUi;
 import com.limelight.pocket.ui.Spring;
+import com.limelight.pocket.ui.TitaniumStyle;
 
 import java.util.Date;
 import java.util.List;
@@ -73,6 +76,7 @@ public class ControlCenterActivity extends Activity {
     private FrameLayout root;
     private LinearLayout panel;
     private boolean closing;
+    private boolean titanium;
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private TextView clock;
@@ -80,6 +84,7 @@ public class ControlCenterActivity extends Activity {
     private TextView batterySub;
     private TextView tempBig;
     private TextView hzBig;
+    private TextView thermalBig;
     private Tile wifi;
     private Tile bluetooth;
     private Tile quiet;
@@ -100,7 +105,8 @@ public class ControlCenterActivity extends Activity {
         super.onCreate(savedInstanceState);
         d = getResources().getDisplayMetrics().density;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        titanium = com.limelight.pocket.ui.PocketTheme.titanium(this);
+        if (!titanium && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
             WindowManager.LayoutParams lp = getWindow().getAttributes();
             lp.setBlurBehindRadius(Math.round(18 * d));
@@ -179,7 +185,7 @@ public class ControlCenterActivity extends Activity {
         if (pureOled) bg.setColor(0xFF000000);
         bg.setCornerRadius(dp(pureOled ? 4 : 18));
         bg.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
-        panel.setBackground(bg);
+        panel.setBackground(titanium ? TitaniumStyle.surface(this) : bg);
         panel.setElevation(dp(pureOled ? 0 : 20));
         FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(dp(spec.width), dp(spec.height),
                 Gravity.END | Gravity.CENTER_VERTICAL);
@@ -271,21 +277,32 @@ public class ControlCenterActivity extends Activity {
             }
             Tile t = tiles[order[i]];
             t.setId(View.generateViewId());
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(pureOled ? 74 : 86), 1f);
+            if (titanium) t.setMinimumHeight(dp(76));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                    titanium ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(pureOled ? 74 : 86), 1f);
             if (i % spec.columns != spec.columns - 1) lp.setMarginEnd(dp(8));
             tileRow.addView(t, lp);
         }
         first = tiles[order[0]];
 
-        device.addView(section(R.string.horizon_control_device), matchWrap());
+        if (!titanium) device.addView(section(R.string.horizon_control_device), matchWrap());
         LinearLayout stats = new LinearLayout(this);
         stats.setGravity(Gravity.CENTER_VERTICAL);
         stats.setPadding(0, dp(8), 0, dp(10));
         batteryBig = stat(stats, getString(R.string.pocket_nc_battery));
         batterySub = (TextView) ((ViewGroup) batteryBig.getParent()).getChildAt(1);
-        tempBig = stat(stats, getString(R.string.pocket_nc_temperature));
+        tempBig = stat(stats, getString(titanium ? R.string.horizon_titanium_battery_temp : R.string.pocket_nc_temperature));
         hzBig = stat(stats, getString(R.string.pocket_nc_display));
-        device.addView(stats, matchWrap());
+        if (titanium) {
+            stats.setId(R.id.horizon_titanium_telemetry);
+            stats.setBackground(TitaniumStyle.surface(this));
+            thermalBig = stat(stats, getString(R.string.horizon_titanium_thermal_label));
+            LinearLayout.LayoutParams telemetryLp = matchWrap();
+            telemetryLp.topMargin = dp(8);
+            panel.addView(stats, panel.indexOfChild(scroll), telemetryLp);
+        } else {
+            device.addView(stats, matchWrap());
+        }
 
         device.addView(section(R.string.horizon_control_adjust), matchWrap());
         brightness = bar("SUN", getString(R.string.pocket_nc_brightness));
@@ -401,9 +418,18 @@ public class ControlCenterActivity extends Activity {
         LinearLayout cell = new LinearLayout(this);
         cell.setOrientation(LinearLayout.VERTICAL);
         cell.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView big = text("—", 15f, 0xFFFFFFFF, PocketFonts.semibold());
+        TextView big = text(titanium ? getString(R.string.horizon_titanium_unavailable) : "—", 15f,
+                titanium ? TitaniumStyle.TEXT : 0xFFFFFFFF, titanium ? Typeface.MONOSPACE : PocketFonts.semibold());
+        if (titanium) {
+            big.setSingleLine(true);
+            big.setEllipsize(TextUtils.TruncateAt.END);
+        }
         cell.addView(big, wrap());
-        TextView small = text(label, 9f, 0x80FFFFFF, PocketFonts.medium());
+        TextView small = text(label, 9f, titanium ? TitaniumStyle.SECONDARY : 0x80FFFFFF, PocketFonts.medium());
+        if (titanium) {
+            small.setSingleLine(true);
+            small.setEllipsize(TextUtils.TruncateAt.END);
+        }
         small.setLetterSpacing(0.04f);
         cell.addView(small, wrap());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
@@ -571,7 +597,13 @@ public class ControlCenterActivity extends Activity {
             volume.setValue(am.getStreamVolume(AudioManager.STREAM_MUSIC) / (float) max);
         }
         float hz = getWindowManager().getDefaultDisplay().getRefreshRate();
-        hzBig.setText(Math.round(hz) + " Hz");
+        if (titanium) {
+            hzBig.setText(hz > 0 && !Float.isInfinite(hz) ? getString(R.string.horizon_titanium_hertz, Math.round(hz))
+                    : getString(R.string.horizon_titanium_unavailable));
+            thermalBig.setText(TitaniumStyle.thermal(this, HorizonPower.observe(this).thermal));
+        } else {
+            hzBig.setText(Math.round(hz) + " Hz");
+        }
     }
 
     private final BroadcastReceiver battery = new BroadcastReceiver() {
@@ -581,13 +613,18 @@ public class ControlCenterActivity extends Activity {
             int scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
             int status = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
             int temp = i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Integer.MIN_VALUE);
-            if (level >= 0 && scale > 0) {
-                batteryBig.setText(Math.round(level * 100f / scale) + "%");
+            if (level >= 0 && scale > 0 && (!titanium || level <= scale)) {
+                int percent = Math.round(level * 100f / scale);
+                batteryBig.setText(titanium ? getString(R.string.horizon_titanium_percent, percent) : percent + "%");
+            } else if (titanium) {
+                batteryBig.setText(R.string.horizon_titanium_unavailable);
             }
             boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
             batterySub.setText(getString(charging ? R.string.pocket_nc_charging : R.string.pocket_nc_battery));
             if (temp != Integer.MIN_VALUE) {
                 tempBig.setText(Math.round(temp / 10f) + "°C");
+            } else if (titanium) {
+                tempBig.setText(R.string.horizon_titanium_unavailable);
             }
         }
     };
@@ -715,7 +752,8 @@ public class ControlCenterActivity extends Activity {
     /** Apple TV's focus: the tile turns white (its icon and words dark) and lifts a little. */
     private static void focusLook(View v, GradientDrawable bg, boolean has, boolean on, float d) {
         paintSurface(v, bg, has, on, d);
-        if (com.limelight.pocket.ui.PocketTheme.pureOled(v.getContext())) return;
+        if (com.limelight.pocket.ui.PocketTheme.pureOled(v.getContext())
+                || com.limelight.pocket.ui.PocketTheme.titanium(v.getContext())) return;
         v.animate().cancel();
         boolean motion = PocketPrefs.animationsEnabled(v.getContext());
         v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).translationZ(has ? 8 * d : 0)
@@ -742,7 +780,8 @@ public class ControlCenterActivity extends Activity {
             boolean pureOled = com.limelight.pocket.ui.PocketTheme.pureOled(c);
             int p = Math.round((pureOled ? 6 : 11) * d);
             setPadding(Math.round(12 * d), p, p, p);
-            bg.setCornerRadius((pureOled ? 4 : 18) * d);
+            boolean titanium = com.limelight.pocket.ui.PocketTheme.titanium(c);
+            bg.setCornerRadius((titanium ? 5 : pureOled ? 4 : 18) * d);
             bg.setColor(0x1FFFFFFF);
             setBackground(bg);
             setFocusable(true);

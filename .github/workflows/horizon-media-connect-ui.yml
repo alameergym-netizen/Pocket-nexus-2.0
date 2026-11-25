@@ -1,6 +1,16 @@
 name: Horizon Media and Connect UI
 on:
   workflow_dispatch:
+    inputs:
+      cloud_client_runtime:
+        description: Verify the installed upstream Better xCloud Android handoff
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      cloud_client_runtime:
+        type: boolean
+        default: false
   pull_request:
     branches: [horizon-foundation]
     paths:
@@ -17,7 +27,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: horizon-media-connect-ui-${{ github.ref }}
+  group: horizon-media-connect-ui-${{ github.ref }}-${{ inputs.cloud_client_runtime || false }}
   cancel-in-progress: true
 jobs:
   media-connect:
@@ -40,6 +50,16 @@ jobs:
           bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameDebug
       - name: Enable emulator acceleration
         run: sudo chmod 666 /dev/kvm
+      - name: Obtain the pinned upstream Android client for the handoff test
+        if: ${{ inputs.cloud_client_runtime }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download a0.24.3 --repo redphx/better-xcloud-android \
+            --pattern com.redphx.betterxc_0.24.3-40.apk --output "$RUNNER_TEMP/nexus-upstream-cloud.apk"
+          echo "107e9b14b014ef8a0b9cbb79ac1aac24f6c610ef168b47d6447df93e85e14ec4  $RUNNER_TEMP/nexus-upstream-cloud.apk" | sha256sum --check
       - name: Verify Media, Connect, and Files on Android
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         timeout-minutes: 15
@@ -56,6 +76,7 @@ jobs:
           script: |
             python3 -u .github/tests/media_connect_workspace.py app/build/outputs/apk/nonRoot_game/debug/*.apk
             python3 -u .github/tests/files_save_copy.py
+            python3 -u .github/tests/cloud_client_workspace.py '${{ inputs.cloud_client_runtime && 'installed' || 'fallback' }}' "$RUNNER_TEMP/nexus-upstream-cloud.apk"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -63,5 +84,6 @@ jobs:
           path: |
             media-connect-ui-results/
             files-save-copy-results/
+            cloud-client-ui-results/
           if-no-files-found: warn
           retention-days: 7

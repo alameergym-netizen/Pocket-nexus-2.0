@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Outline;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -42,6 +43,7 @@ import com.limelight.pocket.ui.ConsoleScreen;
 import com.limelight.pocket.ui.FocusGlow;
 import com.limelight.pocket.ui.PocketFonts;
 import com.limelight.pocket.ui.PocketTheme;
+import com.limelight.pocket.ui.TitaniumStyle;
 import com.limelight.pocket.ui.PocketMotion;
 import com.limelight.pocket.ui.StreamMenuView;
 import com.limelight.pocket.ui.TextPrompt;
@@ -109,6 +111,8 @@ public class LibraryActivity extends ConsoleActivity {
 
     private ImageView heroArt;
     private boolean pureOled;
+    private boolean titanium;
+    private TextView launchSources;
     private TextView kicker;
     private TextView title;
     private TextView meta;
@@ -203,11 +207,13 @@ public class LibraryActivity extends ConsoleActivity {
     private View build() {
         FrameLayout root = new FrameLayout(this);
         pureOled = PocketTheme.pureOled(this);
+        titanium = PocketTheme.titanium(this);
         if (pureOled) root.setBackgroundColor(0xFF000000);
+        else if (titanium) root.setBackgroundColor(TitaniumStyle.BACKGROUND);
         else root.setBackground(ConsoleScreen.backdrop(this));
         int w = getResources().getDisplayMetrics().widthPixels;
         int h = getResources().getDisplayMetrics().heightPixels;
-        HorizonLibraryLayout spec = HorizonLibraryLayout.forWindow(w / d, h / d, pureOled);
+        HorizonLibraryLayout spec = HorizonLibraryLayout.forWindow(w / d, h / d, pureOled, titanium);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setClipChildren(false);
@@ -251,9 +257,10 @@ public class LibraryActivity extends ConsoleActivity {
         if (pureOled) detailBg.setColor(0xFF000000);
         detailBg.setCornerRadius(dp(pureOled ? 4 : 14));
         detailBg.setStroke(dp(1), 0x33FFFFFF);
-        detail.setBackground(detailBg);
+        detail.setBackground(titanium ? TitaniumStyle.surface(this) : detailBg);
         heroArt = new ImageView(this);
         heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        if (titanium) heroArt.setVisibility(View.GONE);
         if (spec.artHeight > 0) {
             detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(spec.artHeight)));
         }
@@ -271,6 +278,13 @@ public class LibraryActivity extends ConsoleActivity {
         LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(-1, -2);
         wl.topMargin = dp(4);
         detail.addView(ways, wl);
+        if (titanium) {
+            launchSources = text(11f, Typeface.MONOSPACE, TitaniumStyle.SECONDARY);
+            launchSources.setVisibility(View.GONE);
+            LinearLayout.LayoutParams sourceLp = new LinearLayout.LayoutParams(-1, -2);
+            sourceLp.topMargin = dp(6);
+            detail.addView(launchSources, sourceLp);
+        }
 
         detailActions = new LinearLayout(this);
         detailActions.setVisibility(View.GONE);
@@ -292,7 +306,8 @@ public class LibraryActivity extends ConsoleActivity {
         detail.addView(detailActions, actionLp);
         if (spec.split) {
             LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(spec.detailWidth), -1);
-            dl.setMarginEnd(dp(12));
+            if (titanium) dl.setMarginStart(dp(12));
+            else dl.setMarginEnd(dp(12));
             workspace.addView(detail, dl);
         } else {
             LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-1, -2);
@@ -303,7 +318,7 @@ public class LibraryActivity extends ConsoleActivity {
         FrameLayout body = new FrameLayout(this);
         body.setClipChildren(false);
         body.setClipToPadding(false);
-        workspace.addView(body, spec.split
+        workspace.addView(body, titanium && spec.split ? 0 : workspace.getChildCount(), spec.split
                 ? new LinearLayout.LayoutParams(0, -1, 1f)
                 : new LinearLayout.LayoutParams(-1, 0, 1f));
         grid = new RecyclerView(this);
@@ -470,7 +485,9 @@ public class LibraryActivity extends ConsoleActivity {
             title.setText(filterLabel(filter));
             meta.setText("");
             ways.setText("");
+            if (launchSources != null) launchSources.setVisibility(View.GONE);
             heroArt.setImageDrawable(null);
+            if (titanium) heroArt.setVisibility(View.GONE);
             if (canManageEmptyCollection) optionsAction.requestFocus();
             return;
         }
@@ -598,6 +615,7 @@ public class LibraryActivity extends ConsoleActivity {
             heroArt.setScaleX(1f);
             heroArt.setScaleY(1f);
             heroArt.setImageDrawable(null);
+            if (titanium) heroArt.setVisibility(View.GONE);
         }
         StringBuilder m = new StringBuilder();
         int status = GameShelf.status(this, g.key);
@@ -624,6 +642,11 @@ public class LibraryActivity extends ConsoleActivity {
             w.append(w.length() > 0 ? "  ·  " : "").append(way.label);
         }
         ways.setText(g.ways.size() > 1 ? getString(R.string.pocket_ul_plays_on_many, w) : w);
+        if (launchSources != null) {
+            int count = g.ways.size();
+            launchSources.setText(getResources().getQuantityString(R.plurals.horizon_titanium_sources, count, count));
+            launchSources.setVisibility(View.VISIBLE);
+        }
         if (!moved || heroArt.getParent() == null) {
             return;
         }
@@ -660,6 +683,7 @@ public class LibraryActivity extends ConsoleActivity {
 
     private void setHero(Bitmap b, int token) {
         if (token != heroToken || isFinishing() || isDestroyed()) return;
+        if (titanium) heroArt.setVisibility(View.VISIBLE);
         if (!PocketPrefs.animationsEnabled(this)) {
             heroArt.setImageBitmap(b);
             return;
@@ -952,15 +976,15 @@ public class LibraryActivity extends ConsoleActivity {
             FrameLayout frame = new FrameLayout(LibraryActivity.this);
             frame.setClipChildren(false);
             frame.setPadding(dp(7), dp(7), dp(7), dp(7));
-            final FrameLayout card = new CoverFrame(LibraryActivity.this, pureOled ? dp(76) : 0);
-            final float radius = dp(pureOled ? 4 : 12);
+            final FrameLayout card = new CoverFrame(LibraryActivity.this, titanium ? dp(70) : pureOled ? dp(76) : 0);
+            final float radius = dp(titanium ? 5 : pureOled ? 4 : 12);
             GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF2A2A33, 0xFF15151A});
             bg.setCornerRadius(radius);
             if (pureOled) {
                 bg.setColor(0xFF000000);
                 bg.setStroke(Math.max(1, dp(1)), 0x55FFFFFF);
             }
-            card.setBackground(bg);
+            card.setBackground(titanium ? TitaniumStyle.surface(LibraryActivity.this) : bg);
             card.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
@@ -972,21 +996,26 @@ public class LibraryActivity extends ConsoleActivity {
             card.setClickable(true);
             ImageView cover = new ImageView(LibraryActivity.this);
             cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            card.addView(cover, new FrameLayout.LayoutParams(-1, -1));
+            FrameLayout.LayoutParams coverLp = new FrameLayout.LayoutParams(titanium ? dp(54) : -1, -1,
+                    Gravity.START | Gravity.TOP);
+            if (titanium) coverLp.setMargins(dp(1), dp(1), dp(1), dp(1));
+            card.addView(cover, coverLp);
             TextView name = text(12.5f, PocketFonts.bold(), 0xFFFFFFFF);
             name.setSingleLine(false);
             name.setMaxLines(pureOled ? 2 : 4);
-            name.setGravity(pureOled ? Gravity.START : Gravity.CENTER);
+            name.setGravity(pureOled || titanium ? Gravity.START : Gravity.CENTER);
             name.setPadding(dp(pureOled ? 12 : 8), 0, dp(pureOled ? 16 : 8), 0);
             FrameLayout.LayoutParams nameLp = new FrameLayout.LayoutParams(-1, -2,
-                    pureOled ? Gravity.TOP : Gravity.CENTER);
-            if (pureOled) nameLp.topMargin = dp(10);
+                    pureOled || titanium ? Gravity.TOP : Gravity.CENTER);
+            if (pureOled || titanium) nameLp.topMargin = dp(10);
+            if (titanium) nameLp.setMarginStart(dp(55));
             card.addView(name, nameLp);
             View shade = new View(LibraryActivity.this);
             shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[]{0x00000000, 0x00000000, 0xB3000000}));
-            if (!pureOled) card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
-            TextView badge = text(8.5f, PocketFonts.bold(), 0xFFFFFFFF);
+            if (!pureOled && !titanium) card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+            TextView badge = text(8.5f, titanium ? Typeface.MONOSPACE : PocketFonts.bold(),
+                    titanium ? TitaniumStyle.SECONDARY : 0xFFFFFFFF);
             badge.setLetterSpacing(0.06f);
             badge.setPadding(dp(6), dp(2), dp(6), dp(2));
             GradientDrawable bb = new GradientDrawable();
@@ -995,6 +1024,7 @@ public class LibraryActivity extends ConsoleActivity {
             badge.setBackground(bb);
             FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
             blp.setMargins(dp(6), 0, dp(6), dp(6));
+            if (titanium) blp.setMarginStart(dp(57));
             card.addView(badge, blp);
             View dot = new View(LibraryActivity.this);
             FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(dp(10), dp(10), Gravity.TOP | Gravity.END);
@@ -1002,7 +1032,7 @@ public class LibraryActivity extends ConsoleActivity {
             card.addView(dot, dlp);
             frame.addView(card, new FrameLayout.LayoutParams(-1, -2));
             final Holder h = new Holder(frame, card, cover, name, badge, dot);
-            FocusGlow.apply(card, radius, false, pureOled ? 1f : 1.08f, (v, has) -> {
+            FocusGlow.apply(card, radius, false, pureOled || titanium ? 1f : 1.08f, (v, has) -> {
                 if (has) {
                     int p = h.getBindingAdapterPosition();
                     if (p != RecyclerView.NO_POSITION) {
@@ -1079,13 +1109,13 @@ public class LibraryActivity extends ConsoleActivity {
             Bitmap cached = PocketArt.cached(LibraryActivity.this, uuid, id, PocketArt.COVER);
             if (cached != null) {
                 h.cover.setImageBitmap(cached);
-                h.name.setVisibility(View.GONE);
+                if (!titanium) h.name.setVisibility(View.GONE);
                 return;
             }
             PocketArt.load(LibraryActivity.this, uuid, id, PocketArt.COVER, bitmap -> {
                 if (bitmap != null && key.equals(h.key)) {
                     h.cover.setImageBitmap(bitmap);
-                    h.name.setVisibility(View.GONE);
+                    if (!titanium) h.name.setVisibility(View.GONE);
                 }
             });
         }

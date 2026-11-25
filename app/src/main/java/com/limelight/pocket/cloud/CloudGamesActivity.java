@@ -296,7 +296,7 @@ public class CloudGamesActivity extends Activity {
                 : CloudClients.play(this, CloudService.XCLOUD, g.launchUrl());
         if (result.dispatched()) {
             PocketSounds.play(this, PocketSounds.SELECT);
-            HomeStore.record(this, item(g));
+            if (result.dispatchedRequestedTarget(true)) HomeStore.record(this, item(g));
         }
     }
 
