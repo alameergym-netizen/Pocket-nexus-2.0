@@ -363,6 +363,7 @@ public final class PocketPrefs {
     public static final String KEY_SEAMLESS_RESUME = "pocket_seamless_resume";
     public static final String KEY_ADAPTIVE = "pocket_adaptive_stream";
     public static final String KEY_POWER_STREAM_LIMIT = "horizon_power_stream_limit";
+    public static final String KEY_SCENE_DISPLAY_CAP = "horizon_scene_display_cap";
     public static final String KEY_FRAME_GEN = "pocket_frame_gen";
     public static final String KEY_MIC = "pocket_mic_passthrough";
     public static final String KEY_ACCENT = "pocket_accent";
@@ -657,6 +658,11 @@ public final class PocketPrefs {
     /** In-stream screen brightness, 0 = follow the system. */
     public static int streamBrightness(Context context) {
         return prefs(context).getInt(KEY_STREAM_BRIGHTNESS, 0);
+    }
+
+    public static int streamBrightnessCap(Context context) {
+        try { return prefs(context).getInt(KEY_SCENE_DISPLAY_CAP, 0); }
+        catch (ClassCastException malformed) { return 0; }
     }
 
     // Playtime per game (seconds streamed from this handheld)
