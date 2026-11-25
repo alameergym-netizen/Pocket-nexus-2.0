@@ -22,15 +22,33 @@ $install = Join-Path $env:LOCALAPPDATA 'PocketNexus\NexusHost-msi-dev'
 $preserved = Join-Path $env:LOCALAPPDATA ('ArtemisPocket\nexus-msi-ci-' + [Guid]::NewGuid().ToString('N'))
 $linkPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'Pocket Nexus Host Development\Pocket Nexus Host Development.lnk'
 $registry = 'HKCU:\Software\Pocket Nexus\Host MSI Development'
-$Arp = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
+Add-Type -TypeDefinition @'
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class NexusMsiRegistration {
+    [DllImport("msi.dll", CharSet = CharSet.Unicode, EntryPoint = "MsiGetProductInfoExW")]
+    public static extern uint CurrentUserProduct(string product, string userSid, uint context,
+        string property, StringBuilder value, ref uint length);
+}
+'@
+
+function Get-InstalledVersion([string]$ProductCode) {
+    $result = New-Object Text.StringBuilder 64
+    $length = [uint32]$result.Capacity
+    # MSIINSTALLCONTEXT_USERUNMANAGED checks the package in the current user's context.
+    $status = [NexusMsiRegistration]::CurrentUserProduct($ProductCode, $null, 2, 'VersionString', $result, [ref]$length)
+    if ($status -eq 1605) { return $null }
+    if ($status -ne 0) { throw "Windows Installer could not query the product registration (error $status)." }
+    return [version]($result.ToString())
+}
 
 function Installed-Product([string]$Label) {
     $log = Join-Path $LogDirectory ($Label + '.log')
     $entry = Select-String -LiteralPath $log -Pattern '^Property\(S\): ProductCode = (\{[A-F0-9-]+\})$' | Select-Object -Last 1
     if (-not $entry) { throw 'Windows Installer did not log the package product code.' }
-    $key = Join-Path $Arp $entry.Matches[0].Groups[1].Value
-    $product = Get-ItemProperty -LiteralPath $key -ErrorAction Stop
-    return [pscustomobject]@{ Key = $key; Name = $product.DisplayName; Version = [version]$product.DisplayVersion }
+    $code = $entry.Matches[0].Groups[1].Value
+    return [pscustomobject]@{ Code = $code; Version = Get-InstalledVersion $code }
 }
 
 if ([IO.Directory]::Exists($install) -or [IO.File]::Exists($linkPath) -or (Test-Path -LiteralPath $registry)) {
@@ -47,7 +65,7 @@ try {
     Check ([IO.File]::Exists((Join-Path $install 'PocketNexus-PC.ps1')) -and [IO.File]::Exists($linkPath) -and
         (Test-Path -LiteralPath $registry)) 'MSI registers the version and Start menu shortcut for the current user'
     $first = Installed-Product 'install'
-    Check ($first.Name -eq 'Pocket Nexus Host Development') 'the installed product is registered for the current user'
+    Check ($null -ne $first.Version) 'the installed product is registered for the current user'
     $shell = New-Object -ComObject WScript.Shell
     $link = $shell.CreateShortcut($linkPath)
     $expectedTarget = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -67,15 +85,16 @@ try {
     $olderInstalled = $false
     $newerInstalled = $true
     $second = Installed-Product 'upgrade'
-    Check ($second.Key -ne $first.Key -and $second.Version -gt $first.Version -and
-        -not (Test-Path -LiteralPath $first.Key)) ("upgrade replaces the registered development version $($first.Version) with $($second.Version)")
+    Check ($second.Code -ne $first.Code -and $second.Version -gt $first.Version -and
+        $null -eq (Get-InstalledVersion $first.Code)) ("upgrade replaces the registered development version $($first.Version) with $($second.Version)")
     Invoke-Installer '/i' $Older 'blocked-downgrade' 1603
-    Check ((Test-Path -LiteralPath $second.Key) -and -not (Test-Path -LiteralPath $first.Key)) 'an older MSI leaves the newer version installed'
+    Check ((Get-InstalledVersion $second.Code) -eq $second.Version -and
+        $null -eq (Get-InstalledVersion $first.Code)) 'an older MSI leaves the newer version installed'
 
     Invoke-Installer '/x' $Newer 'uninstall'
     $newerInstalled = $false
     Check (-not [IO.File]::Exists($linkPath) -and -not [IO.File]::Exists($expectedScript) -and
-        -not (Test-Path -LiteralPath $second.Key)) 'uninstall removes the registered version and its shortcut'
+        $null -eq (Get-InstalledVersion $second.Code)) 'uninstall removes the registered version and its shortcut'
     Check ([IO.File]::ReadAllText($preserved) -eq 'keep legacy companion data') 'install, upgrade, and removal preserve legacy user data'
 } finally {
     try {
