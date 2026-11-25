@@ -216,10 +216,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
             handleCaptureKey(event);
             return true;
         }
-        if (isConsolePanelShowing()) {
-            // A list of actions is open: it has the buttons (B closes it)
-            return super.dispatchKeyEvent(event);
-        }
+        if (dispatchConsolePanelKey(event)) return true;
         if (swallowKeyUp >= 0 && event.getKeyCode() == swallowKeyUp) {
             // The release (and duplicate press) of the key that was just captured
             if (event.getAction() == KeyEvent.ACTION_UP) {

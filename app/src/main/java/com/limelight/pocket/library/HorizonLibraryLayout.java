@@ -13,6 +13,10 @@ final class HorizonLibraryLayout {
     }
 
     static HorizonLibraryLayout forWindow(float widthDp, float heightDp, boolean pureOled) {
+        return forWindow(widthDp, heightDp, pureOled, false);
+    }
+
+    static HorizonLibraryLayout forWindow(float widthDp, float heightDp, boolean pureOled, boolean titanium) {
         int w = Math.max(1, (int) widthDp), h = Math.max(1, (int) heightDp);
         boolean split = w >= 720 && h >= 320;
         int pad = w >= 600 ? 20 : 12;
@@ -23,6 +27,7 @@ final class HorizonLibraryLayout {
         }
         int columns = Math.max(2, Math.min(9, remaining / 124));
         int art = split ? Math.min(162, Math.max(86, h / 3 - 15)) : 0;
+        if (titanium) return new HorizonLibraryLayout(split, pad, detail, art, remaining >= 530 ? 2 : 1);
         return new HorizonLibraryLayout(split, pad, detail, art, columns);
     }
 }

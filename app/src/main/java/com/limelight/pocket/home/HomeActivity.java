@@ -3,6 +3,7 @@ package com.limelight.pocket.home;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.LauncherApps;
 import android.content.pm.ShortcutInfo;
@@ -17,17 +18,20 @@ import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
+import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
+import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.LruCache;
 import android.view.KeyEvent;
@@ -60,6 +64,7 @@ import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.pocket.ArtPickerActivity;
 import com.limelight.pocket.ArtScraper;
 import com.limelight.pocket.ConsoleActivity;
+import com.limelight.pocket.device.HorizonPower;
 import com.limelight.pocket.GamePageActivity;
 import com.limelight.pocket.PocketArt;
 import com.limelight.pocket.PocketPrefs;
@@ -85,6 +90,7 @@ import com.limelight.pocket.ui.PocketFonts;
 import com.limelight.pocket.ui.PocketMotion;
 import com.limelight.pocket.ui.PocketUi;
 import com.limelight.pocket.ui.SectionBar;
+import com.limelight.pocket.ui.TitaniumStyle;
 import com.limelight.pocket.ui.Spring;
 import com.limelight.pocket.ui.StreamMenuView;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -167,6 +173,16 @@ public class HomeActivity extends ConsoleActivity {
     private int focusGeneration;
     private boolean workspace;
     private boolean pureOled;
+    private boolean titanium;
+    private LinearLayout telemetry;
+    private TextView titaniumBattery, titaniumThermal, titaniumDisplay;
+    private final Runnable refreshTelemetry = new Runnable() {
+        @Override public void run() {
+            if (!titanium || !resumed) return;
+            if (ambient == null || !ambient.showing()) updateTelemetry();
+            main.postDelayed(this, 8_000);
+        }
+    };
     private boolean workspaceInitialFocusPending;
     private boolean workspaceArtPrepared;
     private int workspaceColumns;
@@ -387,6 +403,7 @@ public class HomeActivity extends ConsoleActivity {
         if (layout != null && (horizonDensity != com.limelight.pocket.ui.HorizonAppearance.density(this)
                 || horizonCorners != com.limelight.pocket.ui.HorizonAppearance.corners(this)
                 || pureOled != com.limelight.pocket.ui.PocketTheme.pureOled(this)
+                || titanium != com.limelight.pocket.ui.PocketTheme.titanium(this)
                 || !layout.id.equals(com.limelight.pocket.ui.Layouts.home(this).id))) {
             int keep = Math.max(0, heroPos);
             applyLayout(true);
@@ -399,6 +416,7 @@ public class HomeActivity extends ConsoleActivity {
             dock.refresh();
         }
         scheduleAmbient();
+        restartTelemetry();
         if (binder != null) {
             startPolling();
         }
@@ -416,6 +434,7 @@ public class HomeActivity extends ConsoleActivity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        main.removeCallbacks(refreshTelemetry);
         if (pending != null) hideBlockingCard();
         cancelPending();
         focusGeneration++;
@@ -562,7 +581,7 @@ public class HomeActivity extends ConsoleActivity {
             return;
         }
         View focus = getCurrentFocus();
-        boolean onActions = workspace || pureOled ? previousActions || previousDock
+        boolean onActions = workspace || pureOled || titanium ? previousActions || previousDock
                 : focus != null && (focus == play || focus == info || focus == more);
         if (onActions) {
             updateHero(target);
@@ -1397,7 +1416,7 @@ public class HomeActivity extends ConsoleActivity {
         if (glow == null) {
             return;
         }
-        if (pureOled) {
+        if (pureOled || titanium) {
             if (glowAnim != null) glowAnim.cancel();
             glowColor = 0;
             glow.setAlpha(0f);
@@ -1464,6 +1483,64 @@ public class HomeActivity extends ConsoleActivity {
         }
     }
 
+    private void layoutTelemetry() {
+        if (telemetry == null && titanium) {
+            telemetry = new LinearLayout(this);
+            telemetry.setId(R.id.horizon_titanium_telemetry);
+            telemetry.setGravity(Gravity.CENTER_VERTICAL);
+            telemetry.setBackground(TitaniumStyle.surface(this));
+            FrameLayout.LayoutParams bounds = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP | Gravity.START);
+            bounds.topMargin = Math.round(42 * d);
+            bounds.setMarginStart(Math.round(18 * d));
+            bounds.setMarginEnd(Math.round(18 * d));
+            ((ViewGroup) findViewById(R.id.pocketMain)).addView(telemetry, bounds);
+            titaniumBattery = telemetryValue();
+            titaniumThermal = telemetryValue();
+            titaniumDisplay = telemetryValue();
+        }
+        if (telemetry != null) telemetry.setVisibility(titanium ? View.VISIBLE : View.GONE);
+        if (resumed) restartTelemetry();
+    }
+
+    private void restartTelemetry() {
+        main.removeCallbacks(refreshTelemetry);
+        if (titanium) refreshTelemetry.run();
+    }
+
+    private TextView telemetryValue() {
+        TextView value = new TextView(this);
+        value.setTypeface(Typeface.MONOSPACE);
+        value.setTextSize(12);
+        value.setEllipsize(TextUtils.TruncateAt.END);
+        value.setMaxLines(1);
+        value.setTextColor(TitaniumStyle.TEXT);
+        int pad = Math.round(8 * d);
+        value.setPadding(pad, pad, pad, pad);
+        telemetry.addView(value, new LinearLayout.LayoutParams(0, -2, 1f));
+        return value;
+    }
+
+    private void updateTelemetry() {
+        String unavailable = getString(R.string.horizon_titanium_unavailable);
+        String percent = unavailable;
+        try {
+            Intent battery = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (battery != null) {
+                int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, 0);
+                if (level >= 0 && scale > 0 && level <= scale) {
+                    percent = getString(R.string.horizon_titanium_percent, Math.round(100f * level / scale));
+                }
+            }
+        } catch (RuntimeException ignored) { }
+        float hz = getWindowManager().getDefaultDisplay().getRefreshRate();
+        String display = hz > 0 && !Float.isInfinite(hz) ? getString(R.string.horizon_titanium_hertz, Math.round(hz)) : unavailable;
+        titaniumBattery.setText(getString(R.string.horizon_titanium_battery, percent));
+        titaniumThermal.setText(getString(R.string.horizon_titanium_thermal,
+                TitaniumStyle.thermal(this, HorizonPower.observe(this).thermal)));
+        titaniumDisplay.setText(getString(R.string.horizon_titanium_display, display));
+    }
+
     /**
      * Puts the tiles and the details where this layout wants them: a shelf under the big hero,
      * or a grid / list on the left with the details on the right.
@@ -1471,6 +1548,8 @@ public class HomeActivity extends ConsoleActivity {
     private void applyLayout(boolean relayout) {
         layout = com.limelight.pocket.ui.Layouts.home(this);
         pureOled = com.limelight.pocket.ui.PocketTheme.pureOled(this);
+        titanium = com.limelight.pocket.ui.PocketTheme.titanium(this);
+        layoutTelemetry();
         workspace = com.limelight.pocket.ui.Layouts.HORIZON_WORKSPACE.equals(layout.id)
                 && HorizonHomeWorkspace.supported(getResources().getDisplayMetrics().widthPixels / d,
                         getResources().getDisplayMetrics().heightPixels / d);
@@ -1577,10 +1656,10 @@ public class HomeActivity extends ConsoleActivity {
         }
         else {
             if (dock != null) {
-                dock.view().setVisibility(pureOled ? View.VISIBLE : View.GONE);
+                dock.view().setVisibility(pureOled || titanium ? View.VISIBLE : View.GONE);
             }
             int cell = tileW + Math.round((list ? 0 : 22) * d);
-            int width = Math.round(screenW * (pureOled ? 0.55f : list ? 0.44f : 0.62f));
+            int width = Math.round(screenW * (titanium ? 0.48f : pureOled ? 0.55f : list ? 0.44f : 0.62f));
             if (list) {
                 row.setLayoutManager(new LinearLayoutManager(this, RecyclerView.VERTICAL, false));
             }
@@ -1592,25 +1671,31 @@ public class HomeActivity extends ConsoleActivity {
             rlp.width = width;
             rlp.height = ViewGroup.LayoutParams.MATCH_PARENT;
             rlp.gravity = Gravity.TOP | Gravity.START;
-            rlp.topMargin = Math.round(48 * d);
-            rlp.bottomMargin = Math.round((pureOled ? 92 : 34) * d);
+            int telemetrySpace = titanium ? Math.round(36 * Math.max(1f, getResources().getConfiguration().fontScale)) : 0;
+            rlp.topMargin = Math.round((48 + telemetrySpace) * d);
+            rlp.bottomMargin = Math.round((pureOled || titanium ? 92 : 34) * d);
             row.setPadding(Math.round(18 * d), Math.round(12 * d), Math.round(8 * d), Math.round(60 * d));
             row.setHorizontalFadingEdgeEnabled(false);
             row.setVerticalFadingEdgeEnabled(true);
             row.setFadingEdgeLength(Math.round(30 * d));
             hlp.gravity = Gravity.TOP | Gravity.END;
-            hlp.topMargin = Math.round(62 * d);
+            hlp.topMargin = Math.round((titanium ? 55 + telemetrySpace : 62) * d);
             hlp.bottomMargin = 0;
-            hlp.width = pureOled ? Math.max(1, screenW - width - Math.round(48 * d)) : Math.round(300 * d);
+            hlp.width = pureOled || titanium ? Math.max(1, screenW - width - Math.round(48 * d)) : Math.round(300 * d);
             hlp.setMarginStart(0);
             hlp.setMarginEnd(Math.round(30 * d));
             rowLabel.setVisibility(View.GONE);
             if (sideScrim != null) {
-                sideScrim.setVisibility(pureOled ? View.GONE : View.VISIBLE);
+                sideScrim.setVisibility(pureOled || titanium ? View.GONE : View.VISIBLE);
             }
-            if (pureOled) {
+            if (pureOled || titanium) {
                 logoMax = 56;
                 descLines = 1;
+            }
+            if (titanium) {
+                int pad = Math.round(12 * d);
+                heroView.setPadding(pad, pad, pad, pad);
+                heroView.setBackground(TitaniumStyle.surface(this));
             }
         }
         if (workspace) {
@@ -1654,7 +1739,7 @@ public class HomeActivity extends ConsoleActivity {
         int brandMode=HorizonHomeStyle.brandMode(widthDp);
         homeBrand.setText(brandMode==2?R.string.horizon_home_brand:R.string.horizon_home_mark);
         homeBrand.setVisibility(brandMode==0?View.GONE:View.VISIBLE);
-        summaryRoom=!workspace && HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
+        summaryRoom=!workspace && !titanium && HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
         homeSummary.setVisibility(summaryRoom && loadedOnce?View.VISIBLE:View.GONE);
         homeSummary.setBackground(HorizonHomeStyle.glass(d,com.limelight.pocket.ui.PocketTheme.accent(this),false));
         featuredRoom=(workspace || (shelf && !portal)) && heroRoom>=190;
@@ -2683,7 +2768,7 @@ public class HomeActivity extends ConsoleActivity {
                         return true;
                     }
                 }
-                if ((workspace || pureOled) && event.getAction() == KeyEvent.ACTION_DOWN) {
+                if ((workspace || pureOled || titanium) && event.getAction() == KeyEvent.ACTION_DOWN) {
                     int pos = h.getBindingAdapterPosition();
                     if (pos != RecyclerView.NO_POSITION) {
                         boolean rtl = row.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;

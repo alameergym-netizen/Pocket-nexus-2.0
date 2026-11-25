@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_cloud_better_android">Better xCloud for Android</string>
+    <string name="horizon_cloud_better_android_setup">Better xCloud Android setup</string>
+    <string name="horizon_cloud_better_android_note">This separate app uses its own sign-in and stream controls. A game link opens in the app when the app supports it. Otherwise you can select the title inside the app.</string>
+    <string name="horizon_cloud_choose_in_client">The client opened. Select the game inside that app.</string>
+</resources>

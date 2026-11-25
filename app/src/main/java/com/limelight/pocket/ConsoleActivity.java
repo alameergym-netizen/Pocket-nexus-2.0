@@ -40,6 +40,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.limelight.R;
 import com.limelight.pocket.ui.PocketUi;
+import com.limelight.pocket.ui.MenuKeyOwnership;
 import com.limelight.pocket.ui.StreamMenuView;
 
 import java.util.ArrayList;
@@ -1210,6 +1211,16 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         return consolePanel != null && consolePanel.isShowing();
     }
 
+    private final MenuKeyOwnership consolePanelKeys = new MenuKeyOwnership();
+
+    protected final boolean dispatchConsolePanelKey(KeyEvent event) {
+        boolean showing = isConsolePanelShowing();
+        if (!consolePanelKeys.consume(event, showing)) return false;
+        lastInputWasButton = true;
+        if (showing) consolePanel.handleKey(event);
+        return true;
+    }
+
     protected void onConsolePanelClosed() { }
 
     /** A glass side panel driven by the controller, like the in-stream menu. */
@@ -1482,14 +1493,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             }
             return true;
         }
-        if (isConsolePanelShowing()) {
-            boolean handled = consolePanel.handleKey(event);
-            if (event.getAction() == KeyEvent.ACTION_DOWN && !consolePanel.isShowing()) {
-                // The panel closed on this press: its release must not act on the screen below
-                swallowKeyUp = event.getKeyCode();
-            }
-            return handled;
-        }
+        if (dispatchConsolePanelKey(event)) return true;
         if (swallowKeyUp >= 0 && event.getKeyCode() == swallowKeyUp) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 swallowKeyUp = -1;

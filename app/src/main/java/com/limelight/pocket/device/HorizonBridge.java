@@ -1,39 +1,23 @@
 package com.limelight.pocket.device;
 
-import android.os.Build;
+import static com.limelight.pocket.device.HorizonPerformanceReadings.read;
+
 import android.content.Context;
+import android.os.Build;
+import android.text.format.DateFormat;
 import com.limelight.R;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
 import java.io.File;
-import java.io.FileInputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 /** Read-only capability inventory. Does not bind to privileged services or alter kernel settings. */
 public final class HorizonBridge {
     private HorizonBridge() {}
-
-    private static String read(File file) {
-        try (FileInputStream in = new FileInputStream(file)) {
-            java.io.ByteArrayOutputStream data = new java.io.ByteArrayOutputStream();
-            byte[] chunk = new byte[512];
-            int n;
-            while ((n = in.read(chunk)) != -1) {
-                if (data.size() + n > 4096) { return null; }
-                data.write(chunk,0,n);
-            }
-            return data.size() == 0 ? null : new String(data.toByteArray(), StandardCharsets.UTF_8).trim();
-        } catch (Exception e) { return null; }
-    }
-
-    private static String frequency(Context c, File f, double scale) {
-        long value = HorizonBridgePolicy.parseFrequency(read(f));
-        return value < 0 ? c.getString(R.string.horizon_bridge_unknown)
-                : String.format(Locale.ROOT, "%.0f MHz", value / scale);
-    }
 
     /** The hidden platform API may be blocked. Probe only; never launch or send commands. */
     private static void probe(ConsoleActivity a) {
@@ -129,7 +113,32 @@ public final class HorizonBridge {
     }
 
     public static void show(ConsoleActivity a) {
+        showReadings(a, null);
+    }
+
+    private static void showReadings(ConsoleActivity a, List<StreamMenuView.Item> visible) {
+        List<StreamMenuView.Item> pending = Collections.singletonList(StreamMenuView.Item.note(
+                a.getString(R.string.horizon_bridge_measuring)));
+        if (visible == null) {
+            a.showConsolePanel(a.getString(R.string.horizon_bridge_title), null, null, pending);
+        } else {
+            a.replaceConsolePage(visible, pending);
+        }
+        new Thread(() -> {
+            List<StreamMenuView.Item> rows = readings(a);
+            a.runOnUiThread(() -> {
+                if (!a.isFinishing() && !a.isDestroyed()) a.replaceConsolePage(pending, rows);
+            });
+        }, "HorizonPerformanceReadings").start();
+    }
+
+    private static List<StreamMenuView.Item> readings(ConsoleActivity a) {
+        HorizonPerformanceReadings sample = HorizonPerformanceReadings.sample(new File("/sys/devices/system/cpu/cpufreq"),
+                new File("/sys/class/kgsl/kgsl-3d0"), new File("/sys/class/thermal"));
         List<StreamMenuView.Item> rows = new ArrayList<>();
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_sample_time),
+                DateFormat.getTimeFormat(a).format(new Date())));
+        rows.add(StreamMenuView.Item.repeatable(a.getString(R.string.horizon_bridge_refresh), () -> showReadings(a, rows)));
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_identity)));
         rows.add(StreamMenuView.Item.info(a.getString(R.string.pocket_info_device), Build.MANUFACTURER + " " + Build.MODEL));
         rows.add(StreamMenuView.Item.info(a.getString(R.string.pocket_info_processor), DeviceInfoPanel.chipLabel()));
@@ -147,28 +156,21 @@ public final class HorizonBridge {
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_bridge_read_only)));
 
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_cpu)));
-        File cpu = new File("/sys/devices/system/cpu/cpufreq");
-        File[] policies = null;
-        try { policies = cpu.listFiles(); } catch (RuntimeException ignored) {}
-        int count = 0;
-        if (policies != null) {
-            java.util.Arrays.sort(policies, (x, y) -> x.getName().compareTo(y.getName()));
-            for (File policy : policies) {
-                if (!policy.getName().matches("policy[0-9]{1,3}") || count >= 32) { continue; }
-                String cores = read(new File(policy, "related_cpus"));
-                String current = frequency(a, new File(policy, "scaling_cur_freq"), 1000.0);
-                String limit = frequency(a, new File(policy, "scaling_max_freq"), 1000.0);
-                rows.add(StreamMenuView.Item.info(policy.getName() + (cores == null ? "" : " · CPU " + cores), current));
-                rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_bridge_limit, limit)));
-                count++;
-            }
+        for (HorizonPerformanceReadings.Frequency cpu : sample.cpu) {
+            String title = cpu.name + (cpu.cores.isEmpty() ? "" : " · CPU " + cpu.cores);
+            rows.add(StreamMenuView.Item.submenu(title, () -> a.pushConsolePage(title, frequencyRows(a, cpu)))
+                    .withValue(displayFrequency(a, cpu.current, cpu.divisor)));
         }
-        if (count == 0) { rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_bridge_unknown))); }
+        if (sample.cpu.isEmpty()) rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_bridge_unknown)));
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_gpu)));
-        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_current),
-                frequency(a, new File("/sys/class/kgsl/kgsl-3d0/gpuclk"), 1000000.0)));
-        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_max),
-                frequency(a, new File("/sys/class/kgsl/kgsl-3d0/max_gpuclk"), 1000000.0)));
+        rows.addAll(frequencyRows(a, sample.gpu));
+
+        rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_cooling)));
+        if (sample.fans.isEmpty()) rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_bridge_unknown)));
+        for (HorizonPerformanceReadings.Cooling fan : sample.fans) {
+            rows.add(StreamMenuView.Item.info(fan.name, a.getString(R.string.horizon_bridge_cooling_state,
+                    coolingState(a, fan.state), coolingState(a, fan.maximum))));
+        }
 
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_safety)));
         HorizonPower.Observations power = HorizonPower.observe(a);
@@ -189,7 +191,35 @@ public final class HorizonBridge {
                 HorizonBridgePolicy.recommendation(thermal, Boolean.TRUE.equals(saver))])));
         rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_power_title), HorizonPower.batteryPower(a)));
         HandheldTools.addTools(a, rows);
-        rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh), () -> show(a)));
-        a.showConsolePanel(a.getString(R.string.horizon_bridge_title), null, null, rows);
+        return rows;
+    }
+
+    private static List<StreamMenuView.Item> frequencyRows(ConsoleActivity a, HorizonPerformanceReadings.Frequency result) {
+        List<StreamMenuView.Item> rows = new ArrayList<>();
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_current), displayFrequency(a, result.current, result.divisor)));
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_min), displayFrequency(a, result.minimum, result.divisor)));
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_max), displayFrequency(a, result.maximum, result.divisor)));
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_governor), result.governor.isEmpty()
+                ? a.getString(R.string.horizon_bridge_unknown) : result.governor));
+        String stepsTitle = a.getString(R.string.horizon_bridge_steps);
+        if (result.steps.length == 0) {
+            rows.add(StreamMenuView.Item.info(stepsTitle, a.getString(R.string.horizon_bridge_unknown)));
+        } else {
+            rows.add(StreamMenuView.Item.submenu(stepsTitle, () -> {
+                List<StreamMenuView.Item> steps = new ArrayList<>();
+                for (long step : result.steps) steps.add(StreamMenuView.Item.note(displayFrequency(a, step, result.divisor)));
+                a.pushConsolePage(stepsTitle, steps);
+            }).withValue(Integer.toString(result.steps.length)));
+        }
+        return rows;
+    }
+
+    private static String displayFrequency(Context context, long value, long divisor) {
+        return value <= 0 ? context.getString(R.string.horizon_bridge_unknown)
+                : String.format(Locale.ROOT, "%.0f MHz", (double) value / divisor);
+    }
+
+    private static String coolingState(Context context, long state) {
+        return state < 0 ? context.getString(R.string.horizon_bridge_unknown) : Long.toString(state);
     }
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="horizon_titanium_telemetry" type="id" />
+    <string name="horizon_titanium_battery">Battery %1$s</string>
+    <string name="horizon_titanium_thermal">Thermal %1$s</string>
+    <string name="horizon_titanium_display">Display %1$s</string>
+    <string name="horizon_titanium_hertz">%1$d Hz</string>
+    <string name="horizon_titanium_percent">%1$d%%</string>
+    <string name="horizon_titanium_unavailable">Unavailable</string>
+    <string name="horizon_titanium_battery_temp">Battery temperature</string>
+    <string name="horizon_titanium_thermal_label">Thermal pressure</string>
+    <plurals name="horizon_titanium_sources">
+        <item quantity="one">%1$d launch source</item>
+        <item quantity="other">%1$d launch sources</item>
+    </plurals>
+</resources>
