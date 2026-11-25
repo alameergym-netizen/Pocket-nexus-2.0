@@ -1,12 +1,12 @@
-package com.limelight.nvstream;
+package com.limelight.pocket.core;
 
 import static org.junit.Assert.*;
 
 import android.app.Application;
 
+import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.pocket.core.HorizonConnectionLease;
 import com.limelight.shadows.ShadowMoonBridge;
 
 import org.junit.Test;
