@@ -2343,6 +2343,64 @@ function Show-NexusVibepollo {
     finally { $dialog.Dispose() }
 }
 
+function Show-HostGpuTelemetry {
+    if (-not ("PocketNexus.NexusGpuTelemetry" -as [type])) {
+        Add-Type -Path (Join-Path $here "NexusGpuTelemetry.cs") -ErrorAction Stop
+    }
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = "GPU telemetry | Nexus Host"
+    $dialog.StartPosition = "CenterParent"
+    $dialog.ClientSize = New-Object System.Drawing.Size(560, 320)
+    $dialog.MinimumSize = New-Object System.Drawing.Size(380, 250)
+    $dialog.AutoScaleMode = "Font"
+    $details = New-Object System.Windows.Forms.TextBox
+    $details.Multiline = $true
+    $details.ReadOnly = $true
+    $details.ScrollBars = "Vertical"
+    $details.Dock = "Fill"
+    $details.AccessibleName = "NVIDIA GPU telemetry readings"
+    $refresh = New-Object System.Windows.Forms.Button
+    $refresh.Text = "Refresh readings"
+    $refresh.AutoSize = $true
+    $close = New-Object System.Windows.Forms.Button
+    $close.Text = "Close"
+    $close.AutoSize = $true
+    $close.DialogResult = "Cancel"
+    $dialog.CancelButton = $close
+    $buttons = New-Object System.Windows.Forms.FlowLayoutPanel
+    $buttons.AutoSize = $true
+    $buttons.Dock = "Bottom"
+    $buttons.Controls.Add($refresh)
+    $buttons.Controls.Add($close)
+    $dialog.Controls.Add($details)
+    $dialog.Controls.Add($buttons)
+
+    $state = @{ Task = $null }
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 150
+    $refresh.add_Click({
+        $details.Text = "Reading the installed NVIDIA driver..."
+        $refresh.Enabled = $false
+        $state.Task = [PocketNexus.NexusGpuTelemetry]::Sample()
+        $timer.Start()
+    }.GetNewClosure())
+    $timer.add_Tick({
+        if (-not $state.Task.IsCompleted) { return }
+        $timer.Stop()
+        try {
+            $details.Text = "Checked " + (Get-Date -Format 'T') + "`r`n`r`n" + $state.Task.Result
+        } catch {
+            $details.Text = "NVIDIA driver telemetry is unavailable."
+        } finally {
+            $state.Task = $null
+            $refresh.Enabled = $true
+        }
+    }.GetNewClosure())
+    $dialog.Add_Shown({ $refresh.PerformClick() }.GetNewClosure())
+    try { [void]$dialog.ShowDialog($script:hostDashboard) }
+    finally { $timer.Dispose(); $dialog.Dispose() }
+}
+
 function Show-HostDashboard {
     if ($script:hostDashboard -and -not $script:hostDashboard.IsDisposed) {
         $script:hostSummary.Text = Get-HostDashboardText
@@ -2365,7 +2423,7 @@ function Show-HostDashboard {
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 42)))
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 30)))
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 46)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 64)))
     $heading = New-Object System.Windows.Forms.Label
     $heading.Text = "NEXUS HOST"
     $heading.Font = New-Object System.Drawing.Font("Segoe UI", 21, [System.Drawing.FontStyle]::Bold)
@@ -2389,7 +2447,7 @@ function Show-HostDashboard {
     $actions = New-Object System.Windows.Forms.FlowLayoutPanel
     $actions.Dock = "Fill"
     $actions.WrapContents = $true
-    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "Close")) {
+    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Close")) {
         $button = New-Object System.Windows.Forms.Button
         $button.Text = $label
         $button.AutoSize = $true
@@ -2406,6 +2464,10 @@ function Show-HostDashboard {
             "Vibepollo status" { $button.add_Click({
                 try { Show-NexusVibepollo }
                 catch { [void][System.Windows.Forms.MessageBox]::Show("Vibepollo status could not open. Check the Nexus Host installation.", "Nexus Host") }
+            }) }
+            "GPU telemetry" { $button.add_Click({
+                try { Show-HostGpuTelemetry }
+                catch { [void][System.Windows.Forms.MessageBox]::Show("GPU telemetry could not open. Check the Nexus Host installation.", "Nexus Host") }
             }) }
             "Close" { $button.add_Click({ $script:hostDashboard.Close() }) }
         }
