@@ -107,6 +107,7 @@ def clients(tree):
 
 
 def open_clients():
+    """Settings > Libraries > Clients and sources, with the controller (the primary path)."""
     settings = None
     for _ in range(4):
         key("BUTTON_START")
@@ -116,9 +117,11 @@ def open_clients():
         except AssertionError:
             continue
     assert settings is not None, "Settings did not open from Home"
-    tap_label(settings, "Libraries")
-    libraries = wait_for("Clients and sources in Library settings", lambda t: has(t, TITLE) and has(t, "RomM catalog"))
-    tap_label(libraries, TITLE)
+    move_focus_to("Libraries", "DPAD_DOWN", limit=8)
+    wait_for("Library settings", lambda t: has(t, TITLE) and has(t, "RomM catalog"))
+    key("DPAD_RIGHT")
+    move_focus_to(TITLE, "DPAD_DOWN", limit=12)
+    key("BUTTON_A")
     return wait_for("Clients and sources screen", clients)
 
 
@@ -190,7 +193,7 @@ def main(apk, upstream_apk):
              and has(t, "The service manages sign-in, queues and play. Pocket Nexus only knows that it opened the service."))
     capture("05-official-web")
     key("BUTTON_B")
-    wait_for("B closes the screen", lambda t: has(t, TITLE) and not clients(t))
+    wait_for("B returns to the same Settings row", lambda t: not clients(t) and focused(t, TITLE))
     print("PASS: modes, sessions and missing apps are labelled honestly", flush=True)
 
     if upstream_apk:

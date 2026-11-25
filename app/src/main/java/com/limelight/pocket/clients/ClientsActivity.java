@@ -226,7 +226,12 @@ public class ClientsActivity extends ConsoleActivity {
         showDetails(selected);
         View target = rowById.get(selectedId);
         if (target != null) {
-            target.post(target::requestFocusFromTouch);
+            // Keep touch mode when opened by touch (Settings would otherwise move its focus to
+            // its first tab on return); the first D-pad press then lands on this row
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                target.setFocusedByDefault(true);
+            }
+            target.post(target::requestFocus);
         }
     }
 
