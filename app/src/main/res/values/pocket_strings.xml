@@ -1874,6 +1874,7 @@
     <string name="pocket_ul_added_to">%1$s is in %2$s</string>
     <string name="pocket_ul_delete_collection">Delete the collection %1$s</string>
     <string name="horizon_library_collection_options">Collection options</string>
+    <string name="horizon_library_provider_choice">Choose which provider to use for this title.</string>
     <string name="pocket_ul_picked">Picked for you: %1$s</string>
     <string name="pocket_ul_empty">Nothing here yet. L1 / R1 shows the rest; Y on a game gives it a status or a collection.</string>
     <string name="pocket_ul_empty_all">No games found yet: add a PC, pick Android games, or point Retro at your ROMs.</string>

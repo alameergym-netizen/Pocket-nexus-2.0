@@ -1972,6 +1972,15 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     @Override
+    @TargetApi(Build.VERSION_CODES.O)
+    public void onPictureInPictureModeChanged(boolean inPictureInPicture, Configuration configuration) {
+        super.onPictureInPictureModeChanged(inPictureInPicture, configuration);
+        if (connected && ownsStreamCallback()) {
+            HorizonStreamObserver.instance().setBackground(horizonStreamTicket, inPictureInPicture);
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
@@ -5834,6 +5843,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 HorizonStartupRecovery.end(Game.this);
                 connected = true;
                 connecting = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode()) {
+                    HorizonStreamObserver.instance().setBackground(horizonStreamTicket, true);
+                }
                 pocketSessionStartMs = android.os.SystemClock.elapsedRealtime();
                 pocketLastBatteryAlert = 101;
                 timerHandler.removeCallbacks(pocketBatteryWatch);

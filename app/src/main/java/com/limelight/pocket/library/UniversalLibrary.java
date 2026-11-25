@@ -104,6 +104,19 @@ public final class UniversalLibrary {
             return false;
         }
 
+        boolean requiresAlternateProviderChoice() {
+            Way preferred = best();
+            if (preferred == null) return false;
+            for (Way way : ways) {
+                if (way.last == preferred.last && !way.item.kind.equals(preferred.item.kind)) return true;
+            }
+            return false;
+        }
+
+        boolean requiresLaunchChoice() {
+            return requiresPcChoice() || requiresRetroChoice() || requiresAlternateProviderChoice();
+        }
+
         public boolean on(int platform) {
             for (Way w : ways) {
                 if (w.platform == platform) {

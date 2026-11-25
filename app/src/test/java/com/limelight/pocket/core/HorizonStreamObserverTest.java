@@ -86,4 +86,34 @@ public class HorizonStreamObserverTest {
         assertEquals(ticket, observer.snapshot().ticket);
         assertEquals(LAUNCHING, observer.snapshot().state);
     }
+
+    @Test public void pictureInPictureKeepsTheConnectedOwnerAndRecordsVisibility() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        long ticket = observer.beginAttempt();
+        observer.setBackground(ticket, true);
+        assertEquals(LAUNCHING, observer.snapshot().state);
+        assertTrue(observer.connected(ticket));
+
+        observer.setBackground(ticket, true);
+        assertEquals(BACKGROUND, observer.snapshot().state);
+        assertTrue(observer.isRunning(ticket));
+        observer.setBackground(ticket, false);
+        assertEquals(RUNNING, observer.snapshot().state);
+    }
+
+    @Test public void stalePictureInPictureStateCannotReplaceTheNextStreamOrReviveAnEndingOne() {
+        HorizonStreamObserver observer = new HorizonStreamObserver();
+        long old = observer.beginAttempt();
+        observer.connected(old);
+        long ticket = observer.beginAttempt();
+        observer.connected(ticket);
+        observer.setBackground(old, true);
+        assertEquals(RUNNING, observer.snapshot().state);
+
+        observer.setBackground(ticket, true);
+        observer.stopping(ticket);
+        observer.setBackground(ticket, false);
+        assertEquals(ENDING, observer.snapshot().state);
+        assertFalse(observer.isRunning(ticket));
+    }
 }
