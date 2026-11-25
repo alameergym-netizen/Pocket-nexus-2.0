@@ -1,6 +1,6 @@
 # Pocket Nexus 2.0 feature acceptance
 
-This ledger tracks the 153 criteria in the expanded completion specification against the [14-gate blueprint](HORIZON_SYSTEM_BLUEPRINT.md). The integration baseline is #98 at `01f13b24cc6542fe74b318f328f2efefa1bdaa07`. Imported audit statuses describe the supplied snapshot at #95. They are preserved as history. Evidence in this ledger applies to the named path or test, with the remaining scope stated where known.
+This ledger tracks the 153 criteria in the expanded completion specification against the [14-gate blueprint](HORIZON_SYSTEM_BLUEPRINT.md). The integration baseline is #102 at `7afe7a4cedeb7eacf242db89ec3cfed39616740b`. Imported audit statuses describe the supplied snapshot at #95. They are preserved as history. Evidence in this ledger applies to the named path or test, with the remaining scope stated where known.
 
 P0 is core or release-critical, P1 is original product scope, and P2 is optional. The inherited audit uses V for automated verification, I for implementation evidence, P for partial, R for research, U for insufficient evidence, and H for hardware, signing or provider acceptance. An unmapped row remains open for a source audit or a targeted test. When adding evidence, record the tested commit, code paths, exact CI run and outstanding conditions. Use the [final physical matrix](HORIZON_FINAL_PHYSICAL_ACCEPTANCE.md) for device and owner signing results.
 
@@ -31,7 +31,7 @@ The [client and upstream registry](CLIENTS_AND_SOURCES.md) tracks provenance and
 | T01 | G03 | P0 | P | Signature: premium cinematic layout family, actual Home/Library/Control screenshots. | Requirement evidence pending. |
 | T02 | G03 | P0 | P | Atmosphere: layered/translucent efficient layout with no-blur fallback and screenshots. | Requirement evidence pending. |
 | T03 | G03 | P0 | P | Horizon: streaming-focused layout, host/session/network cards, screenshots. | Requirement evidence pending. |
-| T04 | G03 | P0 | P | Pure OLED: true black minimal layout, reduced effects and screenshots. | Requirement evidence pending. |
+| T04 | G03 | P0 | P | Pure OLED: true black minimal layout, reduced effects and screenshots. | Candidate #101 produced actual Android 13 Home, Library and Control screenshots. Legacy Home layout and controller navigation also passed. [CI 45567263609](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45567263609) |
 | T05 | G03 | P0 | U | Legacy: retro pixel typography/icons/cards/layout, not palette only; screenshots. | Requirement evidence pending. |
 | T06 | G03 | P0 | U | Titanium: telemetry-led technical layout, live/unknown metrics rather than mock numbers; screenshots. | Requirement evidence pending. |
 | T07 | G03 | P1 | P | Preserve 15 legacy and 7 Horizon preset inventory (verify prior proposed counts/actual IDs), Cinema/Noir where applicable; no data loss. | Requirement evidence pending. |
@@ -53,8 +53,8 @@ The [client and upstream registry](CLIENTS_AND_SOURCES.md) tracks provenance and
 | A04 | G04/G10 | P0 | U | Cloud/native external context actions via supported permission/API; unavailable actions explain why. | Requirement evidence pending. |
 | A05 | G03/G05 | P0 | P/H | Overlay open/close doesn't send controls to game, steal B or regress pacing; protected preview fallback. | Requirement evidence pending. |
 | A06 | G11 | P1 | U | Assist Music/Messages/Capture/Settings/Switch/Exit with authorized provider-specific actions. | Requirement evidence pending. |
-| L01 | G04 | P0 | P | Stable per-provider IDs; duplicate title/edition collision handling, source selection and preferred source; reconcile #98. | Requirement evidence pending. |
-| L02 | G04 | P0 | V | Collections add/remove/dedup/filter/restart, verified #94. Re-run integrated regression. | Requirement evidence pending. |
+| L01 | G04 | P0 | P | Stable per-provider IDs; duplicate title/edition collision handling, source selection and preferred source; reconcile #98. | Exact PC app IDs and an explicit choice for an unplayed PC/Cloud group are covered. Preferred-source settings remain open. [CI 45566251253](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45566251253) |
+| L02 | G04 | P0 | V | Collections add/remove/dedup/filter/restart, verified #94. Re-run integrated regression. | Library collections retain membership, current filter and deletion confirmation in Android 13. [CI 45566251253](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45566251253) |
 | L03 | G04 | P1 | P | Favorites, recently played, accurate playtime/history, custom art/metadata and offline caching. | Requirement evidence pending. |
 | L04 | G04 | P1 | P | Steam/Epic/GOG/Xbox Windows/Playnite library source and installed/available state; secure actual launch where supported. | Requirement evidence pending. |
 | L05 | G04 | P1 | P | Android packages, retro external emulator and supported cores, documented intent mappings. | Requirement evidence pending. |
@@ -98,12 +98,12 @@ The [client and upstream registry](CLIENTS_AND_SOURCES.md) tracks provenance and
 | H03 | G08 | P0 | V/H | Read-only CPU/RAM/uptime/AC battery + library + separate lock/display-off grants. | Requirement evidence pending. |
 | H04 | G08 | P0 | P | Vibepollo metadata adapter -> supported config, apps, encoder, version, session, virtual display and client capabilities. | Requirement evidence pending. |
 | H05 | G08 | P1 | R | Adapter vs full Apollo/Vibepollo fork decision based on capability gap, maintainability and upstream license. | Requirement evidence pending. |
-| H06 | G08 | P1 | U | RTX 4060 GPU/VRAM/temp/encoder and other host telemetry using supported APIs; real timestamp/unknown. | Requirement evidence pending. |
+| H06 | G08 | P1 | U | RTX 4060 GPU/VRAM/temp/encoder and other host telemetry using supported APIs; real timestamp/unknown. | Windows dashboard runs the installed driver query. CI covers independent counters, unavailable fields and bounded driver capability detection. RTX 4060 load remains pending. [CI 45567866578](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45567866578) |
 | H07 | G08 | P1 | P | Scoped secure power/sleep/restart/shutdown, WOL, display/audio controls and explicit authorization/rollback. | Requirement evidence pending. |
 | H08 | G08 | P1 | P | Playnite read-only manual export -> supported launch/refresh, installed identity, actual desktop validation. | Requirement evidence pending. |
 | H09 | G08/G07 | P1 | P | Secure file transfer and save operations scoped to user-approved roots, no arbitrary commands/path traversal. | Requirement evidence pending. |
 | H10 | G08 | P0 | P | Legacy USB-only scope preserved; secure applicable mic/power/library paths before broad remote exposure. | Requirement evidence pending. |
-| H11 | G14 | P0 | V/H | ZIP/MSI install, Start menu, upgrade, downgrade refusal, uninstall, settings preservation, exact hashes. | Requirement evidence pending. |
+| H11 | G14 | P0 | V/H | ZIP/MSI install, Start menu, upgrade, downgrade refusal, uninstall, settings preservation, exact hashes. | Windows per-user MSI install, upgrade, downgrade refusal and uninstall fixtures verified this payload. Owner installation remains pending. [CI 45567866593](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45567866593) |
 | H12 | G14 | P0 | P/H | Windows updater/rollback, production signing owner-local, physical real launch; #97 fixture not production. | Requirement evidence pending. |
 | P01 | G06 | P1 | V/H | Android thermal severity/Battery Saver/battery-side power; honest units/unknown and real RP6 validation. | Bounded decoder correlation and thermal/Battery Saver observations integrated in #97. Physical stream measurements pending. [CI 45562832346](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45562832346) [CI 45562997936](https://github.com/alameergym-netizen/Pocket-nexus-2.0/actions/runs/45562997936) |
 | P02 | G06 | P1 | R | PServer capability discovery against exact firmware and documented authorization; no mandatory root/Shizuku. | Requirement evidence pending. |
