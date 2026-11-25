@@ -220,6 +220,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private boolean displayedFailureDialog = false;
     private volatile long horizonStreamTicket;
     private long horizonSelectionGeneration;
+    private boolean horizonRejectedSelection;
     private HorizonDeferredTask horizonSignInTask, horizonFallbackTask;
     private final Handler horizonDeferredHandler = new Handler(Looper.getMainLooper());
 
@@ -382,6 +383,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onStart() {
         super.onStart();
+        if (horizonRejectedSelection) return;
         horizonInputVisible = true;
         com.limelight.pocket.global.GlobalButtonEngine.streamTookInput();
     }
@@ -524,6 +526,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         horizonSelectionGeneration = HorizonStreamSelection.capture(getIntent());
+        if (!HorizonStreamSelection.current(horizonSelectionGeneration)) {
+            horizonRejectedSelection = true;
+            finish();
+            return;
+        }
 
         instance = this;
         boolean startingAutomaticResume = HorizonStartupRecovery.begin(this, this, getIntent());
@@ -1481,6 +1488,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        if (horizonRejectedSelection) return;
 
         // Set requested orientation for possible new screen size
         setPreferredOrientationForActivity();
@@ -1696,6 +1704,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (horizonRejectedSelection) return;
 
         // We can't guarantee the state of modifiers keys which may have
         // lifted while focus was not on us. Clear the modifier state.
@@ -1977,6 +1986,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @TargetApi(Build.VERSION_CODES.N)
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
         super.onMultiWindowModeChanged(isInMultiWindowMode);
+        if (horizonRejectedSelection) return;
 
         // In multi-window, we don't want to use the full-screen layout
         // flag. It will cause us to collide with the system UI.
@@ -1999,6 +2009,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @TargetApi(Build.VERSION_CODES.O)
     public void onPictureInPictureModeChanged(boolean inPictureInPicture, Configuration configuration) {
         super.onPictureInPictureModeChanged(inPictureInPicture, configuration);
+        if (horizonRejectedSelection) return;
         if (connected && ownsStreamCallback()) {
             HorizonStreamObserver.instance().setBackground(horizonStreamTicket, inPictureInPicture);
         }
@@ -2006,6 +2017,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        if (horizonRejectedSelection) {
+            super.onDestroy();
+            return;
+        }
         stopDisplayScene();
         finishBenchmark(false);
         HorizonStartupRecovery.end(this);
@@ -2061,12 +2076,17 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onResume() {
         super.onResume();
+        if (horizonRejectedSelection) return;
         sceneForeground = true;
         if (connected) startDisplayScene();
     }
 
     @Override
     protected void onPause() {
+        if (horizonRejectedSelection) {
+            super.onPause();
+            return;
+        }
         sceneForeground = false;
         stopDisplayScene();
         finishBenchmark(false);
@@ -2090,6 +2110,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        if (horizonRejectedSelection) {
+            super.onStop();
+            return;
+        }
         HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
         horizonInputVisible = false;
