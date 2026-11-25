@@ -1,5 +1,6 @@
 """Use the Files menu of the installed development APK to verify save copy recovery."""
 from pathlib import Path
+import hashlib
 import subprocess
 
 import control_workspace as controls
@@ -10,6 +11,8 @@ SAVE = "Horizon-slot.sav"
 BACKUP = "Backup - " + SAVE + ".nexussave"
 RECOVERED = "Horizon-slot (2).sav"
 DOWNLOADS = "/sdcard/Download/"
+PREVIEW = "Preview save restore"
+RESTORE = "Restore verified copy here"
 
 
 def hold_row(tree, name):
@@ -18,6 +21,16 @@ def hold_row(tree, name):
     assert left < right and top < bottom
     x, y = str((left + right) // 2), str((top + bottom) // 2)
     controls.adb("shell", "input", "swipe", x, y, x, y, "850")
+
+
+def open_restore_preview(tree, digest):
+    hold_row(tree, BACKUP)
+    menu = controls.wait_for("verified restore preview action", lambda t: controls.has(t, PREVIEW))
+    controls.tap_label(menu, PREVIEW)
+    return controls.wait_for("restore preview verifies checksum and explains the conflict", lambda t:
+                             controls.has(t, RESTORE)
+                             and any(digest in n.get("text", "") for n in t.iter("node"))
+                             and any("Restore keeps both files" in n.get("text", "") for n in t.iter("node")))
 
 
 def main():
@@ -43,10 +56,16 @@ def main():
     current_save = bytes([5, 6, 7, 8])
     local_save.write_bytes(current_save)
     controls.adb("push", str(local_save), DOWNLOADS + SAVE)
-    hold_row(files, BACKUP)
-    menu = controls.wait_for("verified restore action", lambda t: controls.has(t, "Restore verified copy here"))
-    controls.capture("02-verified-restore-action")
-    controls.tap_label(menu, "Restore verified copy here")
+    archive = controls.RESULTS / "archive.nexussave"
+    controls.adb("pull", DOWNLOADS + BACKUP, str(archive))
+    digest = hashlib.sha256(archive.read_bytes()[:-32]).hexdigest()
+    open_restore_preview(files, digest)
+    controls.capture("02-verified-restore-preview")
+    controls.key("BUTTON_B")
+    files = controls.wait_for("B closes preview without publishing a save", lambda t:
+                              controls.has(t, BACKUP) and not controls.has(t, PREVIEW))
+    assert not controls.has(files, RECOVERED)
+    controls.tap_label(open_restore_preview(files, digest), RESTORE)
     controls.wait_for("published recovered file", lambda t: controls.has(t, RECOVERED))
     # adb pull passes the exact filenames without quoting paths for the Android shell.
     original = controls.RESULTS / "current.sav"

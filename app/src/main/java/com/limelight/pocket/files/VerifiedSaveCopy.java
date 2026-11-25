@@ -30,6 +30,8 @@ final class VerifiedSaveCopy {
 
     private VerifiedSaveCopy() { }
 
+    record Preview(String name, long size, String digest) { }
+
     static boolean isBackup(File file) {
         return file.getName().toLowerCase(Locale.ROOT).endsWith(EXTENSION);
     }
@@ -58,11 +60,16 @@ final class VerifiedSaveCopy {
         }
     }
 
-    static void restore(File archive, File destination, File cache) throws IOException {
+    static Preview preview(File archive) throws IOException {
+        return read(archive, null);
+    }
+
+    static void restore(File archive, File destination, File cache, Preview confirmed) throws IOException {
         File staging = stage(cache);
         try {
-            File restored = read(archive, staging);
-            VerifiedFileTransfer.transfer(restored, destination, false);
+            Preview actual = read(archive, staging);
+            if (!actual.equals(confirmed)) throw new IOException("Save backup changed after preview");
+            VerifiedFileTransfer.transfer(new File(staging, actual.name()), destination, false);
         } finally {
             cleanup(staging);
         }
@@ -89,7 +96,7 @@ final class VerifiedSaveCopy {
         }
     }
 
-    private static File read(File archive, File staging) throws IOException {
+    private static Preview read(File archive, File staging) throws IOException {
         VerifiedFileTransfer.requireOrdinary(archive);
         long fileSize = archive.length();
         if (!archive.isFile() || fileSize < FIXED_BYTES + 1
@@ -127,7 +134,12 @@ final class VerifiedSaveCopy {
             if (input.read() != -1 || !MessageDigest.isEqual(expected, digest.digest())) {
                 throw new IOException("Save backup integrity check failed");
             }
-            return result;
+            char[] hex = new char[expected.length * 2];
+            for (int i = 0; i < expected.length; i++) {
+                hex[i * 2] = Character.forDigit((expected[i] & 0xff) >>> 4, 16);
+                hex[i * 2 + 1] = Character.forDigit(expected[i] & 0xf, 16);
+            }
+            return new Preview(name, size, new String(hex));
         }
     }
 
