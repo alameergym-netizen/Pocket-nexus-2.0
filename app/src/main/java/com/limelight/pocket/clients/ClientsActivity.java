@@ -50,6 +50,7 @@ public class ClientsActivity extends ConsoleActivity {
     private final Map<String, String> installed = new HashMap<>();
     private final Map<String, String> versions = new HashMap<>();
     private final Map<String, View> rowById = new HashMap<>();
+    private final Map<String, TextView> stateById = new HashMap<>();
     private boolean scanned;
     private String selectedId;
 
@@ -143,11 +144,9 @@ public class ClientsActivity extends ConsoleActivity {
                 versions.clear();
                 versions.putAll(foundVersions);
                 scanned = true;
-                View focused = getCurrentFocus();
-                String keep = focused != null && focused.getTag() instanceof String ? (String) focused.getTag() : null;
-                buildRows();
-                if (keep != null && rowById.get(keep) != null) {
-                    rowById.get(keep).requestFocus();
+                // Update the labels in place: rebuilding the rows would drop the focus
+                for (HorizonClientRegistry.Client c : HorizonClientRegistry.ALL) {
+                    updateRowState(c);
                 }
                 showDetails(HorizonClientRegistry.byId(selectedId));
             });
@@ -303,6 +302,7 @@ public class ClientsActivity extends ConsoleActivity {
     private void buildRows() {
         rows.removeAllViews();
         rowById.clear();
+        stateById.clear();
         for (HorizonClientRegistry.Group g : GROUPS) {
             List<HorizonClientRegistry.Client> clients = HorizonClientRegistry.inGroup(g);
             if (clients.isEmpty()) {
@@ -341,6 +341,7 @@ public class ClientsActivity extends ConsoleActivity {
         value.setPaddingRelative(dp(8), 0, 0, 0);
         value.setMaxWidth(dp(170));
         row.addView(value);
+        stateById.put(c.id, value);
         row.setContentDescription(c.name + ", " + state);
         row.setOnFocusChangeListener((v, has) -> {
             if (has) {
@@ -361,6 +362,17 @@ public class ClientsActivity extends ConsoleActivity {
         lp.bottomMargin = dp(5);
         rows.addView(row, lp);
         rowById.put(c.id, row);
+    }
+
+    private void updateRowState(HorizonClientRegistry.Client c) {
+        TextView value = stateById.get(c.id);
+        View row = rowById.get(c.id);
+        if (value == null || row == null) {
+            return;
+        }
+        String state = state(c);
+        value.setText(state);
+        row.setContentDescription(c.name + ", " + state);
     }
 
     // ---- Details ----------------------------------------------------------------------------
