@@ -125,7 +125,7 @@ def studio(tree):
 
 
 def open_studio():
-    # A first-time tip on Home takes the first button press, so try START a few times
+    """Settings > Look > Theme Studio, with the controller (the primary path)."""
     settings = None
     for _ in range(4):
         key("BUTTON_START")
@@ -136,7 +136,9 @@ def open_studio():
         except AssertionError:
             continue
     assert settings is not None, "Settings did not open from Home"
-    tap_label(settings, "Theme Studio")
+    key("DPAD_RIGHT")
+    move_focus_to("Theme Studio", "DPAD_UP", limit=8)
+    key("BUTTON_A")
     return wait_for("Theme Studio", studio)
 
 
@@ -226,14 +228,14 @@ def main(apk):
     wait_for("Legacy preview", lambda t: has(t, "Previewing Nexus Legacy"))
     capture("09-legacy-home")
     key("BUTTON_B")
-    settings = wait_for("B closes the studio", lambda t: has(t, "Theme Studio") and not studio(t))
+    wait_for("B returns to the same Settings row", lambda t: not studio(t) and focused(t, "Theme Studio"))
     current = prefs()
     assert SIGNATURE_ACCENT in current, "closing the studio changed the look"
     assert "grid_tiles" not in current and '<string name="pocket_backdrop">black</string>' not in current
     print("PASS: B closes without applying the preview", flush=True)
 
     # The look before the last apply comes back
-    tap_label(settings, "Theme Studio")
+    key("BUTTON_A")
     wait_for("studio reopens on Signature", lambda t: studio(t) and focused(t, "Nexus Signature"))
     move_focus_to("Look before the last apply", "DPAD_DOWN", limit=60)
     wait_for("previous look preview", lambda t: has(t, "Previewing Look before the last apply"))
@@ -268,7 +270,7 @@ def main(apk):
     wait_for("pasted look previews", lambda t: has(t, "Previewing Pasted look") and focused(t, "Apply look"))
     capture("12-pasted-look")
     key("BUTTON_B")
-    wait_for("B closes after paste", lambda t: has(t, "Theme Studio") and not studio(t))
+    wait_for("B closes after paste", lambda t: not studio(t) and focused(t, "Theme Studio"))
     assert WHITE_ACCENT in prefs(), "pasting applied a look without Apply"
     print("PASS: copy and paste preview a look without applying it", flush=True)
 
