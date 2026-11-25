@@ -73,6 +73,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     private final List<TextView> tabs = new ArrayList<>();
     private final List<Runnable> rowRefreshers = new ArrayList<>();
+    private final com.limelight.pocket.romm.RomMCatalog rommCatalog = new com.limelight.pocket.romm.RomMCatalog(this);
     private LinearLayout rowsContainer;
     private ScrollView rowsScroll;
     private int currentTab = TAB_LOOK;
@@ -178,6 +179,18 @@ public class QuickSettingsActivity extends ConsoleActivity {
         if (capturingHotkey) {
             endHotkeyCapture();
         }
+    }
+
+    @Override
+    protected void onStop() {
+        if (rommCatalog.close()) hideConsolePanel();
+        super.onStop();
+    }
+
+    @Override
+    protected void onConsolePanelClosed() {
+        rommCatalog.close();
+        super.onConsolePanelClosed();
     }
 
     @Override
@@ -1470,6 +1483,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     /** The libraries: layouts, game pages, sorting, trophies, art. */
     private void buildLibraryTab() {
+        addAction(getString(R.string.horizon_romm_title), getString(R.string.horizon_romm_settings_sub), null, rommCatalog::show);
         addHeader(R.string.pocket_header_layout);
 
         final String[] modeLabels = {getString(R.string.pocket_view_carousel), getString(R.string.pocket_view_grid),

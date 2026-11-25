@@ -152,7 +152,15 @@ def main(apk):
     prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8")
     assert '<int name="horizon_scene_display_cap" value="30"' in prefs, "display scene choice was not saved"
     capture("07-stream-display-scene")
-    tap_label(streaming, "System")
+    tap_label(streaming, "Library")
+    library_settings = wait_for("RomM catalog entry in Library settings", lambda t: has(t, "RomM catalog"))
+    tap_label(library_settings, "RomM catalog")
+    wait_for("RomM requests the user's HTTPS address before starting a connection", lambda t: has(t, "RomM server"))
+    capture("08-romm-setup")
+    key("BUTTON_B")
+    library_settings = wait_for("RomM setup cancels back to Library settings", lambda t:
+                                has(t, "RomM catalog") and not has(t, "RomM server"))
+    tap_label(library_settings, "System")
     recovery = wait_for("Android launcher recovery action", lambda t: has(t, "Recovery")
                         and has(t, "Open another Android launcher") and has(t, "Compatibility stream start"))
     tap_label(recovery, "Compatibility stream start")
