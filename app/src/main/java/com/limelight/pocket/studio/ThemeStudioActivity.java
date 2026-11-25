@@ -67,6 +67,8 @@ public class ThemeStudioActivity extends ConsoleActivity {
     private LinearLayout rows;
     private final TextView[] sceneTabs = new TextView[3];
     private final Map<String, View> rowByKey = new HashMap<>();
+    /** Where the focus goes once the window has it (after any touch-mode change on arrival). */
+    private View initialFocus;
 
     public static void open(Context context) {
         context.startActivity(new Intent(context, ThemeStudioActivity.class));
@@ -114,6 +116,20 @@ public class ThemeStudioActivity extends ConsoleActivity {
             focusKey = (String) focused.getTag();
         }
         build();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // Opened with a button: the base screen has just left touch mode and focused the first
+        // row; the applied look is where the focus belongs
+        View target = initialFocus;
+        if (hasFocus && target != null) {
+            initialFocus = null;
+            if (!getWindow().getDecorView().isInTouchMode() && target.isAttachedToWindow()) {
+                target.requestFocus();
+            }
+        }
     }
 
     // ---- Screen -----------------------------------------------------------------------------
@@ -202,6 +218,8 @@ public class ThemeStudioActivity extends ConsoleActivity {
             if (android.os.Build.VERSION.SDK_INT >= 26) {
                 target.setFocusedByDefault(true);
             }
+            // Only on arrival; a rebuild while the window has focus just moves the focus
+            initialFocus = hasWindowFocus() ? null : target;
             target.post(target::requestFocus);
         }
     }
