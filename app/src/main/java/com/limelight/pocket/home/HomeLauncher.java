@@ -152,6 +152,8 @@ public final class HomeLauncher {
             final EsdeConfig cfg = RetroLibrary.config(app);
             final File root = HorizonHomeRetroSource.choose(item.c,RetroLibrary.romRoot(app),
                     RetroLibrary.rememberedRoots(app));
+            final EsdeConfig.SystemDef system = cfg.system(item.a);
+            final File directory = RetroLibrary.systemFolder(root, system);
             MAIN.post(() -> {
                 if (a.isFinishing() || a.isDestroyed() || !a.hasWindowFocus()
                         || !REQUESTS.claim(request, android.os.SystemClock.elapsedRealtime())) {
@@ -162,19 +164,17 @@ public final class HomeLauncher {
                     Toast.makeText(a,R.string.horizon_home_retro_source,Toast.LENGTH_LONG).show();
                     return;
                 }
-                EsdeConfig.SystemDef s = cfg.system(item.a);
-                if (s == null) {
+                if (system == null) {
                     Toast.makeText(a, R.string.pocket_home_missing, Toast.LENGTH_LONG).show();
                     return;
                 }
-                File dir = s.absolute ? new File(s.folder) : new File(root, s.folder);
-                File file = HorizonHomeRetroSource.resolve(dir,item.b);
+                File file = HorizonHomeRetroSource.resolve(directory,item.b);
                 if (file == null) {
                     Toast.makeText(a,R.string.pocket_retro_file_gone,Toast.LENGTH_LONG).show();
                     return;
                 }
-                RomScanner.Rom rom = new RomScanner.Rom(s.name, item.b, file, file.isDirectory());
-                EsdeConfig.Command cmd = RetroLibrary.gameCommand(a, null, s, rom);
+                RomScanner.Rom rom = new RomScanner.Rom(system.name, item.b, file, file.isDirectory());
+                EsdeConfig.Command cmd = RetroLibrary.gameCommand(a, null, system, rom);
                 RetroLauncher.Result r = RetroLauncher.launch(a, cfg, cmd, file, root);
                 if (r.status == RetroLauncher.OK) {
                     PocketSounds.play(a, PocketSounds.SELECT);

@@ -65,6 +65,9 @@ import java.util.concurrent.Executors;
 public class LibraryActivity extends ConsoleActivity {
 
     private static final String KEY_SORT = "pocket_ul_sort";
+    private static final String STATE_PAGE_GAME = "library.page.game";
+    private static final String STATE_PAGE_WAY = "library.page.way";
+    private static final String STATE_PAGE_PLAY = "library.page.play";
     private static final int SORT_RECENT = 0;
     private static final int SORT_NAME = 1;
     private static final int SORT_PLAYED = 2;
@@ -96,6 +99,9 @@ public class LibraryActivity extends ConsoleActivity {
     private int heroToken;
     private int focusGeneration;
     private boolean loading = true;
+    private String pageGame;
+    private String pageWay;
+    private boolean pagePlay;
 
     private ImageView heroArt;
     private TextView kicker;
@@ -112,6 +118,11 @@ public class LibraryActivity extends ConsoleActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            pageGame = savedInstanceState.getString(STATE_PAGE_GAME);
+            pageWay = savedInstanceState.getString(STATE_PAGE_WAY);
+            pagePlay = savedInstanceState.getBoolean(STATE_PAGE_PLAY);
+        }
         d = getResources().getDisplayMetrics().density;
         sort = Math.max(SORT_RECENT, Math.min(SORT_PLAYED, PocketPrefs.prefs(this).getInt(KEY_SORT, SORT_RECENT)));
         setContentView(build());
@@ -123,6 +134,33 @@ public class LibraryActivity extends ConsoleActivity {
                 hintB(this, R.string.pocket_hint_back));
         kicker.setText(R.string.pocket_ul_loading);
         load();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString(STATE_PAGE_GAME, pageGame);
+        state.putString(STATE_PAGE_WAY, pageWay);
+        state.putBoolean(STATE_PAGE_PLAY, pagePlay);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent result) {
+        super.onActivityResult(requestCode, resultCode, result);
+        if (requestCode != GamePageActivity.REQUEST) return;
+        pagePlay = pageGame != null && resultCode == RESULT_OK && result != null
+                && GamePageActivity.ACTION_PLAY.equals(result.getStringExtra(GamePageActivity.RESULT_ACTION));
+        if (!pagePlay) {
+            pageGame = null;
+            pageWay = null;
+        }
+        dispatchPagePlay();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused) dispatchPagePlay();
     }
 
     @Override
@@ -313,6 +351,7 @@ public class LibraryActivity extends ConsoleActivity {
                 loading = false;
                 all = got;
                 show(true);
+                dispatchPagePlay();
             });
         });
     }
@@ -687,7 +726,7 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     private void playGame(UniversalLibrary.Game game) {
-        if (game.requiresPcChoice()) options(game);
+        if (game.requiresPcChoice() || game.requiresRetroChoice()) options(game);
         else play(game.best());
     }
 
@@ -714,21 +753,57 @@ public class LibraryActivity extends ConsoleActivity {
         if (uuid == null) {
             return;
         }
+        pageGame = g.key;
+        pageWay = best.item.key();
+        pagePlay = false;
         PocketSounds.play(this, PocketSounds.OPEN);
-        GamePageActivity.open(this, null, uuid, HomeActivity.artId(best.item), g.title, best.label, false, false, null);
+        HomeItem retro = HomeItem.RETRO.equals(best.item.kind) && !g.requiresRetroChoice() ? best.item : null;
+        GamePageActivity.open(this, null, uuid, HomeActivity.artId(best.item), g.title, best.label,
+                false, false, null, retro);
+    }
+
+    private void dispatchPagePlay() {
+        if (!pagePlay || loading || !hasWindowFocus() || isFinishing() || isDestroyed()) return;
+        String gameKey = pageGame;
+        String wayKey = pageWay;
+        pageGame = null;
+        pageWay = null;
+        pagePlay = false;
+        for (UniversalLibrary.Game game : all) {
+            if (!game.key.equals(gameKey)) continue;
+            if (game.requiresPcChoice() || game.requiresRetroChoice()) {
+                int visible = shown.indexOf(game);
+                if (visible >= 0 && visible != heroPos) updateHero(visible);
+                options(game);
+                return;
+            }
+            for (UniversalLibrary.Way way : game.ways) {
+                if (way.item.key().equals(wayKey)) {
+                    play(way);
+                    return;
+                }
+            }
+            break;
+        }
+        Toast.makeText(this, R.string.pocket_home_missing, Toast.LENGTH_LONG).show();
     }
 
     /** Y: every way to play it, its status, its collections, its page. */
     private void options(final UniversalLibrary.Game g) {
         List<StreamMenuView.Item> items = new ArrayList<>();
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_ul_play_on)));
-        boolean choose = g.requiresPcChoice();
-        if (choose) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_pc_choice)));
+        boolean choosePc = g.requiresPcChoice();
+        boolean chooseRom = g.requiresRetroChoice();
+        if (choosePc) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_pc_choice)));
+        if (chooseRom) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_rom_choice)));
         UniversalLibrary.Way best = g.best();
         for (final UniversalLibrary.Way w : g.ways) {
-            String label = choose && HomeItem.PC.equals(w.item.kind)
+            String label = choosePc && HomeItem.PC.equals(w.item.kind)
                     ? getString(R.string.horizon_library_pc_app, w.label, w.item.n) : w.label;
-            items.add(StreamMenuView.Item.action((!choose && w == best ? "▶  " : "") + label, () -> {
+            if (chooseRom && HomeItem.RETRO.equals(w.item.kind)) {
+                items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_rom_path, w.item.c, w.item.b)));
+            }
+            items.add(StreamMenuView.Item.action((!choosePc && !chooseRom && w == best ? "▶  " : "") + label, () -> {
                 hideConsolePanel();
                 play(w);
             }).withIcon(w.platform == UniversalLibrary.PLATFORM_PC ? "DESKTOP"

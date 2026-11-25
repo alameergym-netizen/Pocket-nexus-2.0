@@ -373,6 +373,18 @@ public final class RetroLibrary {
         return folders.get(s.folder.toLowerCase(Locale.ROOT));
     }
 
+    /** Use the scanner's folder spelling when launching from a source-bound shortcut. */
+    public static File systemFolder(File root, EsdeConfig.SystemDef system) {
+        if (root == null || system == null) return null;
+        try {
+            File exact = system.absolute ? new File(system.folder) : new File(root, system.folder);
+            if (system.absolute || exact.isDirectory()) return exact;
+            return folderOf(system, root, folders(root));
+        } catch (SecurityException e) {
+            return null;
+        }
+    }
+
     /** Looks through every system folder (blocking). */
     public static Library scan(Context context, File root) {
         EsdeConfig cfg = config(context);
