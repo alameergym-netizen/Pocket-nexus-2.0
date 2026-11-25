@@ -31,7 +31,9 @@ public class HorizonSettingsFocusTest {
                 .putBoolean(PocketPrefs.KEY_ANIMATIONS, false)
                 .putBoolean(PocketPrefs.KEY_UI_SOUNDS, false)
                 .putBoolean(PocketPrefs.KEY_HAPTICS, false).commit();
+        System.out.println("Settings fixture: creating the view tree");
         ActivityController<QuickSettingsActivity> controller = Robolectric.buildActivity(QuickSettingsActivity.class).create();
+        System.out.println("Settings fixture: Activity created");
         try {
             QuickSettingsActivity activity = controller.get();
             // Exercise the real view/focus tree without attaching an indefinitely
@@ -40,12 +42,14 @@ public class HorizonSettingsFocusTest {
             decor.measure(View.MeasureSpec.makeMeasureSpec(1920, View.MeasureSpec.EXACTLY),
                     View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY));
             decor.layout(0, 0, 1920, 1080);
+            System.out.println("Settings fixture: layout complete");
             LinearLayout tabs = activity.findViewById(R.id.pocketTabs);
             LinearLayout rows = activity.findViewById(R.id.pocketRows);
             tabs.getChildAt(0).requestFocusFromTouch();
             // Repeated touch selections replace the currently focused row subtree.
             // Android may move that focus to the first tab while removing it.
             for (int i = 0; i < 3; i++) {
+                System.out.println("Settings fixture: selecting Streaming, iteration " + i);
                 tabs.getChildAt(3).performClick();
                 assertTrue(tabs.getChildAt(3).isSelected());
                 assertFalse(tabs.getChildAt(0).isSelected());
