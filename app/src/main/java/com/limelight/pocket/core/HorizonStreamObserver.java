@@ -45,9 +45,14 @@ public final class HorizonStreamObserver {
         return true;
     }
 
-    /** Delayed side effects must still belong to the accepted running attempt. */
+    /** An accepted connection remains active while the visible stream is in picture-in-picture. */
     public synchronized boolean isRunning(long ticket) {
-        return ticket > 0L && session.ticket == ticket && session.state == HorizonSession.State.RUNNING;
+        return ticket > 0L && session.ticket == ticket
+                && (session.state == HorizonSession.State.RUNNING || session.state == HorizonSession.State.BACKGROUND);
+    }
+
+    public synchronized void setBackground(long ticket, boolean background) {
+        apply(ticket, background ? HorizonSession.Event.BACKGROUND : HorizonSession.Event.FOREGROUND);
     }
 
     public synchronized void stopping(long ticket) {
