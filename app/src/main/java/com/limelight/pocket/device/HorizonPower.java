@@ -4,12 +4,44 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.BatteryManager;
+import android.os.Build;
+import android.os.PowerManager;
 
 import java.util.Locale;
 
 /** Battery-side electrical estimate, not SoC power or a wall-power measurement. */
 public final class HorizonPower {
     private HorizonPower() {}
+
+    public static final class Observations {
+        public final Boolean batterySaver;
+        public final int thermal;
+
+        private Observations(Boolean batterySaver, int thermal) {
+            this.batterySaver = batterySaver;
+            this.thermal = thermal;
+        }
+    }
+
+    public static Observations observe(Context context) {
+        try {
+            return read((PowerManager) context.getSystemService(Context.POWER_SERVICE));
+        } catch (RuntimeException unavailable) {
+            return new Observations(null, -1);
+        }
+    }
+
+    static Observations read(PowerManager manager) {
+        Boolean saver = null;
+        int thermal = -1;
+        if (manager != null) {
+            try { saver = manager.isPowerSaveMode(); } catch (RuntimeException ignored) { }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try { thermal = manager.getCurrentThermalStatus(); } catch (RuntimeException ignored) { }
+            }
+        }
+        return new Observations(saver, thermal);
+    }
 
     /** A positive value means charging, a negative value means discharge. */
     static double watts(int microamps, int millivolts) {

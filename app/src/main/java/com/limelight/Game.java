@@ -28,6 +28,7 @@ import com.limelight.pocket.ResumeTicket;
 import com.limelight.pocket.core.HorizonStreamObserver;
 import com.limelight.pocket.core.HorizonDeferredTask;
 import com.limelight.pocket.core.HorizonLaunchRequests;
+import com.limelight.pocket.device.HorizonPower;
 import com.limelight.pocket.PocketAdaptive;
 import com.limelight.pocket.streaming.HorizonStreamSafety;
 import com.limelight.pocket.streaming.HorizonStreamCompatibility;
@@ -3057,21 +3058,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         boolean batterySaver = false;
         HorizonStreamSafety.Thermal thermal = HorizonStreamSafety.Thermal.UNRESTRICTED;
         if (PocketPrefs.powerLimitsStream(this)) {
-            android.os.PowerManager manager = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (manager != null) {
-                try {
-                    batterySaver = manager.isPowerSaveMode();
-                    if (Build.VERSION.SDK_INT >= 29) {
-                        int state = manager.getCurrentThermalStatus();
-                        if (state >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) {
-                            thermal = HorizonStreamSafety.Thermal.CRITICAL;
-                        } else if (state >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
-                            thermal = HorizonStreamSafety.Thermal.SEVERE;
-                        }
-                    }
-                } catch (RuntimeException ignored) {
-                    // Use whichever public device signals Android supplied.
-                }
+            HorizonPower.Observations power = HorizonPower.observe(this);
+            batterySaver = Boolean.TRUE.equals(power.batterySaver);
+            if (power.thermal >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) {
+                thermal = HorizonStreamSafety.Thermal.CRITICAL;
+            } else if (power.thermal >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
+                thermal = HorizonStreamSafety.Thermal.SEVERE;
             }
         }
         HorizonStreamSafety.Decision decision = HorizonStreamSafety.limit(chosen, batterySaver, thermal,
