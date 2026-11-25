@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_romm_title">RomM catalog</string>
+    <string name="horizon_romm_settings_sub">Browse your own RomM library with a read-only client token.</string>
+    <string name="horizon_romm_server">RomM server</string>
+    <string name="horizon_romm_server_help">Enter the HTTPS address of your RomM 5.4.1 server. Include the subfolder if your server uses one.</string>
+    <string name="horizon_romm_bad_server">Enter a valid HTTPS RomM server address.</string>
+    <string name="horizon_romm_token">RomM client token</string>
+    <string name="horizon_romm_token_help">Use a RomM Client API Token with ROM read permission. It stays in memory while this catalog is open.</string>
+    <string name="horizon_romm_bad_token">Enter the token created in RomM.</string>
+    <string name="horizon_romm_loading">Reading your RomM catalog…</string>
+    <string name="horizon_romm_connection">Could not reach the catalog. Check the address, network, and server certificate.</string>
+    <string name="horizon_romm_denied">RomM denied access. Reopen the catalog with a valid ROM read token.</string>
+    <string name="horizon_romm_unsupported">This server did not return the RomM 5.4.1 catalog format.</string>
+    <string name="horizon_romm_busy">A previous request is finishing. Select Retry shortly.</string>
+    <string name="horizon_romm_retry">Retry</string>
+    <string name="horizon_romm_disconnect">Close catalog</string>
+    <string name="horizon_romm_page">Titles %1$d–%2$d of %3$d</string>
+    <string name="horizon_romm_search">Search catalog</string>
+    <string name="horizon_romm_search_invalid">Enter up to 120 characters.</string>
+    <string name="horizon_romm_previous">Previous titles</string>
+    <string name="horizon_romm_next">Next titles</string>
+    <string name="horizon_romm_empty">No titles on this page.</string>
+    <string name="horizon_romm_id">RomM title ID</string>
+</resources>

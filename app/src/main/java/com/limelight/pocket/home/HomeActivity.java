@@ -581,7 +581,7 @@ public class HomeActivity extends ConsoleActivity {
             return;
         }
         View focus = getCurrentFocus();
-        boolean onActions = workspace || pureOled ? previousActions || previousDock
+        boolean onActions = workspace || pureOled || titanium ? previousActions || previousDock
                 : focus != null && (focus == play || focus == info || focus == more);
         if (onActions) {
             updateHero(target);
@@ -1656,7 +1656,7 @@ public class HomeActivity extends ConsoleActivity {
         }
         else {
             if (dock != null) {
-                dock.view().setVisibility(pureOled ? View.VISIBLE : View.GONE);
+                dock.view().setVisibility(pureOled || titanium ? View.VISIBLE : View.GONE);
             }
             int cell = tileW + Math.round((list ? 0 : 22) * d);
             int width = Math.round(screenW * (titanium ? 0.48f : pureOled ? 0.55f : list ? 0.44f : 0.62f));
@@ -1673,7 +1673,7 @@ public class HomeActivity extends ConsoleActivity {
             rlp.gravity = Gravity.TOP | Gravity.START;
             int telemetrySpace = titanium ? Math.round(36 * Math.max(1f, getResources().getConfiguration().fontScale)) : 0;
             rlp.topMargin = Math.round((48 + telemetrySpace) * d);
-            rlp.bottomMargin = Math.round((pureOled ? 92 : 34) * d);
+            rlp.bottomMargin = Math.round((pureOled || titanium ? 92 : 34) * d);
             row.setPadding(Math.round(18 * d), Math.round(12 * d), Math.round(8 * d), Math.round(60 * d));
             row.setHorizontalFadingEdgeEnabled(false);
             row.setVerticalFadingEdgeEnabled(true);
@@ -2768,7 +2768,7 @@ public class HomeActivity extends ConsoleActivity {
                         return true;
                     }
                 }
-                if ((workspace || pureOled) && event.getAction() == KeyEvent.ACTION_DOWN) {
+                if ((workspace || pureOled || titanium) && event.getAction() == KeyEvent.ACTION_DOWN) {
                     int pos = h.getBindingAdapterPosition();
                     if (pos != RecyclerView.NO_POSITION) {
                         boolean rtl = row.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;

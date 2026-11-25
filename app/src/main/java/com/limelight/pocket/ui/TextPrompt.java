@@ -43,6 +43,11 @@ public final class TextPrompt {
         final float d = a.getResources().getDisplayMetrics().density;
         final Dialog dialog = new Dialog(a);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setOnKeyListener((owner, keyCode, event) -> {
+            if (keyCode != KeyEvent.KEYCODE_BUTTON_B) return false;
+            if (event.getAction() == KeyEvent.ACTION_UP) dialog.cancel();
+            return true;
+        });
         LinearLayout card = new LinearLayout(a);
         card.setOrientation(LinearLayout.VERTICAL);
         int p = Math.round(20 * d);
@@ -82,6 +87,10 @@ public final class TextPrompt {
         field.setInputType(secret ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
                 : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         field.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_FLAG_NO_FULLSCREEN);
+        if (secret && android.os.Build.VERSION.SDK_INT >= 26) {
+            field.setImportantForAutofill(android.view.View.IMPORTANT_FOR_AUTOFILL_NO);
+            field.setImeOptions(field.getImeOptions() | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
+        }
         int fp = Math.round(16 * d);
         field.setPadding(fp, 0, fp, 0);
         GradientDrawable fb = new GradientDrawable();
@@ -118,6 +127,7 @@ public final class TextPrompt {
             lp.dimAmount = 0.6f;
             w.setAttributes(lp);
             w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            if (secret) w.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
                     | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
             if (PocketPrefs.animationsEnabled(a)) {
