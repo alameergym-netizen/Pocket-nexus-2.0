@@ -7,7 +7,6 @@ namespace PocketNexus
     using System.IO;
     using System.Text;
     using System.Text.RegularExpressions;
-    using System.Threading;
     using System.Threading.Tasks;
 
     public static class NexusGpuTelemetry
@@ -24,8 +23,7 @@ namespace PocketNexus
             lock (Gate)
             {
                 if (current == null || current.IsCompleted)
-                    current = Task.Factory.StartNew(Collect, CancellationToken.None,
-                        TaskCreationOptions.None, TaskScheduler.Default);
+                    current = Task.Run(new Func<string>(Collect));
                 return current;
             }
         }
