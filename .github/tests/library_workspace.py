@@ -121,15 +121,19 @@ def check_collections():
 
 
 def check_provider_choice():
+    prompt = "Choose which provider to use for this title."
     library = controls.wait_for("same title has a library card", lambda t: node_with_label(t, CROSS_PROVIDER) is not None)
     tap(node_with_label(library, CROSS_PROVIDER))
+    selected_game = controls.wait_for("touch selects the grouped title", lambda t:
+                                     game_has_focus(t, CROSS_PROVIDER) or controls.has(t, prompt))
+    if not controls.has(selected_game, prompt):
+        controls.key("BUTTON_A")
     controls.wait_for("choose PC or Xbox Cloud Gaming before dispatch", lambda t:
-                      controls.has(t, "Choose which provider to use for this title.")
-                      and controls.has(t, "PC") and controls.has(t, "Xbox Cloud Gaming"))
+                      controls.has(t, prompt) and controls.has(t, "PC") and controls.has(t, "Xbox Cloud Gaming"))
     controls.capture("10-cross-provider-choice")
     controls.key("BUTTON_B")
     controls.wait_for("B returns to the Library without launching a provider", lambda t:
-                      library_with_games(t) and not controls.has(t, "Choose which provider to use for this title."))
+                      library_with_games(t) and not controls.has(t, prompt))
     print("PASS: an unplayed same-title PC and Cloud group requires an explicit provider", flush=True)
 
 
