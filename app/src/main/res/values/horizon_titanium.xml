@@ -7,6 +7,7 @@
     <string name="horizon_titanium_hertz">%1$d Hz</string>
     <string name="horizon_titanium_percent">%1$d%%</string>
     <string name="horizon_titanium_unavailable">Unavailable</string>
+    <string name="horizon_titanium_battery_temp">Battery temperature</string>
     <string name="horizon_titanium_thermal_label">Thermal pressure</string>
     <plurals name="horizon_titanium_sources">
         <item quantity="one">%1$d launch source</item>

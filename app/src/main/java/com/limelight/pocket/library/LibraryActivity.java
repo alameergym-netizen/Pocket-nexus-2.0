@@ -260,6 +260,7 @@ public class LibraryActivity extends ConsoleActivity {
         detail.setBackground(titanium ? TitaniumStyle.surface(this) : detailBg);
         heroArt = new ImageView(this);
         heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        if (titanium) heroArt.setVisibility(View.GONE);
         if (spec.artHeight > 0) {
             detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(spec.artHeight)));
         }
@@ -486,6 +487,7 @@ public class LibraryActivity extends ConsoleActivity {
             ways.setText("");
             if (launchSources != null) launchSources.setVisibility(View.GONE);
             heroArt.setImageDrawable(null);
+            if (titanium) heroArt.setVisibility(View.GONE);
             if (canManageEmptyCollection) optionsAction.requestFocus();
             return;
         }
@@ -613,6 +615,7 @@ public class LibraryActivity extends ConsoleActivity {
             heroArt.setScaleX(1f);
             heroArt.setScaleY(1f);
             heroArt.setImageDrawable(null);
+            if (titanium) heroArt.setVisibility(View.GONE);
         }
         StringBuilder m = new StringBuilder();
         int status = GameShelf.status(this, g.key);
@@ -680,6 +683,7 @@ public class LibraryActivity extends ConsoleActivity {
 
     private void setHero(Bitmap b, int token) {
         if (token != heroToken || isFinishing() || isDestroyed()) return;
+        if (titanium) heroArt.setVisibility(View.VISIBLE);
         if (!PocketPrefs.animationsEnabled(this)) {
             heroArt.setImageBitmap(b);
             return;

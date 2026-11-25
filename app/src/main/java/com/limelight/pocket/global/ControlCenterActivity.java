@@ -277,7 +277,9 @@ public class ControlCenterActivity extends Activity {
             }
             Tile t = tiles[order[i]];
             t.setId(View.generateViewId());
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(titanium ? 66 : pureOled ? 74 : 86), 1f);
+            if (titanium) t.setMinimumHeight(dp(76));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                    titanium ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(pureOled ? 74 : 86), 1f);
             if (i % spec.columns != spec.columns - 1) lp.setMarginEnd(dp(8));
             tileRow.addView(t, lp);
         }
@@ -289,7 +291,7 @@ public class ControlCenterActivity extends Activity {
         stats.setPadding(0, dp(8), 0, dp(10));
         batteryBig = stat(stats, getString(R.string.pocket_nc_battery));
         batterySub = (TextView) ((ViewGroup) batteryBig.getParent()).getChildAt(1);
-        tempBig = stat(stats, getString(R.string.pocket_nc_temperature));
+        tempBig = stat(stats, getString(titanium ? R.string.horizon_titanium_battery_temp : R.string.pocket_nc_temperature));
         hzBig = stat(stats, getString(R.string.pocket_nc_display));
         if (titanium) {
             stats.setId(R.id.horizon_titanium_telemetry);
