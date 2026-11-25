@@ -7,6 +7,7 @@ function Check($Condition, [string]$Label) {
 }
 
 $candidate = Join-Path (Split-Path $PSScriptRoot) 'Save-NexusGameBackup.ps1'
+$history = Join-Path (Split-Path $PSScriptRoot) 'Get-NexusSaveVaultHistory.ps1'
 $fixture = Join-Path ([IO.Path]::GetTempPath()) ('nexus-real-save-test-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($fixture)
 try {
@@ -59,6 +60,19 @@ try {
     $second = & $candidate @params -Game $game
     Check ($first.Directory -ne $second.Directory -and [IO.Directory]::Exists($first.Directory) -and
         ([IO.File]::ReadAllBytes($save) -join ',') -eq ($changed -join ',')) 'a second backup preserves the first snapshot and current game data'
+    $timeline = @(& $history -VaultDirectory $vault -Game $game)
+    Check ($timeline.Count -eq 2 -and -not $timeline[0].Verified -and -not $timeline[1].Verified) 'the timeline finds both snapshots with inspection still available'
+    $snapshotId = Split-Path -Leaf $first.Directory
+    $verified = & $history -VaultDirectory $vault -Game $game -VerifySnapshot $snapshotId
+    Check ($verified.Verified -and $verified.Checksums.Count -eq 2) 'an explicit selection verifies both files against the receipt'
+    $preview = & $history -VaultDirectory $vault -Game $game -VerifySnapshot $snapshotId -Ludusavi $executable[0].FullName -ConfigDirectory $config
+    Check ($preview.Operation -ceq 'Restore preview' -and $preview.Files -eq 1 -and
+        ([IO.File]::ReadAllBytes($save) -join ',') -eq ($changed -join ',')) 'the verified historical snapshot has a real read-only restore preview'
+    [IO.File]::AppendAllText($archive[0].FullName, 'tamper')
+    try {
+        & $history -VaultDirectory $vault -Game $game -VerifySnapshot $snapshotId | Out-Null
+        throw 'FAILED: modified snapshot passed verification'
+    } catch { if ($_.Exception.Message -notlike '*changed since the backup*') { throw } }
     try {
         & $candidate @params -Game 'Missing Nexus Game' | Out-Null
         throw 'FAILED: unknown game did not fail'

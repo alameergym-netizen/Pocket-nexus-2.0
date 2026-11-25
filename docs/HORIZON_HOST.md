@@ -32,6 +32,10 @@ The dashboard can verify and save a connection to the local management API, then
 
 Open **GPU telemetry** from the Windows dashboard to sample the installed NVIDIA driver. The panel reports GPU utilization, video memory, temperature and available encoder utilization for each detected adapter. Each refresh runs a bounded read-only query using the driver utility from the Windows system directory or NVIDIA's Program Files directory. The panel shows unavailable fields individually and stays responsive while the query runs. NVIDIA hardware, the RTX 4060 readings under load, and Android delivery during a stream remain in final acceptance. [NVIDIA driver utility](https://docs.nvidia.com/deploy/nvidia-smi/index.html)
 
+## Save Vault
+
+Open **Save Vault** from the Windows dashboard. Select a local vault and enter the exact game name shown in Ludusavi. **Load history** displays the matching snapshots, and **Verify snapshot** checks the archive and mapping against the stored SHA-256 receipt. Select your local Ludusavi executable to preview a backup, create a new verified snapshot, or see what a selected verified snapshot would restore. Backup creation preserves existing saves and prior snapshots. The restore preview is read-only. Actual restore and synchronized Android copies remain open. [Ludusavi 0.31.0 CLI](https://github.com/mtkennerly/ludusavi/blob/v0.31.0/docs/cli.md)
+
 ## Optional USB-only legacy control
 Windows tray settings can scope legacy APC1 to loopback at the next restart. ADB reverse continues to reach it. Existing installations stay on their current Wi-Fi default until the owner chooses USB-only. The dashboard reports the actual bind scope and whether a restart is pending. The toggle changes the listener bind, with no firewall update or change to the encrypted status and streaming ports. The Windows self-test checks the bind address on an isolated socket and preserves the synthetic USB reverse mappings.
 

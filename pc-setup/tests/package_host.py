@@ -19,6 +19,8 @@ FILES = (
     "pc-setup/Get-NexusSavePreview.ps1",
     "pc-setup/Invoke-NexusLudusavi.ps1",
     "pc-setup/Save-NexusGameBackup.ps1",
+    "pc-setup/Get-NexusSaveVaultHistory.ps1",
+    "pc-setup/Show-NexusSaveVault.ps1",
     "pc-setup/playnite/extension.yaml",
     "pc-setup/playnite/PocketNexusCatalog.psm1",
     "pc-setup/other-handhelds/ArtemisPocket-USB-Setup.bat",

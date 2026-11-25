@@ -2,7 +2,11 @@
 
 This is a repository-side continuity package, not a running Codex task. It preserves the existing project and avoids dependence on long ChatGPT conversations.
 
-## Verified checkpoint
+## Current product and integration evidence
+
+Use the 14-gate [blueprint](HORIZON_SYSTEM_BLUEPRINT.md) with the expanded [153-row acceptance ledger](FEATURE_ACCEPTANCE.md) and [upstream register](CLIENTS_AND_SOURCES.md). Read the live [development state](DEVELOPMENT_STATE.md) and the remote integration branch before editing. The checkpoint below records the original handoff.
+
+## Original verified checkpoint
 - Repository: alameergym-netizen/Pocket-nexus-2.0.
 - Integration: horizon-foundation at 66fdc638fc23dbd4055565a99a2081c5f23201df after merging PR #57; CI 45499079025 succeeded on its exact tested head 01d10ad7d2deff20af0557f5d43d16b3ef51fdd4.
 - #56 merged d1f7e6393c5e857656cc3d1536bc004bb067f800; CI 45498359630 passed APK build and unit tests.
