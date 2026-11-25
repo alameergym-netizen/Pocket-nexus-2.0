@@ -121,7 +121,12 @@ def main(apk):
     tap(resource(compact, DETAILS))
     show_details(FIRST)
     controls.capture("05-touch-game-details")
-    print("PASS: compact stacked layout and touch options and game details", flush=True)
+    details = controls.wait_for("Play from game details", lambda t: resource(t, "pagePlay") is not None)
+    tap(resource(details, "pagePlay"))
+    controls.wait_for("Play from details returns to the same game's source chooser", lambda t:
+                      controls.has(t, "PC · app 501") and controls.has(t, "PC · app 509"))
+    controls.capture("07-details-play-choice")
+    print("PASS: compact layout, touch options and safe Play from game details", flush=True)
 
 
 if __name__ == "__main__":
