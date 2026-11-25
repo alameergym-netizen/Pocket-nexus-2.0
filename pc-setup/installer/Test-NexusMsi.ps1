@@ -27,17 +27,15 @@ using System.Runtime.InteropServices;
 using System.Text;
 
 public static class NexusMsiRegistration {
-    [DllImport("msi.dll", CharSet = CharSet.Unicode, EntryPoint = "MsiGetProductInfoExW")]
-    public static extern uint CurrentUserProduct(string product, string userSid, uint context,
-        string property, StringBuilder value, ref uint length);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode, ExactSpelling = true, EntryPoint = "MsiGetProductInfoW")]
+    public static extern uint ProductInfo(string product, string property, StringBuilder value, ref uint length);
 }
 '@
 
 function Get-InstalledVersion([string]$ProductCode) {
     $result = New-Object Text.StringBuilder 64
     $length = [uint32]$result.Capacity
-    # MSIINSTALLCONTEXT_USERUNMANAGED checks the package in the current user's context.
-    $status = [NexusMsiRegistration]::CurrentUserProduct($ProductCode, $null, 2, 'VersionString', $result, [ref]$length)
+    $status = [NexusMsiRegistration]::ProductInfo($ProductCode, 'VersionString', $result, [ref]$length)
     if ($status -eq 1605) { return $null }
     if ($status -ne 0) { throw "Windows Installer could not query the product registration (error $status)." }
     return [version]($result.ToString())
