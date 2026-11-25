@@ -70,6 +70,11 @@ public class HorizonStreamSelectionTest {
             incomplete.removeExtra(key);
             assertFalse(HorizonStreamSelection.current(HorizonStreamSelection.capture(incomplete)));
         }
+        for (String key : extras.keySet()) {
+            if (!(extras.get(key) instanceof String)) continue;
+            Intent priorProcess = new Intent(pending).putExtra(key, "previous-process");
+            assertFalse(HorizonStreamSelection.current(HorizonStreamSelection.capture(priorProcess)));
+        }
         assertFalse(HorizonStreamSelection.current(-1));
     }
 }

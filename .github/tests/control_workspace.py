@@ -195,6 +195,15 @@ def main(apk):
     key("BUTTON_B")
     wait_for("return to System from hardware diagnostics", lambda t: has(t, "System") and not has(t, "Sampled at"))
     print("PASS: Retroid Bridge opens, refreshes, and returns to System", flush=True)
+    tap_label(wait_for("Bridge entry after dismissal", lambda t: has(t, "Retroid Bridge")), "Retroid Bridge")
+    bridge = wait_for("readable hardware tools", lambda t: has(t, "CPU profile preview"))
+    tap_label(bridge, "CPU profile preview")
+    key("BUTTON_B")
+    time.sleep(1)
+    wait_for("cancelled CPU preview keeps System visible", lambda t: has(t, "System")
+             and not any(n.get("text", "").startswith("Read-only calculation from current limits")
+                         for n in t.iter("node")))
+
 
 if __name__ == "__main__":
     try:
