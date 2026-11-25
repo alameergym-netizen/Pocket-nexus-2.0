@@ -49,6 +49,16 @@ public class HorizonSecureStatusTest {
         assertTrue(HorizonSecureStatus.Pairing.parse("NEXUS4" + common).library);
     }
 
+    @Test public void onlyTheTwoSupportedStreamActionsHaveSecureCommands() {
+        assertEquals("NEXUSL", HorizonSecureStatus.screenWireCommand(PcPower.LOCK));
+        assertEquals("NEXUSD", HorizonSecureStatus.screenWireCommand(PcPower.DISPLAY_OFF));
+        for (PcPower action : PcPower.values()) {
+            if (action != PcPower.LOCK && action != PcPower.DISPLAY_OFF) {
+                assertNull(HorizonSecureStatus.screenWireCommand(action));
+            }
+        }
+    }
+
     @Test public void acceptsOnlyBoundedStatusWithAllFields() {
         HorizonSecureStatus.Status status = HorizonSecureStatus.Status.parse(
                 "STATUS cpu=10 ram=42 up=123456 bat=-1 ac=1");

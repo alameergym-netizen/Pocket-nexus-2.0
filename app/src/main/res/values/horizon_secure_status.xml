@@ -23,6 +23,7 @@
     <string name="horizon_secure_game_installed">Installed</string>
     <string name="horizon_secure_game_other_state">Other install state</string>
     <string name="horizon_secure_screen">Secure screen controls</string>
+    <string name="horizon_secure_screen_route">Encrypted</string>
     <string name="horizon_secure_lock">Lock Windows</string>
     <string name="horizon_secure_display_off">Turn off PC display</string>
     <string name="horizon_secure_screen_confirm">Send this command to the paired PC?</string>
