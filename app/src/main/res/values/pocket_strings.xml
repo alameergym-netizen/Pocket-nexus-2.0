@@ -1378,6 +1378,13 @@
     <string name="pocket_files_pasted">Done: %1$d</string>
     <string name="horizon_file_transfer_partial">%1$d completed · %2$d failed · %3$d copied with source items retained</string>
     <string name="horizon_create_save_copy">Create verified backup</string>
+    <string name="horizon_preview_save_restore">Preview save restore</string>
+    <string name="horizon_save_backup_format">Nexus save backup · Format 1</string>
+    <string name="horizon_save_original_name">Original filename</string>
+    <string name="horizon_save_payload_size">Save size</string>
+    <string name="horizon_save_digest">SHA-256\n%1$s</string>
+    <string name="horizon_save_copy_conflict">This folder has a save with the same name. Restore keeps both files by giving the recovered copy a new name.</string>
+    <string name="horizon_save_copy_separate">Restore adds a verified save copy to this folder. Existing files are preserved.</string>
     <string name="horizon_restore_save_copy">Restore verified copy here</string>
     <string name="horizon_save_backup_done">Verified backup saved in this folder</string>
     <string name="horizon_save_restore_done">Verified save copy restored in this folder</string>
