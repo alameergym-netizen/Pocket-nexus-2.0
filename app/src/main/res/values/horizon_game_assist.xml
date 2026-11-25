@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_game_assist">Game Assist</string>
+    <string name="horizon_assist_performance">Performance</string>
+    <string name="horizon_assist_autotune">AutoTune</string>
+    <string name="horizon_assist_save">Save</string>
+    <string name="horizon_assist_capture">Capture</string>
+    <string name="horizon_assist_music">Music</string>
+    <string name="horizon_assist_messages">Messages</string>
+    <string name="horizon_assist_keyboard">Keyboard</string>
+    <string name="horizon_assist_pc_control">PC Control</string>
+    <string name="horizon_assist_settings">Settings</string>
+    <string name="horizon_assist_switch">Switch</string>
+    <string name="horizon_assist_exit">Exit</string>
+    <string name="horizon_assist_requested">Requested %1$d×%2$d at %3$d fps</string>
+    <string name="horizon_assist_no_stats">Waiting for stream measurements.</string>
+    <string name="horizon_assist_unavailable">Unavailable</string>
+    <string name="horizon_assist_autotune_unavailable">Adaptive bitrate needs an active supported PC stream and network.</string>
+    <string name="horizon_assist_save_pc">Use the game’s own save controls on the PC. This stream provider exposes no save-state controls to Nexus.</string>
+    <string name="horizon_assist_messages_pc">Open your messaging app on the PC. This stream provider does not share message access.</string>
+    <string name="horizon_assist_connect_first">Connect to the PC stream to use this action.</string>
+</resources>
