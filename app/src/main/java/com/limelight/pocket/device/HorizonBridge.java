@@ -1,7 +1,6 @@
 package com.limelight.pocket.device;
 
 import android.os.Build;
-import android.os.PowerManager;
 import android.content.Context;
 import com.limelight.R;
 import com.limelight.pocket.ConsoleActivity;
@@ -172,15 +171,9 @@ public final class HorizonBridge {
                 frequency(a, new File("/sys/class/kgsl/kgsl-3d0/max_gpuclk"), 1000000.0)));
 
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_safety)));
-        PowerManager pm = (PowerManager) a.getSystemService(Context.POWER_SERVICE);
-        int thermal = -1;
-        Boolean saver = null;
-        if (pm != null) {
-            try { saver = pm.isPowerSaveMode(); } catch (RuntimeException ignored) { }
-            if (Build.VERSION.SDK_INT >= 29) {
-                try { thermal = pm.getCurrentThermalStatus(); } catch (RuntimeException ignored) { }
-            }
-        }
+        HorizonPower.Observations power = HorizonPower.observe(a);
+        int thermal = power.thermal;
+        Boolean saver = power.batterySaver;
         int[] thermalLabel = {R.string.horizon_thermal_none, R.string.horizon_thermal_light,
                 R.string.horizon_thermal_moderate, R.string.horizon_thermal_severe, R.string.horizon_thermal_critical,
                 R.string.horizon_thermal_emergency, R.string.horizon_thermal_shutdown};
