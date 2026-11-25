@@ -258,6 +258,12 @@ public class LibraryActivity extends ConsoleActivity {
         int w = getResources().getDisplayMetrics().widthPixels;
         int h = getResources().getDisplayMetrics().heightPixels;
         HorizonLibraryLayout spec = HorizonLibraryLayout.forWindow(w / d, h / d, pureOled, titanium);
+        boolean signature = PocketTheme.signature(this);
+        if (signature) {
+            // Nexus Signature: letterbox bars behind the title and the hints, like a film's frame
+            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 0, true, 44);
+            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 1, false, 40);
+        }
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setClipChildren(false);
@@ -349,8 +355,14 @@ public class LibraryActivity extends ConsoleActivity {
         heroArt = new ImageView(this);
         heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
         if (titanium) heroArt.setVisibility(View.GONE);
-        if (spec.artHeight > 0) {
-            detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(spec.artHeight)));
+        int artHeight = spec.artHeight;
+        if (signature && artHeight > 0) {
+            // ...and the game's art as a widescreen still
+            artHeight = com.limelight.pocket.ui.HorizonSignature.stillHeight(spec.detailWidth - 24);
+            heroArt.setId(R.id.horizon_signature_still);
+        }
+        if (artHeight > 0) {
+            detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(artHeight)));
         }
         title = text(spec.split ? 22f : 17f, legacy ? LegacyStyle.typeface(this) : PocketFonts.bold(),
                 legacy ? LegacyStyle.INK : 0xFFFFFFFF);
@@ -358,7 +370,7 @@ public class LibraryActivity extends ConsoleActivity {
         title.setMaxLines(spec.split ? 2 : 1);
         if (spec.split) title.setSingleLine(false);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2);
-        tl.topMargin = dp(spec.artHeight > 0 ? 10 : 0);
+        tl.topMargin = dp(artHeight > 0 ? 10 : 0);
         detail.addView(title, tl);
         meta = text(12f, legacy ? LegacyStyle.typeface(this) : PocketFonts.medium(), legacy ? LegacyStyle.DIM : 0xDEFFFFFF);
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, -2);

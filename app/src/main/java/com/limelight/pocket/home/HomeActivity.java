@@ -182,6 +182,9 @@ public class HomeActivity extends ConsoleActivity {
     /** Nexus Atmosphere: the games on a glass tray, the hero on its own glass veil above it. */
     private boolean atmosphereTheme;
     private View atmosphereTray;
+    /** Nexus Signature: framed like a film (letterbox bars, an accent rule over the title). */
+    private boolean signatureTheme;
+    private View signatureRule;
     private com.limelight.pocket.ui.HorizonStreamDeck streamDeck;
     private boolean streamDeckFilled;
     /** When each PC's poll last answered (elapsed realtime), so the cards never show an old answer as now. */
@@ -429,6 +432,7 @@ public class HomeActivity extends ConsoleActivity {
                 || titanium != com.limelight.pocket.ui.PocketTheme.titanium(this)
                 || horizonTheme != com.limelight.pocket.ui.PocketTheme.horizon(this)
                 || atmosphereTheme != com.limelight.pocket.ui.PocketTheme.atmosphere(this)
+                || signatureTheme != com.limelight.pocket.ui.PocketTheme.signature(this)
                 || !layout.id.equals(com.limelight.pocket.ui.Layouts.home(this).id))) {
             int keep = Math.max(0, heroPos);
             applyLayout(true);
@@ -1663,6 +1667,49 @@ public class HomeActivity extends ConsoleActivity {
         return com.limelight.pocket.ui.HorizonAtmosphere.roomInsideVeil(heroRoom);
     }
 
+    /**
+     * Nexus Signature: the screen framed like a film. A black bar under the status and tabs, a
+     * black bar holding the games like a credits roll, the art in the band between them (when the
+     * screen leaves at least a band's height), and a short accent rule over the title.
+     */
+    private float layoutSignature(boolean shelfRow, FrameLayout.LayoutParams rowLp, FrameLayout.LayoutParams heroLp,
+                                  float heroRoom) {
+        signatureTheme = com.limelight.pocket.ui.PocketTheme.signature(this);
+        ViewGroup host = findViewById(R.id.pocketMain);
+        boolean on = signatureTheme && shelfRow;
+        if (signatureRule == null && on && heroView instanceof ViewGroup) {
+            signatureRule = new View(this);
+            signatureRule.setId(R.id.horizon_signature_rule);
+            signatureRule.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams rule = new LinearLayout.LayoutParams(
+                    Math.round(com.limelight.pocket.ui.HorizonSignature.RULE_W * d),
+                    Math.round(com.limelight.pocket.ui.HorizonSignature.RULE_H * d));
+            rule.bottomMargin = Math.round(10 * d);
+            ((ViewGroup) heroView).addView(signatureRule, 0, rule);
+        }
+        if (signatureRule != null) {
+            signatureRule.setBackgroundColor(com.limelight.pocket.ui.PocketTheme.accent(this));
+            signatureRule.setVisibility(on ? View.VISIBLE : View.GONE);
+        }
+        int rowBottom = Math.round(rowLp.bottomMargin / d);
+        int rowHeight = Math.round(rowLp.height / d);
+        int bottomBar = com.limelight.pocket.ui.HorizonSignature.bottomBar(rowBottom, rowHeight);
+        int screenH = Math.round(getResources().getDisplayMetrics().heightPixels / d);
+        if (!on || !com.limelight.pocket.ui.HorizonSignature.framed(screenH, bottomBar)) {
+            com.limelight.pocket.ui.HorizonSignatureFrame.remove(host);
+            return on ? heroRoom - 12 : heroRoom; // the rule takes its line either way
+        }
+        View floor = findViewById(R.id.homeFrostFloor);
+        int behind = floor != null ? host.indexOfChild(floor) + 1 : 0;
+        com.limelight.pocket.ui.HorizonSignatureFrame.place(host, behind, true,
+                com.limelight.pocket.ui.HorizonSignature.TOP_BAR);
+        com.limelight.pocket.ui.HorizonSignatureFrame.place(host, behind + 1, false, bottomBar);
+        // The hero stands in the picture, clear of the credits bar
+        int lift = com.limelight.pocket.ui.HorizonSignature.BOTTOM_OVER_ROW - 26 + 8;
+        heroLp.bottomMargin += Math.round(lift * d);
+        return heroRoom - 12 - lift;
+    }
+
     /** The cards from the saved PCs, what the poll saw of them, and Android's network. */
     private void updateStreamDeck() {
         if (streamDeck == null || !horizonFamily) return;
@@ -1918,6 +1965,7 @@ public class HomeActivity extends ConsoleActivity {
             rlp.setMarginEnd(0);
         }
         heroRoom = layoutAtmosphere(shelf && !portal && !workspace, rlp, hlp, heroRoom);
+        heroRoom = layoutSignature(shelf && !portal && !workspace, rlp, hlp, heroRoom);
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
         layoutStreamDeck(portal, screenW, hlp);

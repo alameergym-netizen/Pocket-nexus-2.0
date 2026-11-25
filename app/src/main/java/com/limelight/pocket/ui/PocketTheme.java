@@ -116,6 +116,12 @@ public final class PocketTheme {
         return index >= 0 && THEMES[index].name == R.string.horizon_theme_titanium;
     }
 
+    /** Nexus Signature: framed like a film (black bars, a widescreen still, a black slate). */
+    public static boolean signature(Context context) {
+        int index = themeIndex(context);
+        return index >= 0 && THEMES[index].name == R.string.horizon_theme_signature;
+    }
+
     /** Nexus Atmosphere: layered glass (a veil under the hero, a tray under the games) over the art. */
     public static boolean atmosphere(Context context) {
         int index = themeIndex(context);

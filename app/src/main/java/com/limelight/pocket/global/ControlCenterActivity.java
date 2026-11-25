@@ -192,6 +192,19 @@ public class ControlCenterActivity extends Activity {
         bg.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
         panel.setBackground(titanium ? TitaniumStyle.surface(this)
                 : legacy ? com.limelight.pocket.ui.LegacyStyle.dialog(this) : bg);
+        if (com.limelight.pocket.ui.PocketTheme.signature(this)) {
+            // Nexus Signature: a black slate, square-cornered, with a hairline in the accent, in
+            // a letterboxed frame
+            GradientDrawable slate = new GradientDrawable();
+            slate.setColor(com.limelight.pocket.ui.HorizonSignature.SLATE);
+            slate.setCornerRadius(dp(com.limelight.pocket.ui.HorizonSignature.SLATE_CORNER));
+            slate.setStroke(Math.max(1, dp(1)), (accent(this) & 0x00FFFFFF) | 0x80000000);
+            panel.setBackground(slate);
+            panel.setId(R.id.horizon_signature_panel);
+            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 0, true,
+                    com.limelight.pocket.ui.HorizonSignature.TOP_BAR);
+            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 1, false, 40);
+        }
         if (com.limelight.pocket.ui.PocketTheme.atmosphere(this)) {
             // Nexus Atmosphere: a lighter, layered pane over the blurred screen (Android 12+),
             // denser where nothing is blurred behind it, with a light from above and a bright rim
