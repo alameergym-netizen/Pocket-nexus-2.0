@@ -365,6 +365,12 @@
             android:screenOrientation="sensorLandscape"
             android:enableOnBackInvokedCallback="false"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
+        <!-- Horizon clients and sources: what each client really does here (read-only) -->
+        <activity
+            android:name=".pocket.clients.ClientsActivity"
+            android:screenOrientation="sensorLandscape"
+            android:enableOnBackInvokedCallback="false"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
         <activity
             android:name=".pocket.QuickSettingsActivity"
             android:resizeableActivity="true"
