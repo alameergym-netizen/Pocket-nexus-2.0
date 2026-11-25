@@ -2,6 +2,14 @@ package com.limelight.pocket.device;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class HorizonBridgePolicyTest {
+    @Test public void missingOrUnexpectedThermalValuesRemainUnknown() {
+        assertTrue(HorizonBridgePolicy.hasThermalStatus(0));
+        assertTrue(HorizonBridgePolicy.hasThermalStatus(6));
+        assertFalse(HorizonBridgePolicy.hasThermalStatus(-1));
+        assertFalse(HorizonBridgePolicy.hasThermalStatus(7));
+        assertEquals(0, HorizonBridgePolicy.recommendation(7, false));
+        assertEquals(2, HorizonBridgePolicy.recommendation(7, true));
+    }
     @Test public void modelDetectionRequiresRetroidIdentity() {
         assertTrue(HorizonBridgePolicy.isRp6("Retroid", "RP6"));
         assertTrue(HorizonBridgePolicy.isRp6("unknown", "Retroid Pocket 6"));
