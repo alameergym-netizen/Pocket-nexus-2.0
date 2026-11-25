@@ -1,7 +1,7 @@
 """S10 accessibility sweep on Android 13: Home, Library, game details, Nexus Control and every
 Settings tab, at the handheld size and at a compact size with 130% text. With --enforce the run
-fails on any control a screen reader cannot name, any touch target under 24 dp (WCAG 2.2 AA) and
-a focused control drawn off screen. Targets between 24 and 40 dp are reported as advice. Rows
+fails on any control a screen reader cannot name, any touch target under 24 dp without the WCAG
+2.2 AA (2.5.8) spacing exception, and a focused control drawn off screen. Targets between 24 and 40 dp are reported as advice. Rows
 partly scrolled out of their list are skipped, since their size and contents are not all shown."""
 from pathlib import Path
 import json
@@ -128,6 +128,26 @@ def walk(node, viewport, out):
         walk(child, inner, out)
 
 
+def distance_to(box, x, y):
+    left, top, right, bottom = box
+    dx = max(left - x, 0, x - right)
+    dy = max(top - y, 0, y - bottom)
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def spaced(node, box, targets, radius):
+    """WCAG 2.5.8 spacing exception: a 24 dp circle centred on the target meets no other target."""
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    inside = set(id(n) for n in node.iter("node"))
+    for other, other_box in targets:
+        if id(other) in inside or other is node or (other_box[0] <= box[0] and other_box[1] <= box[1]
+                                                     and other_box[2] >= box[2] and other_box[3] >= box[3]):
+            continue
+        if distance_to(other_box, cx, cy) < radius:
+            return False
+    return True
+
+
 def audit(name, tree, density):
     findings = []
     root = next(tree.iter("node"))
@@ -135,6 +155,7 @@ def audit(name, tree, density):
     nodes = [(root, screen)]
     walk(root, screen, nodes)
     px = density / 160
+    targets = [(n, bounds(n)) for n, _ in nodes if n.get("clickable") == "true" and n.get("enabled") == "true"]
     for node, viewport in nodes:
         cls = node.get("class", "")
         actionable = node.get("clickable") == "true" or node.get("focusable") == "true" \
@@ -150,14 +171,16 @@ def audit(name, tree, density):
         if node.get("focused") == "true" and (right <= screen[0] or left >= screen[2]
                                               or bottom <= screen[1] or top >= screen[3]):
             findings.append(dict(ident, issue="focus-off-screen"))
-        if viewport != screen and clipped(box, viewport):
+        short = min(right - left, bottom - top) / px
+        # Cut off by its list, or a sliver at the screen edge: not all of it is shown
+        if clipped(box, viewport) and (viewport != screen or short < MIN_TARGET_DP):
             continue
         if not named(node):
             findings.append(dict(ident, issue="unlabeled"))
         if node.get("clickable") == "true":
-            short = min(right - left, bottom - top) / px
             if short < MIN_TARGET_DP:
-                findings.append(dict(ident, issue="small-target"))
+                ok = spaced(node, box, targets, MIN_TARGET_DP / 2 * px)
+                findings.append(dict(ident, issue="advisory-spaced-under-24dp" if ok else "small-target"))
             elif short < ADVISORY_TARGET_DP:
                 findings.append(dict(ident, issue="advisory-under-40dp"))
     unique = {(f["issue"], f["class"], f["id"], f["text"], f["bounds"]): f for f in findings}
