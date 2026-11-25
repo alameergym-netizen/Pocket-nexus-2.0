@@ -742,7 +742,7 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     private void playGame(UniversalLibrary.Game game) {
-        if (game.requiresPcChoice() || game.requiresRetroChoice()) options(game);
+        if (game.requiresLaunchChoice()) options(game);
         else play(game.best());
     }
 
@@ -773,7 +773,7 @@ public class LibraryActivity extends ConsoleActivity {
         pageWay = best.item.key();
         pagePlay = false;
         PocketSounds.play(this, PocketSounds.OPEN);
-        HomeItem retro = HomeItem.RETRO.equals(best.item.kind) && !g.requiresRetroChoice() ? best.item : null;
+        HomeItem retro = HomeItem.RETRO.equals(best.item.kind) && !g.requiresLaunchChoice() ? best.item : null;
         GamePageActivity.open(this, null, uuid, HomeActivity.artId(best.item), g.title, best.label,
                 false, false, null, retro);
     }
@@ -787,7 +787,7 @@ public class LibraryActivity extends ConsoleActivity {
         pagePlay = false;
         for (UniversalLibrary.Game game : all) {
             if (!game.key.equals(gameKey)) continue;
-            if (game.requiresPcChoice() || game.requiresRetroChoice()) {
+            if (game.requiresLaunchChoice()) {
                 int visible = shown.indexOf(game);
                 if (visible >= 0 && visible != heroPos) updateHero(visible);
                 options(game);
@@ -819,8 +819,10 @@ public class LibraryActivity extends ConsoleActivity {
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_ul_play_on)));
         boolean choosePc = g.requiresPcChoice();
         boolean chooseRom = g.requiresRetroChoice();
+        boolean chooseProvider = g.requiresAlternateProviderChoice();
         if (choosePc) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_pc_choice)));
         if (chooseRom) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_rom_choice)));
+        if (chooseProvider) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_provider_choice)));
         UniversalLibrary.Way best = g.best();
         for (final UniversalLibrary.Way w : g.ways) {
             String label = choosePc && HomeItem.PC.equals(w.item.kind)
@@ -828,7 +830,7 @@ public class LibraryActivity extends ConsoleActivity {
             if (chooseRom && HomeItem.RETRO.equals(w.item.kind)) {
                 items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_rom_path, w.item.c, w.item.b)));
             }
-            items.add(StreamMenuView.Item.action((!choosePc && !chooseRom && w == best ? "▶  " : "") + label, () -> {
+            items.add(StreamMenuView.Item.action((!choosePc && !chooseRom && !chooseProvider && w == best ? "▶  " : "") + label, () -> {
                 hideConsolePanel();
                 play(w);
             }).withIcon(w.platform == UniversalLibrary.PLATFORM_PC ? "DESKTOP"
