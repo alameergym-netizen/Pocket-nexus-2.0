@@ -322,7 +322,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
         for (int i = 0; i < rowsContainer.getChildCount(); i++) {
             View child = rowsContainer.getChildAt(i);
             if (child.isFocusable()) {
-                child.requestFocus();
+                child.requestFocusFromTouch();
                 return;
             }
         }
