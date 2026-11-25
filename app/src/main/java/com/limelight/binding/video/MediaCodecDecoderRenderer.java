@@ -15,6 +15,7 @@ import org.jcodec.codecs.h264.io.model.VUIParameters;
 
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
+import com.limelight.pocket.streaming.HorizonDecodeTimestamps;
 import com.limelight.R;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
@@ -23,7 +24,6 @@ import com.limelight.utils.Stereo3DRenderer;
 import com.limelight.utils.TrafficStatsHelper;
 
 import android.annotation.SuppressLint;
-import android.util.LongSparseArray;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
@@ -54,8 +54,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     /** Toggle tight frame pacing thresholds globally. */
     public void setForceTightThresholds(boolean v) { this.forceTightThresholds = v; }
     // Toggle at runtime if needed
-    // Decode latency tracking: map PTS(us) -> enqueue time (ns)
-    private final LongSparseArray<Long> enqueueNsByPtsUs = new LongSparseArray<>();
+    private final HorizonDecodeTimestamps decodeTimestamps = new HorizonDecodeTimestamps();
 
     // When preferLowerDelays=true we use this configurable timeout (µs) for output dequeue.
 // When preferLowerDelays=false we force 0µs (non-blocking, latest-frame rendering).
@@ -84,9 +83,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     // Update stats using real decode time: enqueue->dequeue, instead of uptime - PTS
     private void updateDecodeLatencyStats(long presentationTimeUs) {
-        Long enqNs = enqueueNsByPtsUs.get(presentationTimeUs);
-        if (enqNs != null) {
-            enqueueNsByPtsUs.delete(presentationTimeUs);
+        long enqNs = decodeTimestamps.take(presentationTimeUs);
+        if (enqNs != HorizonDecodeTimestamps.MISSING) {
             long decMs = (System.nanoTime() - enqNs) / 1_000_000L;
             if (decMs >= 0 && decMs < 1000) {
                 activeWindowVideoStats.decoderTimeMs += decMs;
@@ -829,6 +827,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 nextInputBuffer = null;
                 nextInputBufferIndex = -1;
                 outputBufferQueue.clear();
+                decodeTimestamps.clear();
 
                 // If we just need a flush, do so now with all threads quiesced.
                 if (codecRecoveryType.get() == CR_RECOVERY_TYPE_FLUSH) {
@@ -1643,6 +1642,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     @Override
     public void cleanup() {
+        decodeTimestamps.clear();
         videoDecoder.release();
     }
 
@@ -1678,19 +1678,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     private boolean queueNextInputBuffer(long timestampUs, int codecFlags) {
         boolean codecRecovered;
+        boolean frameInput = (codecFlags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0;
 
         try {
+            if (frameInput) decodeTimestamps.record(timestampUs, System.nanoTime());
             videoDecoder.queueInputBuffer(nextInputBufferIndex,
                     0, nextInputBuffer.position(),
                     timestampUs, codecFlags);
-
-            // Track enqueue time for this PTS
-            try { enqueueNsByPtsUs.put(timestampUs, System.nanoTime()); } catch (Throwable ignored) {}
 
             // We need a new buffer now
             nextInputBufferIndex = -1;
             nextInputBuffer = null;
         } catch (IllegalStateException e) {
+            if (frameInput) decodeTimestamps.take(timestampUs);
             if (handleDecoderException(e)) {
                 // We encountered a transient error. In this case, just hold onto the buffer
                 // (to avoid leaking it), clear it, and keep it for the next frame. We'll return
@@ -1780,8 +1780,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 pocketFps = pocketRate.renderedFps > 0 ? pocketRate.renderedFps : pocketRate.totalFps;
                 pocketDecodeMs = pocketTwo.totalFramesReceived > 0
                         ? (float) pocketTwo.decoderTimeMs / pocketTwo.totalFramesReceived : 0f;
-                int expected = pocketTwo.totalFrames + pocketTwo.framesLost;
-                pocketLossPct = expected > 0 ? 100f * pocketTwo.framesLost / expected : 0f;
+                // totalFrames already includes frames missing from the incoming sequence.
+                int lost = Math.max(0, Math.min(pocketTwo.framesLost, pocketTwo.totalFrames));
+                pocketLossPct = pocketTwo.totalFrames > 0 ? 100f * lost / pocketTwo.totalFrames : 0f;
                 pocketStatsAt = SystemClock.uptimeMillis();
             } catch (RuntimeException ignored) {
             }
