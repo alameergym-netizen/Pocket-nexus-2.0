@@ -152,7 +152,15 @@ def main(apk):
     prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8")
     assert '<int name="horizon_scene_display_cap" value="30"' in prefs, "display scene choice was not saved"
     capture("07-stream-display-scene")
-    tap_label(streaming, "System")
+    tap_label(streaming, "Libraries")
+    library_settings = wait_for("RomM catalog entry in Library settings", lambda t: has(t, "RomM catalog"))
+    tap_label(library_settings, "RomM catalog")
+    wait_for("RomM requests the user's HTTPS address before starting a connection", lambda t: has(t, "RomM server"))
+    capture("08-romm-setup")
+    key("BUTTON_B")
+    library_settings = wait_for("RomM setup cancels back to Library settings", lambda t:
+                                has(t, "RomM catalog") and not has(t, "RomM server"))
+    tap_label(library_settings, "System")
     recovery = wait_for("Android launcher recovery action", lambda t: has(t, "Recovery")
                         and has(t, "Open another Android launcher") and has(t, "Compatibility stream start"))
     tap_label(recovery, "Compatibility stream start")
@@ -167,6 +175,26 @@ def main(apk):
              and any(n.get("package") not in ("", None, PKG) for n in t.iter("node")))
     capture("06-android-launcher")
     print("PASS: System offers an Android launcher escape", flush=True)
+
+    setup_device(320)
+    key("BUTTON_START")
+    settings = wait_for("settings after launcher recovery", lambda t: has(t, "Settings") and has(t, "System"))
+    tap_label(settings, "System")
+    device = wait_for("System settings", lambda t: has(t, "Compatibility stream start"))
+    for _ in range(8):
+        if has(device, "Retroid Bridge"):
+            break
+        adb("shell", "input", "swipe", "1000", "850", "1000", "280", "300")
+        device = snap()
+    assert has(device, "Retroid Bridge"), "Hardware diagnostics could not be reached"
+    tap_label(device, "Retroid Bridge")
+    bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
+    capture("09-hardware-readings")
+    tap_label(bridge, "Refresh readings")
+    wait_for("refreshed hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
+    key("BUTTON_B")
+    wait_for("return to System from hardware diagnostics", lambda t: has(t, "System") and not has(t, "Sampled at"))
+    print("PASS: Retroid Bridge opens, refreshes, and returns to System", flush=True)
 
 if __name__ == "__main__":
     try:
