@@ -64,6 +64,7 @@ public class NvConnection {
         this.context.serverAddress = host;
         this.context.httpsPort = httpsPort;
         this.context.streamConfig = config;
+        this.context.negotiatedRemoteStreaming = StreamConfiguration.STREAM_CFG_AUTO;
         this.context.serverCert = serverCert;
 
         // This is unique per connection
@@ -73,6 +74,10 @@ public class NvConnection {
         this.isMonkey = ActivityManager.isUserAMonkey();
     }
     
+    public int negotiatedStreamRoute() {
+        return context.negotiatedRemoteStreaming;
+    }
+
     private static SecretKey generateRiAesKey() {
         try {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");

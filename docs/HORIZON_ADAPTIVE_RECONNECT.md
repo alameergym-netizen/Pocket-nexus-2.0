@@ -11,3 +11,9 @@ Distinct POOR episodes, not repeated reports, count toward flapping. Sustained d
 Input timing records use a fixed 256-entry per-decoder buffer shared by the input and output threads. Recording before queueing allows an immediate output to find its timestamps. Failed input is discarded, and codec recovery clears old records. The in-stream loss percentage divides missing frames by the expected frame count, which already includes those frames. Measure real decoder time, frame pacing and recovery on RP6 with the final streaming setup.
 
 The previous watchdog ran only after the render loop exited and flushed the decoder during shutdown. Shutdown now follows the existing stop and release path. During a stream, MediaCodec failures continue through the existing coordinated recovery path.
+
+## On-device stream benchmark
+
+Game Assist → Performance → Stream benchmark starts a capture for up to 60 seconds. It can be stopped early and stops when the game leaves the foreground. Each report shows the negotiated H.264, HEVC or AV1 codec where available, transport classification, requested resolution and FPS, client decoder input-to-output timing and intervals between output submissions. It includes the latest fresh frame-loss window, plus Android thermal status, Battery Saver and the battery-side power estimate at the end of the run. The share action exports the report without PC addresses, pairing details or game names.
+
+The p50, p95 and p99 values use 0.25 ms buckets. Intervals at the 2-second ceiling appear as at least 2000 ms. Record display pacing, controller-to-photon latency, image quality and sustained power with the physical matrix. Keep each baseline and candidate report with the tested APK and Host versions.

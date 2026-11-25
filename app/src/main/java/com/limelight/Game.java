@@ -32,6 +32,7 @@ import com.limelight.pocket.device.HorizonPower;
 import com.limelight.pocket.PocketAdaptive;
 import com.limelight.pocket.streaming.HorizonStreamSafety;
 import com.limelight.pocket.streaming.HorizonStreamCompatibility;
+import com.limelight.pocket.streaming.HorizonStreamBenchmark;
 import com.limelight.pocket.PcCompanion;
 import com.limelight.pocket.PocketMic;
 import com.limelight.pocket.PcPower;
@@ -389,6 +390,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private String pocketBackKey = PocketPrefs.KEY_AUTO;
     private String pocketHomeKey = PocketPrefs.KEY_AUTO;
     private StreamMenuView streamMenu;
+    private HorizonStreamBenchmark runningBenchmark;
+    private long benchmarkStartMs;
+    private String benchmarkReport;
+    private final Runnable benchmarkTimeout = () -> finishBenchmark(true);
     private final java.util.HashSet<Integer> streamMenuConsumedKeys = new java.util.HashSet<>();
     private long pocketKeyMonitorUntil;
     private long pocketSessionStartMs;
@@ -1983,6 +1988,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        finishBenchmark(false);
         HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
         horizonInputVisible = false;
@@ -2035,6 +2041,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onPause() {
+        finishBenchmark(false);
         // The frame you leave on: the PC's card on Streaming shows it (where you left off)
         if (connected && streamContainer != null) {
             com.limelight.pocket.StreamScreenshot.captureSession(this, streamContainer.getSurfaceView(),
@@ -2836,6 +2843,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                         toggleHUD();
                         return onOff(prefConfig.enablePerfOverlay);
                     }).withIcon("STATS"));
+            if (active || benchmarkReport != null) {
+                rows.add(assistPage(R.string.horizon_stream_benchmark, "SPEED", this::benchmarkItems));
+            }
             return rows;
         }));
         tiles.add(active && !horizonCompatibility && pocketAdaptiveScope != null
@@ -2887,6 +2897,81 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private StreamMenuView.Item assistUnavailable(int label, String icon, int reason) {
         return assistPage(label, icon, () -> Collections.singletonList(StreamMenuView.Item.note(getString(reason))))
                 .withValue(getString(R.string.horizon_assist_unavailable));
+    }
+
+    private List<StreamMenuView.Item> benchmarkItems() {
+        List<StreamMenuView.Item> rows = new ArrayList<>();
+        rows.add(StreamMenuView.Item.note(getString(R.string.horizon_benchmark_note)));
+        if (runningBenchmark != null) {
+            rows.add(StreamMenuView.Item.action(getString(R.string.horizon_benchmark_stop), () -> finishBenchmark(true)));
+        } else if (connected && ownsStreamCallback() && decoderRenderer != null) {
+            rows.add(StreamMenuView.Item.action(getString(R.string.horizon_benchmark_start), this::startBenchmark));
+        }
+        if (benchmarkReport != null) {
+            for (String line : benchmarkReport.split("\n")) rows.add(StreamMenuView.Item.note(line));
+            rows.add(StreamMenuView.Item.action(getString(R.string.horizon_benchmark_share), () -> {
+                Intent report = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(Intent.EXTRA_TEXT, benchmarkReport);
+                try { startActivity(Intent.createChooser(report, getString(R.string.horizon_benchmark_share))); }
+                catch (android.content.ActivityNotFoundException ignored) { }
+            }));
+        }
+        return rows;
+    }
+
+    private void startBenchmark() {
+        if (!connected || !ownsStreamCallback() || decoderRenderer == null || runningBenchmark != null) return;
+        runningBenchmark = new HorizonStreamBenchmark();
+        benchmarkStartMs = android.os.SystemClock.elapsedRealtime();
+        decoderRenderer.captureBenchmark(runningBenchmark);
+        timerHandler.postDelayed(benchmarkTimeout, 60_000);
+        showPocketToast(getString(R.string.horizon_benchmark_running), true, 1600);
+    }
+
+    private void finishBenchmark(boolean notify) {
+        if (runningBenchmark == null) return;
+        timerHandler.removeCallbacks(benchmarkTimeout);
+        if (decoderRenderer != null) decoderRenderer.captureBenchmark(null);
+        HorizonStreamBenchmark.Result result = runningBenchmark.finish();
+        runningBenchmark = null;
+        int videoFormat = decoderRenderer == null ? 0 : decoderRenderer.getActiveVideoFormat();
+        String codec = getString(R.string.horizon_assist_unavailable);
+        if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_H264) != 0) codec = "H.264";
+        else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_H265) != 0) codec = "HEVC";
+        else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_AV1) != 0) codec = "AV1";
+        long seconds = (android.os.SystemClock.elapsedRealtime() - benchmarkStartMs) / 1000;
+        int negotiated = conn == null ? StreamConfiguration.STREAM_CFG_AUTO : conn.negotiatedStreamRoute();
+        int route = R.string.horizon_benchmark_network;
+        if (UsbLink.isUsbAddress(host)) route = R.string.pocket_link_usb;
+        else if (negotiated == StreamConfiguration.STREAM_CFG_LOCAL) route = R.string.horizon_benchmark_local;
+        else if (negotiated == StreamConfiguration.STREAM_CFG_REMOTE) route = R.string.horizon_benchmark_remote;
+        String loss = decoderRenderer != null && decoderRenderer.pocketStatsAt > 0
+                && android.os.SystemClock.uptimeMillis() - decoderRenderer.pocketStatsAt < 3000
+                ? String.format(Locale.ROOT, "%.2f%%", decoderRenderer.pocketLossPct)
+                : getString(R.string.horizon_assist_unavailable);
+        HorizonPower.Observations power = HorizonPower.observe(this);
+        benchmarkReport = getString(R.string.horizon_benchmark_header, codec, getString(route), seconds,
+                prefConfig.width, prefConfig.height, Math.round(prefConfig.fps)) + "\n"
+                + benchmarkPercentiles(R.string.horizon_benchmark_decode, result.decode) + "\n"
+                + benchmarkPercentiles(R.string.horizon_benchmark_intervals, result.output) + "\n"
+                + getString(R.string.horizon_benchmark_loss, loss) + "\n"
+                + getString(R.string.horizon_benchmark_power,
+                        power.thermal < 0 ? getString(R.string.horizon_assist_unavailable) : Integer.toString(power.thermal),
+                        power.batterySaver == null ? getString(R.string.horizon_assist_unavailable) : onOff(power.batterySaver))
+                + "\n" + getString(R.string.horizon_benchmark_battery, HorizonPower.batteryPower(this));
+        if (notify) showPocketToast(getString(R.string.horizon_benchmark_complete), true, 1800);
+    }
+
+    private String benchmarkPercentiles(int label, HorizonStreamBenchmark.Percentiles values) {
+        if (values.samples == 0) {
+            return getString(label) + " · " + getString(R.string.horizon_assist_unavailable);
+        }
+        return getString(R.string.horizon_benchmark_percentiles, getString(label), values.samples,
+                benchmarkMillis(values.p50Micros), benchmarkMillis(values.p95Micros), benchmarkMillis(values.p99Micros));
+    }
+
+    private static String benchmarkMillis(int micros) {
+        return micros >= 2_000_000 ? "≥2000" : String.format(Locale.ROOT, "%.2f", micros / 1000d);
     }
 
     /** Frame generation mode for this game: the game's own setting if it has one, else the global one. */
@@ -5624,6 +5709,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private void stopConnection() {
         if (connecting || connected) {
+            finishBenchmark(false);
             final boolean wasConnected = connected;
             final boolean shouldQuitRemote = wasConnected && quitOnStop && httpConn != null;
             final long stoppingTicket = horizonStreamTicket;

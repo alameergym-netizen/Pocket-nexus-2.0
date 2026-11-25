@@ -26,8 +26,9 @@ public class StreamMenuGridTest {
         StreamMenuView menu = new StreamMenuView(RuntimeEnvironment.getApplication());
         AtomicInteger used = new AtomicInteger(-1);
         List<StreamMenuView.Item> actions = actions(used);
-        actions.set(9, StreamMenuView.Item.submenu("Settings", () -> menu.push("Settings",
-                Collections.singletonList(StreamMenuView.Item.action("Apply", () -> used.set(99)))));
+        List<StreamMenuView.Item> settings = Collections.singletonList(
+                StreamMenuView.Item.action("Apply", () -> used.set(99)));
+        actions.set(9, StreamMenuView.Item.submenu("Settings", () -> menu.push("Settings", settings)));
         menu.showGrid("Game Assist", null, null, actions);
 
         press(menu, KeyEvent.KEYCODE_DPAD_DOWN);

@@ -19,4 +19,21 @@
     <string name="horizon_assist_save_pc">Use the game’s own save controls on the PC. This stream provider exposes no save-state controls to Nexus.</string>
     <string name="horizon_assist_messages_pc">Open your messaging app on the PC. This stream provider does not share message access.</string>
     <string name="horizon_assist_connect_first">Connect to the PC stream to use this action.</string>
+    <string name="horizon_stream_benchmark">Stream benchmark</string>
+    <string name="horizon_benchmark_note">Play for up to 60 seconds after starting. Results cover MediaCodec input-to-output timing and gaps between client output submissions. Display and controller latency require separate measurements.</string>
+    <string name="horizon_benchmark_start">Start 60-second benchmark</string>
+    <string name="horizon_benchmark_stop">Stop and show measured results</string>
+    <string name="horizon_benchmark_share">Share benchmark report</string>
+    <string name="horizon_benchmark_running">Stream benchmark running for up to 60 seconds</string>
+    <string name="horizon_benchmark_complete">Benchmark ready in Game Assist → Performance</string>
+    <string name="horizon_benchmark_network">Network</string>
+    <string name="horizon_benchmark_local">Local network</string>
+    <string name="horizon_benchmark_remote">Remote network</string>
+    <string name="horizon_benchmark_header">%1$s · %2$s · %3$d s · Requested %4$d×%5$d at %6$d fps</string>
+    <string name="horizon_benchmark_decode">Input to decoder output</string>
+    <string name="horizon_benchmark_intervals">Client output intervals</string>
+    <string name="horizon_benchmark_percentiles">%1$s · %2$d samples · p50 %3$s ms · p95 %4$s ms · p99 %5$s ms</string>
+    <string name="horizon_benchmark_loss">Latest stream frame-loss window · %1$s</string>
+    <string name="horizon_benchmark_power">End of run · Android thermal status %1$s · Battery Saver %2$s</string>
+    <string name="horizon_benchmark_battery">End of run · Battery-side estimate %1$s</string>
 </resources>
