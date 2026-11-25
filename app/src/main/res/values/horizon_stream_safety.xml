@@ -2,6 +2,9 @@
 <resources>
     <string name="horizon_power_stream_limit">Stream bitrate limit for power and heat</string>
     <string name="horizon_power_stream_limit_sub">When enabled, Battery Saver or severe heat can lower bitrate when a stream connects. Your saved bitrate and profiles stay available.</string>
+    <string name="horizon_scene_display_cap">Battery Saver brightness cap</string>
+    <string name="horizon_scene_display_cap_sub">Caps the saved PC stream brightness while Android Battery Saver is active. System brightness stays managed by Android. An in-stream adjustment overrides the cap for that session.</string>
+    <string name="horizon_scene_display_applied">%1$s · Battery Saver cap</string>
     <string name="horizon_stream_limit_low_battery">Low handheld battery limited this connection</string>
     <string name="horizon_stream_limit_battery_saver">Battery Saver limited this connection</string>
     <string name="horizon_stream_limit_severe">Severe heat limited this connection</string>

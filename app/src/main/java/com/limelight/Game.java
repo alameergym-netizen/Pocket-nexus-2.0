@@ -30,6 +30,7 @@ import com.limelight.pocket.core.HorizonStreamObserver;
 import com.limelight.pocket.core.HorizonDeferredTask;
 import com.limelight.pocket.core.HorizonLaunchRequests;
 import com.limelight.pocket.device.HorizonPower;
+import com.limelight.pocket.device.HorizonDisplayScene;
 import com.limelight.pocket.PocketAdaptive;
 import com.limelight.pocket.streaming.HorizonStreamSafety;
 import com.limelight.pocket.streaming.HorizonStreamCompatibility;
@@ -399,6 +400,15 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private long pocketKeyMonitorUntil;
     private long pocketSessionStartMs;
     private int pocketLastBatteryAlert = 101;
+    private boolean sceneForeground;
+    private boolean sceneReceiverRegistered;
+    private boolean manualStreamBrightness;
+    private int cappedStreamBrightness;
+    private final android.content.BroadcastReceiver powerSceneReceiver = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (android.os.PowerManager.ACTION_POWER_SAVE_MODE_CHANGED.equals(intent.getAction())) applyDisplayScene();
+        }
+    };
     // v2: adaptive stream, seamless resume, mic, playtime
     private int pocketStreamBitrate;
     private int pocketStreamLimitReason;
@@ -1989,6 +1999,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        stopDisplayScene();
         finishBenchmark(false);
         HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
@@ -2041,7 +2052,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        sceneForeground = true;
+        if (connected) startDisplayScene();
+    }
+
+    @Override
     protected void onPause() {
+        sceneForeground = false;
+        stopDisplayScene();
         finishBenchmark(false);
         // The frame you leave on: the PC's card on Streaming shows it (where you left off)
         if (connected && streamContainer != null) {
@@ -3102,7 +3122,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_sm_header_handheld)));
         items.add(StreamMenuView.Item.value(getString(R.string.pocket_sm_brightness),
-                pocketBrightnessLabel(PocketPrefs.streamBrightness(this)), this::pocketStepBrightness).withIcon("SUN"));
+                cappedStreamBrightness > 0 ? getString(R.string.horizon_scene_display_applied,
+                        pocketBrightnessLabel(cappedStreamBrightness)) : pocketBrightnessLabel(PocketPrefs.streamBrightness(this)),
+                this::pocketStepBrightness).withIcon("SUN"));
         items.add(StreamMenuView.Item.value(getString(R.string.pocket_sm_volume),
                 pocketVolumeLabel(), this::pocketStepVolume).withIcon("VOLUME_UP"));
         items.add(StreamMenuView.Item.value(getString(R.string.pocket_sm_mic), pocketMicLabel(), direction -> {
@@ -3602,6 +3624,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         pocketStatsHandler.removeCallbacks(pocketStatsSampler);
         pocketStatsHandler.postDelayed(pocketStatsSampler, 1000);
         pocketApplyBrightness(PocketPrefs.streamBrightness(this));
+        startDisplayScene();
         if (!UsbLink.isUsbAddress(host) && !pocketWarned24) {
             try {
                 android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
@@ -3670,8 +3693,46 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         getWindow().setAttributes(lp);
     }
 
+    private void startDisplayScene() {
+        if (sceneReceiverRegistered || !sceneForeground || !connected || !ownsStreamCallback()
+                || isOnExternalDisplay() || manualStreamBrightness
+                || HorizonDisplayScene.limitIndex(PocketPrefs.streamBrightnessCap(this)) == 0) return;
+        try {
+            androidx.core.content.ContextCompat.registerReceiver(this, powerSceneReceiver,
+                    new IntentFilter(android.os.PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+                    androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
+            sceneReceiverRegistered = true;
+        } catch (RuntimeException unavailable) {
+            return;
+        }
+        applyDisplayScene();
+    }
+
+    private void applyDisplayScene() {
+        if (!sceneReceiverRegistered || !sceneForeground || !connected || !ownsStreamCallback()) return;
+        int baseline = PocketPrefs.streamBrightness(this);
+        int next = HorizonDisplayScene.brightness(baseline, PocketPrefs.streamBrightnessCap(this),
+                HorizonPower.observe(this).batterySaver, manualStreamBrightness);
+        int cap = next < baseline ? next : 0;
+        if (cap != cappedStreamBrightness) {
+            cappedStreamBrightness = cap;
+            pocketApplyBrightness(next);
+        }
+    }
+
+    private void stopDisplayScene() {
+        if (sceneReceiverRegistered) {
+            sceneReceiverRegistered = false;
+            unregisterReceiver(powerSceneReceiver);
+        }
+        if (cappedStreamBrightness > 0) {
+            cappedStreamBrightness = 0;
+            if (!isFinishing()) pocketApplyBrightness(PocketPrefs.streamBrightness(this));
+        }
+    }
+
     private String pocketStepBrightness(int direction) {
-        int pct = PocketPrefs.streamBrightness(this);
+        int pct = cappedStreamBrightness > 0 ? cappedStreamBrightness : PocketPrefs.streamBrightness(this);
         pct = pct <= 0 ? (direction > 0 ? 10 : 0) : pct + direction * 10;
         if (pct > 100) {
             pct = 100;
@@ -3680,6 +3741,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             pct = 0;
         }
         PocketPrefs.prefs(this).edit().putInt(PocketPrefs.KEY_STREAM_BRIGHTNESS, pct).apply();
+        manualStreamBrightness = true;
+        cappedStreamBrightness = 0;
+        stopDisplayScene();
         pocketApplyBrightness(pct);
         return pocketBrightnessLabel(pct);
     }
@@ -5705,6 +5769,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private void stopConnection() {
         if (connecting || connected) {
+            stopDisplayScene();
             finishBenchmark(false);
             final boolean wasConnected = connected;
             final boolean shouldQuitRemote = wasConnected && quitOnStop && httpConn != null;
