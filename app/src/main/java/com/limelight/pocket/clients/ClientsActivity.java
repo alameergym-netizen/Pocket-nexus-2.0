@@ -261,6 +261,9 @@ public class ClientsActivity extends ConsoleActivity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
+        // Never a D-pad stop: moving right from the list goes straight to the actions
+        scroll.setFocusable(false);
+        scroll.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         LinearLayout texts = new LinearLayout(this);
         texts.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(texts, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
