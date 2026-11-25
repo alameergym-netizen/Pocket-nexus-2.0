@@ -42,6 +42,10 @@ Read docs/HORIZON_SYSTEM_BLUEPRINT.md, HORIZON.md and HORIZON_FOUNDATION_GATE.md
 
 Microsoft documents the Xbox browser route for games installed on the owner's console. Sony documents the separate PS Remote Play app for Android and requires the user's own console and account. The Connect workspace dispatches to the fixed Xbox site or the Sony app. Its Sony fallback opens the official store listing. The existing cloud gaming clients remain available independently. Login and gameplay are managed by the official clients, and dispatch alone supplies no evidence of sign-in, controller compatibility or a running game. [Xbox Remote Play](https://www.xbox.com/en-US/consoles/remote-play) · [PlayStation mobile instructions](https://www.playstation.com/en-us/support/games/playstation-remote-play-on-mobile-devices/) · [Official app](https://play.google.com/store/apps/details?id=com.playstation.remoteplay)
 
+## Stable Android update source
+
+The stable updater checks the repository's existing `latest` release tag and expects one project APK. It rejects draft and prerelease offers, unrelated asset URLs and ambiguous APKs. When GitHub supplies an asset SHA-256, the download must match it. Older metadata without a digest still goes through the same package, increasing version and current-signer checks. Development builds keep updates disabled. The repository had no published releases when checked, so the new policy uses synthetic release metadata for verification. [GitHub release asset metadata](https://docs.github.com/en/rest/releases/assets)
+
 ## Historical checkpoints
 
 ### Verified foundation

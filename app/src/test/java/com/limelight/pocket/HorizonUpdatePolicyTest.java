@@ -26,4 +26,24 @@ public class HorizonUpdatePolicyTest {
         assertFalse(HorizonUpdatePolicy.validSha("A1B2C3D"));
         assertFalse(HorizonUpdatePolicy.validSha(null));
     }
+
+    @Test public void onlyTheAdvertisedAssetUnderTheProjectStableTagIsAccepted() {
+        String asset = "https://github.com/" + HorizonUpdatePolicy.REPO
+                + "/releases/download/latest/PocketNexus2-a1b2c3d.apk";
+        assertTrue(HorizonUpdatePolicy.releaseAsset(asset, "a1b2c3d"));
+        assertFalse(HorizonUpdatePolicy.releaseAsset(asset, "1234567"));
+        assertFalse(HorizonUpdatePolicy.releaseAsset(asset.replace("latest/", "preview/"), "a1b2c3d"));
+        assertFalse(HorizonUpdatePolicy.releaseAsset(asset.replace(HorizonUpdatePolicy.REPO, "other/repo"), "a1b2c3d"));
+        assertFalse(HorizonUpdatePolicy.releaseAsset(asset + "?other=asset", "a1b2c3d"));
+    }
+
+    @Test public void verifiesTheActualSha256Digest() throws Exception {
+        String expected = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        byte[] data = java.security.MessageDigest.getInstance("SHA-256").digest(
+                "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertTrue(HorizonUpdatePolicy.matchesDigest(expected, data));
+        data[0] ^= 1;
+        assertFalse(HorizonUpdatePolicy.matchesDigest(expected, data));
+        assertFalse(HorizonUpdatePolicy.validDigest("sha256:1234"));
+    }
 }
