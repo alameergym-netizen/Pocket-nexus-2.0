@@ -548,10 +548,7 @@ public class NvConnection {
                     if (!lease.enterNative()) return;
                     try {
                     MoonBridge.setupBridge(videoDecoderRenderer, audioRenderer, connectionListener);
-                    if (lease.cancelled()) {
-                        MoonBridge.cleanupBridge();
-                        return;
-                    }
+                    if (lease.cancelled()) return;
                     int ret = MoonBridge.startConnection(context.serverAddress.address,
                             context.serverAppVersion, context.serverGfeVersion, context.rtspSessionUrl,
                             context.serverCodecModeSupport,
@@ -568,7 +565,10 @@ public class NvConnection {
                     if (ret != 0) return;
                     keepNative = true;
                     } finally {
-                        if (!keepNative) lease.leaveNative();
+                        if (!keepNative) {
+                            lease.leaveNative();
+                            MoonBridge.cleanupBridge();
+                        }
                     }
                 }
                 } catch (InterruptedException e) {
@@ -581,144 +581,144 @@ public class NvConnection {
         }, "NexusConnection").start();
     }
 
+    // Sending input and releasing native ownership use the same instance monitor.
+    // Do not hold MoonBridge.class here: native startup can perform network I/O.
     public void sendExecServerCmd(final int cmdId) {
-        if (!isMonkey) {
-            MoonBridge.sendExecServerCmd(cmdId);
-        }
-    }
-    
-    public void sendMouseMove(final short deltaX, final short deltaY)
-    {
-        if (!isMonkey) {
-            MoonBridge.sendMouseMove(deltaX, deltaY);
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendExecServerCmd(cmdId);
         }
     }
 
-    public void sendMousePosition(short x, short y, short referenceWidth, short referenceHeight)
-    {
-        if (!isMonkey) {
-            MoonBridge.sendMousePosition(x, y, referenceWidth, referenceHeight);
+    public void sendEmptyPayload() {
+        synchronized (lease) {
+            if (lease.ownsNativeInput()) MoonBridge.sendEmptyPayload();
         }
     }
 
-    public void sendMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight)
-    {
-        if (!isMonkey) {
-            MoonBridge.sendMouseMoveAsMousePosition(deltaX, deltaY, referenceWidth, referenceHeight);
+    public void sendMouseMove(final short deltaX, final short deltaY) {
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendMouseMove(deltaX, deltaY);
         }
     }
 
-    public void sendMouseButtonDown(final byte mouseButton)
-    {
-        if (!isMonkey) {
-            MoonBridge.sendMouseButton(MouseButtonPacket.PRESS_EVENT, mouseButton);
+    public void sendMousePosition(short x, short y, short referenceWidth, short referenceHeight) {
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendMousePosition(x, y, referenceWidth, referenceHeight);
         }
     }
-    
-    public void sendMouseButtonUp(final byte mouseButton)
-    {
-        if (!isMonkey) {
-            MoonBridge.sendMouseButton(MouseButtonPacket.RELEASE_EVENT, mouseButton);
+
+    public void sendMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight) {
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) {
+                MoonBridge.sendMouseMoveAsMousePosition(deltaX, deltaY, referenceWidth, referenceHeight);
+            }
         }
     }
-    
+
+    public void sendMouseButtonDown(final byte mouseButton) {
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendMouseButton(MouseButtonPacket.PRESS_EVENT, mouseButton);
+        }
+    }
+
+    public void sendMouseButtonUp(final byte mouseButton) {
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendMouseButton(MouseButtonPacket.RELEASE_EVENT, mouseButton);
+        }
+    }
+
     public void sendControllerInput(final short controllerNumber,
             final short activeGamepadMask, final int buttonFlags,
             final byte leftTrigger, final byte rightTrigger,
             final short leftStickX, final short leftStickY,
-            final short rightStickX, final short rightStickY)
-    {
-        if (!isMonkey) {
-            MoonBridge.sendMultiControllerInput(controllerNumber, activeGamepadMask, buttonFlags,
-                    leftTrigger, rightTrigger, leftStickX, leftStickY, rightStickX, rightStickY);
+            final short rightStickX, final short rightStickY) {
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) {
+                MoonBridge.sendMultiControllerInput(controllerNumber, activeGamepadMask, buttonFlags,
+                        leftTrigger, rightTrigger, leftStickX, leftStickY, rightStickX, rightStickY);
+            }
         }
     }
 
     public void sendKeyboardInput(final short keyMap, final byte keyDirection, final byte modifier, final byte flags) {
-        if (!isMonkey) {
-            MoonBridge.sendKeyboardInput(keyMap, keyDirection, modifier, flags);
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendKeyboardInput(keyMap, keyDirection, modifier, flags);
         }
     }
-    
+
     public void sendMouseScroll(final byte scrollClicks) {
-        if (!isMonkey) {
-            MoonBridge.sendMouseHighResScroll((short)(scrollClicks * 120)); // WHEEL_DELTA
-        }
+        sendMouseHighResScroll((short)(scrollClicks * 120)); // WHEEL_DELTA
     }
 
     public void sendMouseHScroll(final byte scrollClicks) {
-        if (!isMonkey) {
-            MoonBridge.sendMouseHighResHScroll((short)(scrollClicks * 120)); // WHEEL_DELTA
-        }
+        sendMouseHighResHScroll((short)(scrollClicks * 120));
     }
 
     public void sendMouseHighResScroll(final short scrollAmount) {
-        if (!isMonkey) {
-            MoonBridge.sendMouseHighResScroll(scrollAmount);
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendMouseHighResScroll(scrollAmount);
         }
     }
 
     public void sendMouseHighResHScroll(final short scrollAmount) {
-        if (!isMonkey) {
-            MoonBridge.sendMouseHighResHScroll(scrollAmount);
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendMouseHighResHScroll(scrollAmount);
         }
     }
 
     public int sendTouchEvent(byte eventType, int pointerId, float x, float y, float pressureOrDistance,
                               float contactAreaMajor, float contactAreaMinor, short rotation) {
-        if (!isMonkey) {
+        synchronized (lease) {
+            if (isMonkey || !lease.ownsNativeInput()) return MoonBridge.LI_ERR_UNSUPPORTED;
             return MoonBridge.sendTouchEvent(eventType, pointerId, x, y, pressureOrDistance,
                     contactAreaMajor, contactAreaMinor, rotation);
-        }
-        else {
-            return MoonBridge.LI_ERR_UNSUPPORTED;
         }
     }
 
     public int sendPenEvent(byte eventType, byte toolType, byte penButtons, float x, float y,
                             float pressureOrDistance, float contactAreaMajor, float contactAreaMinor,
                             short rotation, byte tilt) {
-        if (!isMonkey) {
+        synchronized (lease) {
+            if (isMonkey || !lease.ownsNativeInput()) return MoonBridge.LI_ERR_UNSUPPORTED;
             return MoonBridge.sendPenEvent(eventType, toolType, penButtons, x, y, pressureOrDistance,
                     contactAreaMajor, contactAreaMinor, rotation, tilt);
-        }
-        else {
-            return MoonBridge.LI_ERR_UNSUPPORTED;
         }
     }
 
     public int sendControllerArrivalEvent(byte controllerNumber, short activeGamepadMask, byte type,
                                           int supportedButtonFlags, short capabilities) {
-        return MoonBridge.sendControllerArrivalEvent(controllerNumber, activeGamepadMask, type, supportedButtonFlags, capabilities);
+        synchronized (lease) {
+            if (!lease.ownsNativeInput()) return MoonBridge.LI_ERR_UNSUPPORTED;
+            return MoonBridge.sendControllerArrivalEvent(controllerNumber, activeGamepadMask, type,
+                    supportedButtonFlags, capabilities);
+        }
     }
 
     public int sendControllerTouchEvent(byte controllerNumber, byte eventType, int pointerId,
                                         float x, float y, float pressure) {
-        if (!isMonkey) {
+        synchronized (lease) {
+            if (isMonkey || !lease.ownsNativeInput()) return MoonBridge.LI_ERR_UNSUPPORTED;
             return MoonBridge.sendControllerTouchEvent(controllerNumber, eventType, pointerId, x, y, pressure);
-        }
-        else {
-            return MoonBridge.LI_ERR_UNSUPPORTED;
         }
     }
 
     public int sendControllerMotionEvent(byte controllerNumber, byte motionType,
                                          float x, float y, float z) {
-        if (!isMonkey) {
+        synchronized (lease) {
+            if (isMonkey || !lease.ownsNativeInput()) return MoonBridge.LI_ERR_UNSUPPORTED;
             return MoonBridge.sendControllerMotionEvent(controllerNumber, motionType, x, y, z);
-        }
-        else {
-            return MoonBridge.LI_ERR_UNSUPPORTED;
         }
     }
 
     public void sendControllerBatteryEvent(byte controllerNumber, byte batteryState, byte batteryPercentage) {
-        MoonBridge.sendControllerBatteryEvent(controllerNumber, batteryState, batteryPercentage);
+        synchronized (lease) {
+            if (lease.ownsNativeInput()) MoonBridge.sendControllerBatteryEvent(controllerNumber, batteryState, batteryPercentage);
+        }
     }
 
     public void sendUtf8Text(final String text) {
-        if (!isMonkey) {
-            MoonBridge.sendUtf8Text(text);
+        synchronized (lease) {
+            if (!isMonkey && lease.ownsNativeInput()) MoonBridge.sendUtf8Text(text);
         }
     }
 
