@@ -1377,6 +1377,12 @@
     <string name="pocket_files_working">Working on it…</string>
     <string name="pocket_files_pasted">Done: %1$d</string>
     <string name="horizon_file_transfer_partial">%1$d completed · %2$d failed · %3$d copied with source items retained</string>
+    <string name="horizon_create_save_copy">Create verified backup</string>
+    <string name="horizon_restore_save_copy">Restore verified copy here</string>
+    <string name="horizon_save_backup_done">Verified backup saved in this folder</string>
+    <string name="horizon_save_restore_done">Verified save copy restored in this folder</string>
+    <string name="horizon_save_backup_failed">Could not create a verified backup. Check the file, free space, and write access. Maximum size is 256 MiB.</string>
+    <string name="horizon_save_restore_failed">Could not restore a verified copy. Check that the backup is intact and this folder is writable.</string>
     <string name="pocket_files_deleted">Deleted: %1$d</string>
     <string name="pocket_files_cant_rename">That name can\'t be used here</string>
     <string name="pocket_files_items">%1$d items</string>
