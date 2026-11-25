@@ -51,6 +51,8 @@ public class ClientsActivity extends ConsoleActivity {
     private final Map<String, String> versions = new HashMap<>();
     private final Map<String, View> rowById = new HashMap<>();
     private final Map<String, TextView> stateById = new HashMap<>();
+    /** Where the focus goes once the window has it (after any touch-mode change on arrival). */
+    private View initialFocus;
     private boolean scanned;
     private String selectedId;
 
@@ -96,6 +98,20 @@ public class ClientsActivity extends ConsoleActivity {
         // An app may have been installed or removed (App info, the store) while away
         if (scanned) {
             scan();
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // Opened with a button: the base screen has just left touch mode and focused the first
+        // row; the selected client is where the focus belongs
+        View target = initialFocus;
+        if (hasFocus && target != null) {
+            initialFocus = null;
+            if (!getWindow().getDecorView().isInTouchMode() && target.isAttachedToWindow()) {
+                target.requestFocus();
+            }
         }
     }
 
@@ -231,6 +247,8 @@ public class ClientsActivity extends ConsoleActivity {
             if (android.os.Build.VERSION.SDK_INT >= 26) {
                 target.setFocusedByDefault(true);
             }
+            // Only on arrival; a rebuild while the window has focus just moves the focus
+            initialFocus = hasWindowFocus() ? null : target;
             target.post(target::requestFocus);
         }
     }
