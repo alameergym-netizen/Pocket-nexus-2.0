@@ -286,8 +286,10 @@ def check_control(prefix):
     check_honest_cards(control, prefix + " Control")
     wait_for(prefix + " first tile focused", lambda t: focused(t, "Sleep"))
     deck = bounds(resource(control, "horizon_deck"))
-    sleep_tile = next(n for n in control.iter("node") if has(n, "Sleep") and n.get("clickable") == "true")
-    assert deck[3] <= bounds(sleep_tile)[1], ("Control cards must sit above the tiles", deck)
+    # The smallest clickable view labelled Sleep is the tile (the panel and the scrim are clickable too)
+    sleep_tile = min((n for n in control.iter("node") if has(n, "Sleep") and n.get("clickable") == "true"),
+                     key=lambda n: (bounds(n)[2] - bounds(n)[0]) * (bounds(n)[3] - bounds(n)[1]))
+    assert deck[3] <= bounds(sleep_tile)[1], ("Control cards must sit above the tiles", deck, bounds(sleep_tile))
     capture(prefix + "-control")
     key("DPAD_UP")
     wait_for(prefix + " UP from the tiles reaches the cards", lambda t: focused_card(t) is not None, timeout=10)
