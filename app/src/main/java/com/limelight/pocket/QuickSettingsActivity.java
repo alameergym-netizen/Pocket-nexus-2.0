@@ -193,10 +193,12 @@ public class QuickSettingsActivity extends ConsoleActivity {
     @Override
     public void showConsolePanel(String title, String subtitle, String stats, List<StreamMenuView.Item> items) {
         if (!isConsolePanelShowing()) panelReturnFocus = getCurrentFocus();
-        super.showConsolePanel(title, subtitle, stats, items);
+        boolean previous = movingFocus;
         movingFocus = true;
-        try { focusConsolePanel(); }
-        finally { movingFocus = false; }
+        try {
+            super.showConsolePanel(title, subtitle, stats, items);
+            focusConsolePanel();
+        } finally { movingFocus = previous; }
     }
 
     @Override
@@ -267,6 +269,15 @@ public class QuickSettingsActivity extends ConsoleActivity {
     // ---- Tabs ---------------------------------------------------------------------------
 
     private void selectTab(int index, boolean animate) {
+        // Removing a focused row can synchronously focus the first tab. Keep the
+        // explicit selection authoritative throughout the entire row rebuild.
+        boolean previous = movingFocus;
+        movingFocus = true;
+        try { buildSelectedTab(index, animate); }
+        finally { movingFocus = previous; }
+    }
+
+    private void buildSelectedTab(int index, boolean animate) {
         int from = currentTab;
         currentTab = index;
         for (int i = 0; i < tabs.size(); i++) {
