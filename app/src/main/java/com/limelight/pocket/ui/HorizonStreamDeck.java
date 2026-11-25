@@ -75,13 +75,13 @@ public final class HorizonStreamDeck extends LinearLayout {
         this.d = context.getResources().getDisplayMetrics().density;
         this.compact = compact;
         this.actions = actions;
-        setId(R.id.horizon_stream_deck);
+        setId(R.id.horizon_deck);
         setClipChildren(false);
         setClipToPadding(false);
-        setContentDescription(context.getString(R.string.horizon_stream_cards));
-        host = new Card(context, R.id.horizon_stream_host, "DESKTOP", R.string.horizon_stream_host);
-        session = new Card(context, R.id.horizon_stream_session, "PLAY", R.string.horizon_stream_session);
-        network = new Card(context, R.id.horizon_stream_network, "WIFI", R.string.horizon_stream_network);
+        setContentDescription(context.getString(R.string.horizon_deck_cards));
+        host = new Card(context, R.id.horizon_deck_host, "DESKTOP", R.string.horizon_deck_host);
+        session = new Card(context, R.id.horizon_deck_session, "PLAY", R.string.horizon_deck_session);
+        network = new Card(context, R.id.horizon_deck_network, "WIFI", R.string.horizon_deck_network);
         host.setOnClickListener(v -> {
             PocketSounds.play(getContext(), PocketSounds.OPEN);
             actions.openHosts();
@@ -207,7 +207,7 @@ public final class HorizonStreamDeck extends LinearLayout {
         long now = SystemClock.elapsedRealtime();
         Host featured = HorizonStreamCards.featured(hosts, now);
         if (featured == null) {
-            host.fill(c.getString(R.string.horizon_stream_no_host), c.getString(R.string.horizon_stream_pair_hint),
+            host.fill(c.getString(R.string.horizon_deck_no_host), c.getString(R.string.horizon_deck_pair_hint),
                     Tone.IDLE);
         }
         else {
@@ -215,26 +215,26 @@ public final class HorizonStreamDeck extends LinearLayout {
             String state;
             Tone tone;
             if (reach == Reach.ONLINE) {
-                state = c.getString(R.string.horizon_stream_online);
+                state = c.getString(R.string.horizon_deck_online);
                 String route = route(c, featured.route);
-                if (route != null) state = c.getString(R.string.horizon_stream_joined, state, route);
+                if (route != null) state = c.getString(R.string.horizon_deck_joined, state, route);
                 tone = Tone.GOOD;
             }
             else if (reach == Reach.OFFLINE) {
-                state = c.getString(R.string.horizon_stream_offline);
+                state = c.getString(R.string.horizon_deck_offline);
                 tone = Tone.BAD;
             }
             else {
                 state = featured.observedAt > 0
-                        ? c.getString(R.string.horizon_stream_seen, DateUtils.getRelativeTimeSpanString(
+                        ? c.getString(R.string.horizon_deck_seen, DateUtils.getRelativeTimeSpanString(
                                 featured.observedAt, now, DateUtils.MINUTE_IN_MILLIS))
-                        : c.getString(R.string.horizon_stream_not_checked);
+                        : c.getString(R.string.horizon_deck_not_checked);
                 tone = Tone.IDLE;
             }
             int others = hosts.size() - 1;
             if (others > 0) {
-                state = c.getString(R.string.horizon_stream_joined, state,
-                        c.getResources().getQuantityString(R.plurals.horizon_stream_more_pcs, others, others));
+                state = c.getString(R.string.horizon_deck_joined, state,
+                        c.getResources().getQuantityString(R.plurals.horizon_deck_more_pcs, others, others));
             }
             host.fill(featured.name, state, tone);
         }
@@ -243,17 +243,17 @@ public final class HorizonStreamDeck extends LinearLayout {
         running = s.kind == SessionKind.RUNNING ? s.host : null;
         switch (s.kind) {
             case RUNNING:
-                session.fill(s.host.runningName != null ? s.host.runningName : c.getString(R.string.horizon_stream_game_running),
-                        c.getString(R.string.horizon_stream_running_on, s.host.name), Tone.GOOD);
+                session.fill(s.host.runningName != null ? s.host.runningName : c.getString(R.string.horizon_deck_game_running),
+                        c.getString(R.string.horizon_deck_running_on, s.host.name), Tone.GOOD);
                 break;
             case IDLE:
-                session.fill(c.getString(R.string.horizon_stream_idle), last(c, s.last), Tone.IDLE);
+                session.fill(c.getString(R.string.horizon_deck_idle), last(c, s.last), Tone.IDLE);
                 break;
             case UNKNOWN:
-                session.fill(c.getString(R.string.horizon_stream_waiting), last(c, s.last), Tone.IDLE);
+                session.fill(c.getString(R.string.horizon_deck_waiting), last(c, s.last), Tone.IDLE);
                 break;
             default:
-                session.fill(c.getString(R.string.horizon_stream_idle), c.getString(R.string.horizon_stream_pair_hint),
+                session.fill(c.getString(R.string.horizon_deck_idle), c.getString(R.string.horizon_deck_pair_hint),
                         Tone.IDLE);
                 break;
         }
@@ -264,44 +264,44 @@ public final class HorizonStreamDeck extends LinearLayout {
         switch (link.transport) {
             case WIFI:
                 String band = HorizonStreamCards.band(link.bandGhz10);
-                netValue = band != null ? c.getString(R.string.horizon_stream_wifi_band, band)
-                        : c.getString(R.string.horizon_stream_wifi);
-                if (link.signal >= 0) details.add(c.getString(R.string.horizon_stream_signal, link.signal));
-                if (link.linkMbps > 0) details.add(c.getString(R.string.horizon_stream_link, link.linkMbps));
+                netValue = band != null ? c.getString(R.string.horizon_deck_wifi_band, band)
+                        : c.getString(R.string.horizon_deck_wifi);
+                if (link.signal >= 0) details.add(c.getString(R.string.horizon_deck_signal, link.signal));
+                if (link.linkMbps > 0) details.add(c.getString(R.string.horizon_deck_link, link.linkMbps));
                 if (link.signal >= 0 && link.signal <= 1) netTone = Tone.BAD;
                 break;
             case WIRED:
-                netValue = c.getString(R.string.horizon_stream_wired);
+                netValue = c.getString(R.string.horizon_deck_wired);
                 break;
             case CELLULAR:
-                netValue = c.getString(R.string.horizon_stream_cellular);
+                netValue = c.getString(R.string.horizon_deck_cellular);
                 break;
             case OTHER:
-                netValue = c.getString(R.string.horizon_stream_connected);
+                netValue = c.getString(R.string.horizon_deck_connected);
                 break;
             default:
-                netValue = c.getString(R.string.horizon_stream_no_network);
+                netValue = c.getString(R.string.horizon_deck_no_network);
                 netTone = Tone.BAD;
                 break;
         }
-        if (link.vpn) details.add(c.getString(R.string.horizon_stream_vpn));
+        if (link.vpn) details.add(c.getString(R.string.horizon_deck_vpn));
         if (details.isEmpty()) {
-            details.add(c.getString(link.transport == Transport.NONE ? R.string.horizon_stream_no_network_hint
-                    : R.string.horizon_stream_no_details));
+            details.add(c.getString(link.transport == Transport.NONE ? R.string.horizon_deck_no_network_hint
+                    : R.string.horizon_deck_no_details));
         }
         network.fill(netValue, TextUtils.join(" · ", details), netTone);
     }
 
     private static String last(Context c, Host last) {
-        return last != null && last.lastGame != null ? c.getString(R.string.horizon_stream_last, last.lastGame)
-                : c.getString(R.string.horizon_stream_none_yet);
+        return last != null && last.lastGame != null ? c.getString(R.string.horizon_deck_last, last.lastGame)
+                : c.getString(R.string.horizon_deck_none_yet);
     }
 
     private static String route(Context c, Route route) {
         switch (route) {
-            case LOCAL: return c.getString(R.string.horizon_stream_route_local);
-            case REMOTE: return c.getString(R.string.horizon_stream_route_remote);
-            case MANUAL: return c.getString(R.string.horizon_stream_route_manual);
+            case LOCAL: return c.getString(R.string.horizon_deck_route_local);
+            case REMOTE: return c.getString(R.string.horizon_deck_route_remote);
+            case MANUAL: return c.getString(R.string.horizon_deck_route_manual);
             default: return null;
         }
     }
@@ -556,7 +556,7 @@ public final class HorizonStreamDeck extends LinearLayout {
             lamp.setShape(GradientDrawable.OVAL);
             lamp.setColor(tone == Tone.GOOD ? 0xFF4ADE80 : tone == Tone.BAD ? 0xFFF87171 : 0xFF9CA3AF);
             dot.setBackground(lamp);
-            setContentDescription(getContext().getString(R.string.horizon_stream_card_description, kind, v, more));
+            setContentDescription(getContext().getString(R.string.horizon_deck_card_description, kind, v, more));
         }
 
         private GradientDrawable face(boolean focused) {

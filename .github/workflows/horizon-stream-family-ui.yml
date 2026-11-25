@@ -10,7 +10,7 @@ on:
       - 'app/src/main/java/com/limelight/pocket/home/HomeActivity.java'
       - 'app/src/main/java/com/limelight/pocket/library/LibraryActivity.java'
       - 'app/src/main/java/com/limelight/pocket/global/ControlCenterActivity.java'
-      - 'app/src/main/res/values/horizon_stream.xml'
+      - 'app/src/main/res/values/horizon_deck.xml'
       - '.github/tests/stream_family_workspace.py'
       - '.github/workflows/horizon-stream-family-ui.yml'
 permissions:

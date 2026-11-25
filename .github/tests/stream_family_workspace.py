@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 PKG = "com.pocketnexus.console.debug"
 RESULTS = Path("stream-family-ui-results")
 HORIZON_ACCENT = "-5715736"  # 0xFFA8C8E8, the Nexus Horizon preset
-CARDS = ("horizon_stream_host", "horizon_stream_session", "horizon_stream_network")
+CARDS = ("horizon_deck_host", "horizon_deck_session", "horizon_deck_network")
 NETWORK_VALUES = ("Wi-Fi", "Wired", "Mobile data", "Connected", "No network")
 
 
@@ -121,14 +121,14 @@ def cards_filled(tree):
 
 
 def horizon_home(tree):
-    return resource(tree, "homeRow") is not None and resource(tree, "horizon_stream_deck") is not None \
+    return resource(tree, "homeRow") is not None and resource(tree, "horizon_deck") is not None \
         and cards_filled(tree)
 
 
 def check_honest_cards(tree, where):
-    host = resource(tree, "horizon_stream_host").get("content-desc", "")
-    session = resource(tree, "horizon_stream_session").get("content-desc", "")
-    network = resource(tree, "horizon_stream_network").get("content-desc", "")
+    host = resource(tree, "horizon_deck_host").get("content-desc", "")
+    session = resource(tree, "horizon_deck_session").get("content-desc", "")
+    network = resource(tree, "horizon_deck_network").get("content-desc", "")
     # No PC is paired on the emulator: nothing may be called online or running
     assert "No PC paired" in host, (where, "host card", host)
     assert "Online" not in host and "Offline" not in host, (where, "host card claims a state", host)
@@ -148,7 +148,7 @@ def check_home(prefix, stacked):
     check_honest_cards(home, prefix + " Home")
     hero = bounds(resource(home, "pocketHero"))
     row = bounds(resource(home, "homeRow"))
-    deck = bounds(resource(home, "horizon_stream_deck"))
+    deck = bounds(resource(home, "horizon_deck"))
     screen = bounds(next(home.iter("node")))
     assert hero[2] <= deck[0], ("cards must sit right of the hero", hero, deck)
     assert row[3] <= deck[1], ("cards must sit below the games row", row, deck)
@@ -178,7 +178,7 @@ def controller_into_cards(prefix):
         key("DPAD_RIGHT")
         time.sleep(0.4)
         tree = snap()
-    tree = wait_for(prefix + " Host card focused from Options", lambda t: focused_card(t) == "horizon_stream_host",
+    tree = wait_for(prefix + " Host card focused from Options", lambda t: focused_card(t) == "horizon_deck_host",
                     timeout=10)
     return tree
 
@@ -188,20 +188,20 @@ def check_home_controller(prefix, stacked):
     step = "DPAD_DOWN" if stacked else "DPAD_RIGHT"
     back = "DPAD_UP" if stacked else "DPAD_LEFT"
     key(step)
-    wait_for(prefix + " Session card next", lambda t: focused_card(t) == "horizon_stream_session", timeout=10)
+    wait_for(prefix + " Session card next", lambda t: focused_card(t) == "horizon_deck_session", timeout=10)
     key(step)
-    wait_for(prefix + " Network card last", lambda t: focused_card(t) == "horizon_stream_network", timeout=10)
+    wait_for(prefix + " Network card last", lambda t: focused_card(t) == "horizon_deck_network", timeout=10)
     key(step)
     time.sleep(0.6)
-    assert focused_card(snap()) == "horizon_stream_network", "focus must stay on the last card"
+    assert focused_card(snap()) == "horizon_deck_network", "focus must stay on the last card"
     capture(prefix + "-home-network-focused")
     key(back)
     key(back)
-    wait_for(prefix + " back on the Host card", lambda t: focused_card(t) == "horizon_stream_host", timeout=10)
+    wait_for(prefix + " back on the Host card", lambda t: focused_card(t) == "horizon_deck_host", timeout=10)
     key("DPAD_LEFT")
     wait_for(prefix + " LEFT leaves the cards for Options", lambda t: focused(t, "Options"), timeout=10)
     key("DPAD_RIGHT")
-    wait_for(prefix + " RIGHT returns to the Host card", lambda t: focused_card(t) == "horizon_stream_host", timeout=10)
+    wait_for(prefix + " RIGHT returns to the Host card", lambda t: focused_card(t) == "horizon_deck_host", timeout=10)
     key("DPAD_UP")
     wait_for(prefix + " UP leaves the cards for the games",
              lambda t: focused_card(t) is None and any(n.get("focused") == "true" for n in
@@ -211,7 +211,7 @@ def check_home_controller(prefix, stacked):
 
 def check_network_touch(prefix):
     home = wait_for(prefix + " Home before the network tap", horizon_home)
-    tap(resource(home, "horizon_stream_network"))
+    tap(resource(home, "horizon_deck_network"))
     deadline = time.monotonic() + 15
     opened = False
     while time.monotonic() < deadline:
@@ -247,13 +247,13 @@ def check_library(prefix, expect_cards):
     if not expect_cards:
         time.sleep(1.5)
         library = snap()
-        assert resource(library, "horizon_stream_deck") is None, "short screens keep the Library's room for games"
+        assert resource(library, "horizon_deck") is None, "short screens keep the Library's room for games"
         capture(prefix + "-library")
         print("PASS: %s Library leaves the cards out on a short screen" % prefix, flush=True)
     else:
         library = wait_for(prefix + " Library streaming cards", cards_filled)
         check_honest_cards(library, prefix + " Library")
-        deck = bounds(resource(library, "horizon_stream_deck"))
+        deck = bounds(resource(library, "horizon_deck"))
         grid = bounds(resource(library, "horizon_library_grid"))
         assert deck[3] <= grid[1], ("Library cards must sit above the games", deck, grid)
         boxes = card_boxes(library)
@@ -282,7 +282,7 @@ def check_control(prefix):
     control = wait_for(prefix + " Horizon Nexus Control", lambda t: has(t, "Nexus Control") and cards_filled(t))
     check_honest_cards(control, prefix + " Control")
     wait_for(prefix + " first tile focused", lambda t: focused(t, "Sleep"))
-    deck = bounds(resource(control, "horizon_stream_deck"))
+    deck = bounds(resource(control, "horizon_deck"))
     sleep_tile = next(n for n in control.iter("node") if has(n, "Sleep") and n.get("clickable") == "true")
     assert deck[3] <= bounds(sleep_tile)[1], ("Control cards must sit above the tiles", deck)
     capture(prefix + "-control")
