@@ -38,6 +38,7 @@ import com.limelight.pocket.PocketPrefs;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.retro.RetroLibrary;
 import com.limelight.pocket.ui.ConsoleScreen;
+import com.limelight.pocket.ui.MenuKeyOwnership;
 import com.limelight.pocket.ui.PocketTheme;
 import com.limelight.pocket.ui.StreamMenuView;
 
@@ -81,6 +82,7 @@ public class FilesActivity extends Activity {
     private static long clipGeneration;
 
     private final Handler main = new Handler(Looper.getMainLooper());
+    private final MenuKeyOwnership menuKeys = new MenuKeyOwnership();
     private Preview preview;
     private long restorePreviewGeneration;
     /** Where the last folder change went (1: into a folder, -1: up, 0: another place). */
@@ -951,8 +953,9 @@ public class FilesActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (menu.isShowing()) {
-            menu.handleKey(event);
+        boolean showing = menu.isShowing();
+        if (menuKeys.consume(event, showing)) {
+            if (showing) menu.handleKey(event);
             return true;
         }
         int code = event.getKeyCode();
