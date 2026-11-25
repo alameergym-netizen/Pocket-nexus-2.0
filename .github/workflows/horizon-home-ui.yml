@@ -10,6 +10,9 @@ on:
       - 'app/src/main/res/values/horizon_home_workspace.xml'
       - '.github/tests/home_workspace.py'
       - '.github/tests/pure_oled_workspace.py'
+      - '.github/tests/titanium_workspace.py'
+      - 'app/src/main/res/values/horizon_titanium.xml'
+      - 'app/src/main/java/com/limelight/pocket/ui/TitaniumStyle.java'
       - '.github/workflows/horizon-home-ui.yml'
 permissions:
   contents: read
@@ -53,6 +56,7 @@ jobs:
           script: |
             python3 -u .github/tests/home_workspace.py app/build/outputs/apk/nonRoot_game/debug/*.apk
             python3 -u .github/tests/pure_oled_workspace.py
+            python3 -u .github/tests/titanium_workspace.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

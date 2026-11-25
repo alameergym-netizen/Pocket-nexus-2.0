@@ -191,6 +191,26 @@ def main(apk):
     capture("06-android-launcher")
     print("PASS: System offers an Android launcher escape", flush=True)
 
+    setup_device(320)
+    key("BUTTON_START")
+    settings = wait_for("settings after launcher recovery", lambda t: has(t, "Settings") and has(t, "System"))
+    tap_label(settings, "System")
+    device = wait_for("System settings", lambda t: has(t, "Compatibility stream start"))
+    for _ in range(8):
+        if has(device, "Retroid Bridge"):
+            break
+        adb("shell", "input", "swipe", "1000", "850", "1000", "280", "300")
+        device = snap()
+    assert has(device, "Retroid Bridge"), "Hardware diagnostics could not be reached"
+    tap_label(device, "Retroid Bridge")
+    bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
+    capture("09-hardware-readings")
+    tap_label(bridge, "Refresh readings")
+    wait_for("refreshed hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
+    key("BUTTON_B")
+    wait_for("return to System from hardware diagnostics", lambda t: has(t, "System") and not has(t, "Sampled at"))
+    print("PASS: Retroid Bridge opens, refreshes, and returns to System", flush=True)
+
 if __name__ == "__main__":
     try:
         main(sys.argv[1])

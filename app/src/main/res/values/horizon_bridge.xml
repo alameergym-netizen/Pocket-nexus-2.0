@@ -11,9 +11,15 @@
     <string name="horizon_bridge_cpu">CPU frequency policies</string>
     <string name="horizon_bridge_gpu">GPU frequency</string>
     <string name="horizon_bridge_unknown">Unavailable / access restricted</string>
-    <string name="horizon_bridge_limit">Current maximum: %1$s</string>
     <string name="horizon_bridge_current">Current frequency</string>
     <string name="horizon_bridge_max">Current maximum</string>
+    <string name="horizon_bridge_min">Current minimum</string>
+    <string name="horizon_bridge_governor">Reported governor</string>
+    <string name="horizon_bridge_steps">Readable frequency steps</string>
+    <string name="horizon_bridge_cooling">Cooling devices</string>
+    <string name="horizon_bridge_cooling_state">Cooling state %1$s / %2$s</string>
+    <string name="horizon_bridge_measuring">Reading device performance…</string>
+    <string name="horizon_bridge_sample_time">Sampled at</string>
     <string name="horizon_bridge_safety">Thermal guidance</string>
     <string name="horizon_thermal_status">Android thermal status</string>
     <string name="horizon_bridge_battery_saver">Android Battery Saver</string>

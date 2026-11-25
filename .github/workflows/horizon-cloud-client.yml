@@ -1,0 +1,16 @@
+name: Horizon Cloud client handoff
+on:
+  pull_request:
+    branches: [horizon-foundation]
+    paths:
+      - 'app/src/main/java/com/limelight/pocket/cloud/**'
+      - 'app/src/main/res/values/horizon_cloud_clients.xml'
+      - '.github/tests/cloud_client_workspace.py'
+      - '.github/workflows/horizon-cloud-client.yml'
+permissions:
+  contents: read
+jobs:
+  upstream-client:
+    uses: ./.github/workflows/horizon-media-connect-ui.yml
+    with:
+      cloud_client_runtime: true
