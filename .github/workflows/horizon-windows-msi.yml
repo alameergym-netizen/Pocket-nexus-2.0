@@ -1,0 +1,64 @@
+name: Horizon Windows MSI lifecycle
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [horizon-foundation]
+    paths:
+      - 'pc-setup/installer/**'
+      - 'pc-setup/Stage-NexusHostDev.ps1'
+      - 'pc-setup/tests/package_host.py'
+      - '.github/workflows/horizon-windows-msi.yml'
+permissions:
+  contents: read
+jobs:
+  msi:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Stage the verified host payload
+        shell: powershell
+        run: |
+          python pc-setup/tests/package_host.py dist/NexusHost-dev.zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sha = (Get-FileHash -LiteralPath 'dist/NexusHost-dev.zip' -Algorithm SHA256).Hash
+          $staged = & pc-setup/Stage-NexusHostDev.ps1 -Archive dist/NexusHost-dev.zip -ExpectedSha256 $sha -StageRoot "$env:RUNNER_TEMP\Nexus Host Staging"
+          "NEXUS_MSI_PAYLOAD=$($staged.StagedPath)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build two x64 per-user MSI versions
+        shell: powershell
+        run: |
+          $wixBin = Join-Path ${env:ProgramFiles(x86)} 'WiX Toolset v3.14\bin'
+          if (-not (Test-Path -LiteralPath (Join-Path $wixBin 'candle.exe'))) {
+              throw 'WiX Toolset v3.14 is required on the Windows runner.'
+          }
+          $previousBuild = 2 * [int]$env:GITHUB_RUN_NUMBER
+          python pc-setup/installer/build_msi.py --payload "$env:NEXUS_MSI_PAYLOAD" --version "2.0.$previousBuild" --output "$env:RUNNER_TEMP\NexusHost-previous.msi" --wix-bin "$wixBin"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python pc-setup/installer/build_msi.py --payload "$env:NEXUS_MSI_PAYLOAD" --version "2.0.$($previousBuild + 1)" --output dist/NexusHost-dev-x64.msi --wix-bin "$wixBin"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install, upgrade, and remove with Windows Installer
+        shell: powershell
+        run: |
+          & pc-setup/installer/Test-NexusMsi.ps1 -Older "$env:RUNNER_TEMP\NexusHost-previous.msi" -Newer dist/NexusHost-dev-x64.msi -LogDirectory dist/msi-logs
+          $sha = (Get-FileHash -LiteralPath dist/NexusHost-dev-x64.msi -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  NexusHost-dev-x64.msi" | Set-Content -LiteralPath dist/NexusHost-dev-x64.msi.sha256 -Encoding ascii
+      - name: Upload verified development MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexusHost-msi-dev
+          path: |
+            dist/NexusHost-dev-x64.msi
+            dist/NexusHost-dev-x64.msi.sha256
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Windows Installer logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Horizon-Windows-MSI-diagnostics
+          path: dist/msi-logs/
+          if-no-files-found: ignore
+          retention-days: 7

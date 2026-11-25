@@ -12,6 +12,12 @@ Use the trusted `Install-NexusHostDev.ps1` and `Stage-NexusHostDev.ps1` from the
 
 Quit the version and turn off its Start with Windows option before running `Install-NexusHostDev.ps1 -Remove -ExpectedSha256 <sha256>`. Removal checks that the installed files still match the original manifest and identifies the exact Start menu shortcut. If an added or changed file is present, move it to a separate folder or restore the original package file before retrying. Companion settings remain under `%LOCALAPPDATA%\ArtemisPocket`. Running the install again with the same archive repairs a missing shortcut for the verified version. CI tests on Windows use an isolated temporary Start menu and installation directory. A production signed installer and a manual desktop launch remain release requirements.
 
+### Development x64 MSI
+
+The Windows MSI job builds an unsigned development package from the verified payload. It installs per user under `%LOCALAPPDATA%\PocketNexus\NexusHost-msi-dev`, registers in Windows Installed Apps, and adds **Pocket Nexus Host Development** to the Start menu. It leaves companion data under `%LOCALAPPDATA%\ArtemisPocket` and keeps the ZIP-based installation path separately available. The MSI installs without starting the companion or changing firewall and startup settings. Before upgrading or removing a version, quit it from its tray menu and turn off Start with Windows if you configured it to use that version.
+
+The MSI job tests installation, payload hashes, upgrade, downgrade refusal, shortcut and removal on an isolated Windows runner. The published CI artifact is a development build. Production code signing and physical desktop acceptance remain part of the release gate.
+
 Optional Android preflight: from a Windows PowerShell terminal, run Test-NexusUpgrade.ps1 with -Apk and trusted Android SDK paths for -Adb, -Aapt and -ApkSigner. If multiple devices are attached, select -Serial locally. Authorize USB debugging only on your trusted computer. It reads the installed base APK into a temporary directory, verifies both APK signatures and compares package, current signer set and version code. It never calls install/uninstall/clear. It rejects signer mismatch, different package and non-newer version, and does not prove actual installation or settings compatibility. The extracted base APK is deleted in a finally block. Run -SelfTest without a device to test policy. Fresh installs require a separate procedure.
 
 ### Optional Windows save preview

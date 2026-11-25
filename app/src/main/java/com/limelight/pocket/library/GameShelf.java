@@ -120,17 +120,20 @@ public final class GameShelf {
         return out;
     }
 
-    public static void createCollection(Context c, String name) {
+    /** Add the game without removing an existing membership. Create the collection in the same edit. */
+    public static synchronized String addToCollection(Context c, String name, String key) {
         name = name != null ? name.trim() : "";
-        if (name.isEmpty()) {
-            return;
-        }
-        Set<String> all = new HashSet<>(prefs(c).getStringSet(KEY_COLLECTIONS, Collections.emptySet()));
+        if (name.isEmpty()) return null;
+        SharedPreferences preferences = prefs(c);
+        Set<String> all = new HashSet<>(preferences.getStringSet(KEY_COLLECTIONS, Collections.emptySet()));
+        Set<String> members = gamesIn(c, name);
         all.add(name);
-        prefs(c).edit().putStringSet(KEY_COLLECTIONS, all).apply();
+        members.add(key);
+        preferences.edit().putStringSet(KEY_COLLECTIONS, all).putStringSet(KEY_IN + name, members).apply();
+        return name;
     }
 
-    public static void deleteCollection(Context c, String name) {
+    public static synchronized void deleteCollection(Context c, String name) {
         Set<String> all = new HashSet<>(prefs(c).getStringSet(KEY_COLLECTIONS, Collections.emptySet()));
         all.remove(name);
         prefs(c).edit().putStringSet(KEY_COLLECTIONS, all).remove(KEY_IN + name).apply();
@@ -145,7 +148,7 @@ public final class GameShelf {
     }
 
     /** In it, or out of it (true: it's in now). */
-    public static boolean toggle(Context c, String collection, String key) {
+    public static synchronized boolean toggle(Context c, String collection, String key) {
         Set<String> in = gamesIn(c, collection);
         boolean now = !in.remove(key);
         if (now) {

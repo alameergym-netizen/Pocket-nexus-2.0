@@ -1178,7 +1178,10 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             else {
                 consolePanel.setBaseColor(0xF514141A);
             }
-            consolePanel.setListener(() -> PocketUi.setBackdropBlur(blurTarget(), false));
+            consolePanel.setListener(() -> {
+                PocketUi.setBackdropBlur(blurTarget(), false);
+                onConsolePanelClosed();
+            });
             ViewGroup content = findViewById(android.R.id.content);
             content.addView(consolePanel, new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -1206,6 +1209,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     public boolean isConsolePanelShowing() {
         return consolePanel != null && consolePanel.isShowing();
     }
+
+    protected void onConsolePanelClosed() { }
 
     /** A glass side panel driven by the controller, like the in-stream menu. */
     public void showConsolePanel(String title, String subtitle, String stats, List<StreamMenuView.Item> items) {
