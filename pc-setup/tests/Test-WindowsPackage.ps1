@@ -60,4 +60,39 @@ try {
     $duplicateHash = New-ModifiedArchive $duplicate 'readme.txt' $false
     Expect-Rejected { & $candidate -Archive $duplicate -ExpectedSha256 $duplicateHash -StageRoot $blocked } 'duplicate path'
     Check (-not (Test-Path -LiteralPath $blocked)) 'invalid archives never create a staging destination'
+
+    $installer = Join-Path (Split-Path $PSScriptRoot) 'Install-NexusHostDev.ps1'
+    $installRoot = Join-Path $fixture 'Installed versions'
+    $programsRoot = Join-Path $fixture 'Start Menu Programs'
+    $arguments = @{ ExpectedSha256 = $digest; InstallRoot = $installRoot; ProgramsRoot = $programsRoot }
+    $installed = & $installer @arguments -Archive $source
+    Check ($installed.Result -eq 'INSTALLED_DEVELOPMENT_VERSION' -and
+        (Test-Path -LiteralPath $installed.Shortcut -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $installed.Directory 'PocketNexus-PC.ps1'))) 'per-user installation registers a development shortcut'
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($installed.Shortcut)
+    Check ($shortcut.Arguments.EndsWith(' -Background') -and
+        $shortcut.Arguments.Contains('"' + $installed.Directory + '\PocketNexus-PC.ps1"')) 'shortcut launches the verified script in background mode with a quoted path'
+    $second = & $installer @arguments -Archive $source
+    Check ($second.Directory -eq $installed.Directory -and $second.Shortcut -eq $installed.Shortcut) 'same archive installs idempotently'
+
+    $added = Join-Path $installed.Directory 'personal.txt'
+    [IO.File]::WriteAllText($added, 'preserve unmanaged files')
+    Expect-Rejected { & $installer @arguments -Remove } 'modified or unrecognized item'
+    Check ((Test-Path -LiteralPath $installed.Shortcut) -and [IO.File]::ReadAllText($added) -eq 'preserve unmanaged files') 'removal preserves a modified installation and its shortcut'
+    [IO.File]::Delete($added)
+
+    $originalLink = [IO.File]::ReadAllBytes($installed.Shortcut)
+    $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\notepad.exe'
+    $shortcut.Save()
+    Expect-Rejected { & $installer @arguments -Remove } 'already in use'
+    Check ((Test-Path -LiteralPath $installed.Directory) -and
+        $shell.CreateShortcut($installed.Shortcut).TargetPath -eq $shortcut.TargetPath) 'removal refuses to touch a different shortcut'
+    [IO.File]::WriteAllBytes($installed.Shortcut, $originalLink)
+
+    $removed = & $installer @arguments -Remove
+    Check ($removed.Result -eq 'REMOVED_DEVELOPMENT_VERSION' -and
+        -not (Test-Path -LiteralPath $installed.Directory) -and
+        -not (Test-Path -LiteralPath $installed.Shortcut) -and
+        [IO.File]::ReadAllText($sentinel) -eq 'preserve me') 'removal only deletes the verified version and its own shortcut'
 } finally { [IO.Directory]::Delete($fixture, $true) }

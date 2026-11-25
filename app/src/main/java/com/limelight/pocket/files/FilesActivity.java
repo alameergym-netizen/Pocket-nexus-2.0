@@ -657,7 +657,14 @@ public class FilesActivity extends Activity {
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_files_paste_into, e.file.getName()), () -> paste(e.file)));
         }
         if (one) {
-            items.add(StreamMenuView.Item.action(getString(R.string.pocket_rename), () -> rename(files.get(0))));
+            File selected = files.get(0);
+            items.add(StreamMenuView.Item.action(getString(R.string.pocket_rename), () -> rename(selected)));
+            if (selected.isFile()) {
+                boolean restore = VerifiedSaveCopy.isBackup(selected);
+                items.add(StreamMenuView.Item.action(getString(restore
+                        ? R.string.horizon_restore_save_copy : R.string.horizon_create_save_copy),
+                        () -> saveCopy(selected, restore)));
+            }
         }
         if (!files.isEmpty() && !hasFolder(files)) {
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_files_share), () -> share(files)));
@@ -781,6 +788,30 @@ public class FilesActivity extends Activity {
                         : getString(R.string.horizon_file_transfer_partial, completed.size(), failed, retained);
                 Toast.makeText(this, status, Toast.LENGTH_LONG).show();
                 if (dir != null) load(dir, null);
+            });
+        });
+    }
+
+    private void saveCopy(File selected, boolean restore) {
+        File into = selected.getParentFile();
+        File cache = getCacheDir();
+        Toast.makeText(this, R.string.pocket_files_working, Toast.LENGTH_SHORT).show();
+        io.execute(() -> {
+            boolean complete = false;
+            try {
+                if (restore) VerifiedSaveCopy.restore(selected, into, cache);
+                else VerifiedSaveCopy.create(selected, into, cache);
+                complete = true;
+            } catch (IOException | SecurityException ignored) {
+                // Publish only after verification and retain the selected file.
+            }
+            int message = restore
+                    ? (complete ? R.string.horizon_save_restore_done : R.string.horizon_save_restore_failed)
+                    : (complete ? R.string.horizon_save_backup_done : R.string.horizon_save_backup_failed);
+            main.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                if (into.equals(dir)) load(into, null);
             });
         });
     }
@@ -1032,6 +1063,12 @@ public class FilesActivity extends Activity {
                 if (pos >= 0 && pos < entries.size()) {
                     open(entries.get(pos));
                 }
+            });
+            h.itemView.setOnLongClickListener(v -> {
+                int pos = h.getAdapterPosition();
+                if (pos < 0 || pos >= entries.size()) return false;
+                options(entries.get(pos));
+                return true;
             });
         }
 
