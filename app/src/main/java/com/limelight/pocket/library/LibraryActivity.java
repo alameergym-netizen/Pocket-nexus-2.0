@@ -331,6 +331,12 @@ public class LibraryActivity extends ConsoleActivity {
         detailBg.setCornerRadius(dp(pureOled ? 4 : 14));
         detailBg.setStroke(dp(1), 0x33FFFFFF);
         detail.setBackground(titanium ? TitaniumStyle.surface(this) : legacy ? LegacyStyle.dialog(this) : detailBg);
+        boolean atmosphere = PocketTheme.atmosphere(this);
+        if (atmosphere) {
+            // Nexus Atmosphere: the details on a glass pane (plain translucent glass without a blur)
+            com.limelight.pocket.ui.LiveGlass.attach(detail, null, com.limelight.pocket.ui.LiveGlass.STYLE_PANEL);
+            makeGlass(detail);
+        }
         if (legacy) {
             detail.setTag(R.id.horizon_legacy_panel, Boolean.TRUE);
             TextView index = text(10f, LegacyStyle.typeface(this), LegacyStyle.GOLD);
@@ -402,6 +408,13 @@ public class LibraryActivity extends ConsoleActivity {
         FrameLayout body = new FrameLayout(this);
         body.setClipChildren(false);
         body.setClipToPadding(false);
+        if (atmosphere) {
+            // ...and the games on a glass tray of their own, a layer under the cards
+            body.setId(R.id.horizon_atmosphere_tray);
+            com.limelight.pocket.ui.LiveGlass.attach(body, null, com.limelight.pocket.ui.LiveGlass.STYLE_PANEL);
+            makeGlass(body);
+            body.setPadding(dp(6), dp(6), dp(6), dp(6));
+        }
         workspace.addView(body, titanium && spec.split ? 0 : workspace.getChildCount(), spec.split
                 ? new LinearLayout.LayoutParams(0, -1, 1f)
                 : new LinearLayout.LayoutParams(-1, 0, 1f));

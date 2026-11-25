@@ -192,6 +192,23 @@ public class ControlCenterActivity extends Activity {
         bg.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
         panel.setBackground(titanium ? TitaniumStyle.surface(this)
                 : legacy ? com.limelight.pocket.ui.LegacyStyle.dialog(this) : bg);
+        if (com.limelight.pocket.ui.PocketTheme.atmosphere(this)) {
+            // Nexus Atmosphere: a lighter, layered pane over the blurred screen (Android 12+),
+            // denser where nothing is blurred behind it, with a light from above and a bright rim
+            boolean blurBehind = !titanium && !legacy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+            GradientDrawable pane = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    com.limelight.pocket.ui.HorizonAtmosphere.controlPane(blurBehind));
+            pane.setCornerRadius(dp(22));
+            pane.setStroke(Math.max(1, dp(1)), com.limelight.pocket.ui.HorizonAtmosphere.RIM);
+            GradientDrawable sheen = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{com.limelight.pocket.ui.HorizonAtmosphere.SHEEN_TOP, 0x00FFFFFF});
+            sheen.setCornerRadius(dp(22));
+            android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
+                    new android.graphics.drawable.Drawable[]{pane, sheen});
+            layers.setLayerInset(1, 0, 0, 0, dp(spec.height) * 3 / 5);
+            panel.setBackground(layers);
+            panel.setId(R.id.horizon_atmosphere_panel);
+        }
         if (legacy) {
             // The dialog frame draws its own rule; keep the workspace padding inside it
             panel.setPadding(pad + dp(4), dp(16), pad + dp(4), dp(16));

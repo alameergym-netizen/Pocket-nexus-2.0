@@ -179,6 +179,9 @@ public class HomeActivity extends ConsoleActivity {
     private boolean horizonFamily;
     /** The look was Nexus Horizon when the layout was made (the cards may still not fit). */
     private boolean horizonTheme;
+    /** Nexus Atmosphere: the games on a glass tray, the hero on its own glass veil above it. */
+    private boolean atmosphereTheme;
+    private View atmosphereTray;
     private com.limelight.pocket.ui.HorizonStreamDeck streamDeck;
     private boolean streamDeckFilled;
     /** When each PC's poll last answered (elapsed realtime), so the cards never show an old answer as now. */
@@ -425,6 +428,7 @@ public class HomeActivity extends ConsoleActivity {
                 || pureOled != com.limelight.pocket.ui.PocketTheme.pureOled(this)
                 || titanium != com.limelight.pocket.ui.PocketTheme.titanium(this)
                 || horizonTheme != com.limelight.pocket.ui.PocketTheme.horizon(this)
+                || atmosphereTheme != com.limelight.pocket.ui.PocketTheme.atmosphere(this)
                 || !layout.id.equals(com.limelight.pocket.ui.Layouts.home(this).id))) {
             int keep = Math.max(0, heroPos);
             applyLayout(true);
@@ -1612,6 +1616,53 @@ public class HomeActivity extends ConsoleActivity {
         if (resumed) refreshStreamDeck.run();
     }
 
+    /**
+     * Nexus Atmosphere's layers over the art: a glass tray under the row (and the dock), and the
+     * hero on a glass veil lifted above it when there's room. Real blur on Android 12+ with live
+     * glass on; otherwise the same layers as plain translucent glass. Returns the hero's room.
+     */
+    private float layoutAtmosphere(boolean shelfRow, FrameLayout.LayoutParams rowLp, FrameLayout.LayoutParams heroLp,
+                                   float heroRoom) {
+        atmosphereTheme = com.limelight.pocket.ui.PocketTheme.atmosphere(this);
+        if (!atmosphereTheme || !shelfRow) {
+            if (atmosphereTray != null) atmosphereTray.setVisibility(View.GONE);
+            return heroRoom;
+        }
+        if (atmosphereTray == null) {
+            atmosphereTray = new View(this);
+            atmosphereTray.setId(R.id.horizon_atmosphere_tray);
+            atmosphereTray.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            ViewGroup host = findViewById(R.id.pocketMain);
+            View floor = findViewById(R.id.homeFrostFloor);
+            host.addView(atmosphereTray, floor != null ? host.indexOfChild(floor) + 1 : 0,
+                    new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1, Gravity.BOTTOM));
+            com.limelight.pocket.ui.LiveGlass.attach(atmosphereTray, null, com.limelight.pocket.ui.LiveGlass.STYLE_PANEL);
+            makeGlass(atmosphereTray);
+        }
+        int rowBottom = Math.round(rowLp.bottomMargin / d);
+        int rowHeight = Math.round(rowLp.height / d);
+        FrameLayout.LayoutParams tray = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                Math.round(com.limelight.pocket.ui.HorizonAtmosphere.trayHeight(rowBottom, rowHeight) * d), Gravity.BOTTOM);
+        int side = Math.round(com.limelight.pocket.ui.HorizonAtmosphere.TRAY_SIDE * d);
+        tray.setMarginStart(side);
+        tray.setMarginEnd(side);
+        tray.bottomMargin = Math.round(com.limelight.pocket.ui.HorizonAtmosphere.trayBottom(rowBottom) * d);
+        atmosphereTray.setLayoutParams(tray);
+        atmosphereTray.setVisibility(View.VISIBLE);
+        if (!com.limelight.pocket.ui.HorizonAtmosphere.veil(heroRoom)) {
+            return heroRoom;
+        }
+        // The hero floats on its own pane, lifted off the tray
+        int padX = Math.round(com.limelight.pocket.ui.HorizonAtmosphere.VEIL_PAD_X * d);
+        int padY = Math.round(com.limelight.pocket.ui.HorizonAtmosphere.VEIL_PAD_Y * d);
+        heroView.setPadding(padX, padY, padX, padY);
+        com.limelight.pocket.ui.LiveGlass.attach(heroView, null, com.limelight.pocket.ui.LiveGlass.STYLE_PANEL);
+        makeGlass(heroView);
+        heroLp.bottomMargin += Math.round(com.limelight.pocket.ui.HorizonAtmosphere.VEIL_LIFT * d);
+        heroLp.width += 2 * padX;
+        return com.limelight.pocket.ui.HorizonAtmosphere.roomInsideVeil(heroRoom);
+    }
+
     /** The cards from the saved PCs, what the poll saw of them, and Android's network. */
     private void updateStreamDeck() {
         if (streamDeck == null || !horizonFamily) return;
@@ -1866,6 +1917,7 @@ public class HomeActivity extends ConsoleActivity {
             rlp.setMarginStart(0);
             rlp.setMarginEnd(0);
         }
+        heroRoom = layoutAtmosphere(shelf && !portal && !workspace, rlp, hlp, heroRoom);
         row.setLayoutParams(rlp);
         heroView.setLayoutParams(hlp);
         layoutStreamDeck(portal, screenW, hlp);

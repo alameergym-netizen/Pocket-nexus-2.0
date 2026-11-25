@@ -116,6 +116,12 @@ public final class PocketTheme {
         return index >= 0 && THEMES[index].name == R.string.horizon_theme_titanium;
     }
 
+    /** Nexus Atmosphere: layered glass (a veil under the hero, a tray under the games) over the art. */
+    public static boolean atmosphere(Context context) {
+        int index = themeIndex(context);
+        return index >= 0 && THEMES[index].name == R.string.horizon_theme_atmosphere;
+    }
+
     /** Nexus Horizon: the streaming cards for the host, the session and the network (HorizonStreamDeck). */
     public static boolean horizon(Context context) {
         int index = themeIndex(context);
