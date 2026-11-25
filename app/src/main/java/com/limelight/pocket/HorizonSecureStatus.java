@@ -176,8 +176,7 @@ public final class HorizonSecureStatus {
 
     public static void show(Activity activity, String host, String pcUuid) {
         if (pcUuid == null || pcUuid.isEmpty()) return;
-        // A separate private store is excluded by Android backup and the in-app settings export.
-        SharedPreferences pairings = activity.getSharedPreferences("horizon_secure_status", Context.MODE_PRIVATE);
+        SharedPreferences pairings = savedPairings(activity);
         String code = pairings.getString(pcUuid, null);
         Pairing pairing = Pairing.parse(code);
         if (pairing == null) {
@@ -217,6 +216,11 @@ public final class HorizonSecureStatus {
                 .setNegativeButton(R.string.horizon_secure_forget,
                         (dialog, which) -> pairings.edit().remove(pcUuid).apply())
                 .show();
+    }
+
+    private static SharedPreferences savedPairings(Context context) {
+        // A separate private store is excluded by Android backup and the in-app settings export.
+        return context.getSharedPreferences("horizon_secure_status", Context.MODE_PRIVATE);
     }
 
     private static void showPairing(Activity activity, String host, SharedPreferences pairings, String pcUuid) {
@@ -299,6 +303,42 @@ public final class HorizonSecureStatus {
         }
     }
 
+    static String screenWireCommand(PcPower action) {
+        if (action == PcPower.LOCK) return ScreenCommand.LOCK.wire;
+        if (action == PcPower.DISPLAY_OFF) return ScreenCommand.DISPLAY_OFF.wire;
+        return null;
+    }
+
+    private static Pairing screenPairing(Context context, String host, String uuid) {
+        if (uuid == null || uuid.isEmpty() || host == null || host.isEmpty()
+                || UsbBridge.HOST_IP.equals(host)) return null;
+        String code = savedPairings(context).getString(uuid, null);
+        Pairing pairing = Pairing.parse(code);
+        return pairing != null && pairing.screen ? pairing : null;
+    }
+
+    public static boolean hasScreenAccess(Context context, String host, String uuid, PcPower action) {
+        return screenWireCommand(action) != null && screenPairing(context, host, uuid) != null;
+    }
+
+    public static void runScreenAction(Activity activity, String host, String uuid,
+                                       PcPower action, PcCompanion.Callback callback) {
+        String wire = screenWireCommand(action);
+        Pairing pairing = screenPairing(activity, host, uuid);
+        if (wire == null || pairing == null) {
+            activity.runOnUiThread(() -> callback.onReply(null));
+            return;
+        }
+        runScreenCommand(activity, host, pairing, wire, callback);
+    }
+
+    public static int screenResultMessage(String reply) {
+        if ("OK".equals(reply)) return R.string.horizon_secure_screen_accepted;
+        if ("ERR auth".equals(reply)) return R.string.horizon_secure_screen_denied;
+        if ("ERR busy".equals(reply)) return R.string.horizon_secure_screen_busy;
+        return R.string.horizon_secure_screen_failed;
+    }
+
     private static void showScreenMenu(Activity activity, String host, Pairing pairing) {
         if (host == null || host.isEmpty() || UsbBridge.HOST_IP.equals(host)) {
             showResult(activity, activity.getString(R.string.horizon_secure_no_address));
@@ -318,19 +358,21 @@ public final class HorizonSecureStatus {
     }
 
     private static void sendScreenCommand(Activity activity, String host, Pairing pairing, ScreenCommand command) {
+        runScreenCommand(activity, host, pairing, command.wire, reply -> {
+            if (!activity.isFinishing() && !activity.isDestroyed()) {
+                showResult(activity, activity.getString(screenResultMessage(reply)));
+            }
+        });
+    }
+
+    private static void runScreenCommand(Activity activity, String host, Pairing pairing,
+                                         String wire, PcCompanion.Callback callback) {
         new Thread(() -> {
-            String reply;
-            try { reply = request(host, pairing, command.wire, TIMEOUT_MS, input -> PcCompanion.readLine(input, 128)); }
-            catch (Exception e) { reply = null; }
-            int message = "OK".equals(reply) ? R.string.horizon_secure_screen_accepted
-                    : "ERR auth".equals(reply) ? R.string.horizon_secure_screen_denied
-                    : "ERR busy".equals(reply) ? R.string.horizon_secure_screen_busy
-                    : R.string.horizon_secure_screen_failed;
-            activity.runOnUiThread(() -> {
-                if (!activity.isFinishing() && !activity.isDestroyed()) {
-                    showResult(activity, activity.getString(message));
-                }
-            });
+            String response;
+            try { response = request(host, pairing, wire, TIMEOUT_MS, input -> PcCompanion.readLine(input, 128)); }
+            catch (Exception e) { response = null; }
+            final String reply = response;
+            activity.runOnUiThread(() -> callback.onReply(reply));
         }, "NexusSecureScreen").start();
     }
 

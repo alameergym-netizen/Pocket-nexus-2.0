@@ -23,6 +23,7 @@ import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.StreamMenuView;
 import com.limelight.pocket.HorizonStartupRecovery;
+import com.limelight.pocket.HorizonSecureStatus;
 import com.limelight.pocket.ResumeTicket;
 import com.limelight.pocket.core.HorizonStreamObserver;
 import com.limelight.pocket.core.HorizonDeferredTask;
@@ -2960,9 +2961,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         items.add(StreamMenuView.Item.submenu(powerTitle, () -> {
             List<StreamMenuView.Item> page = new ArrayList<>();
             for (final PcPower p : PcPower.values()) {
-                Runnable run = () -> pocketPower(p);
-                page.add((p.endsStream ? StreamMenuView.Item.confirm(p.label(this), run)
-                        : StreamMenuView.Item.action(p.label(this), run)).withIcon(p.icon));
+                boolean secure = HorizonSecureStatus.hasScreenAccess(this, host, pocketPcUuid(), p);
+                Runnable run = () -> pocketPower(p, secure);
+                StreamMenuView.Item item = p.endsStream || secure ? StreamMenuView.Item.confirm(p.label(this), run)
+                        : StreamMenuView.Item.action(p.label(this), run);
+                if (secure) item.withValue(getString(R.string.horizon_secure_screen_route));
+                page.add(item.withIcon(p.icon));
             }
             streamMenu.push(powerTitle, page);
         }).withIcon("QUIT"));
@@ -3612,8 +3616,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     // PC power: through Artemis Pocket PC when it runs, else typed into the PC's Run box
-    private void pocketPower(final PcPower action) {
+    private void pocketPower(final PcPower action, boolean secure) {
         showPocketToast(action.label(this) + "\u2026", true, 1400);
+        if (secure) {
+            HorizonSecureStatus.runScreenAction(this, host, pocketPcUuid(), action, reply -> {
+                if (!isFinishing() && !isDestroyed() && instance == this) {
+                    showPocketToast(getString(HorizonSecureStatus.screenResultMessage(reply)), true, 3500);
+                }
+            });
+            return;
+        }
         PcCompanion.runAsync(this, host, pocketPcUuid(), "POWER " + action.command, reply -> {
             if (reply != null && reply.startsWith("OK")) {
                 pocketAfterPower(action);
