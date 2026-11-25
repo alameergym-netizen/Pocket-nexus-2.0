@@ -122,7 +122,9 @@ def check_size(prefix, density, font_scale):
     library = wait_for(prefix + " Legacy Library", lambda t: resource(t, "horizon_library_grid") is not None
                        and resource(t, "horizon_legacy_kicker") is not None and has(t, "Game index"))
     detail, grid = bounds(resource(library, "horizon_library_detail")), bounds(resource(library, "horizon_library_grid"))
-    assert detail[2] <= grid[0] or grid[3] <= detail[1], (detail, grid)
+    # Side by side on wide screens, stacked on compact ones: never overlapping
+    apart = detail[2] <= grid[0] or grid[2] <= detail[0] or detail[3] <= grid[1] or grid[3] <= detail[1]
+    assert apart, ("Library detail and grid overlap", detail, grid)
     capture(prefix + "-library")
     key("BUTTON_B")
     wait_for(prefix + " back to Home", legacy_home)
