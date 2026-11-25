@@ -9,3 +9,5 @@ Distinct POOR episodes, not repeated reports, count toward flapping. Sustained d
 ## MediaCodec timing observations
 
 Input timing records use a fixed 256-entry per-decoder buffer shared by the input and output threads. Recording before queueing allows an immediate output to find its timestamps. Failed input is discarded, and codec recovery clears old records. The in-stream loss percentage divides missing frames by the expected frame count, which already includes those frames. Measure real decoder time, frame pacing and recovery on RP6 with the final streaming setup.
+
+The previous watchdog ran only after the render loop exited and flushed the decoder during shutdown. Shutdown now follows the existing stop and release path. During a stream, MediaCodec failures continue through the existing coordinated recovery path.
