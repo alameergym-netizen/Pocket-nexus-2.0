@@ -25,12 +25,21 @@ import static org.junit.Assert.*;
 public class HorizonSettingsFocusTest {
     @Test(timeout = 60000) public void rebuildingFocusedRowsKeepsTheExplicitTabSelected() {
         PocketPrefs.prefs(RuntimeEnvironment.getApplication()).edit()
+                .putBoolean(PocketPrefs.KEY_FIRST_RUN_DONE, true)
+                .putBoolean(PocketPrefs.KEY_ONBOARDING_PENDING, false)
+                .putInt("pocket_defaults_version", 4)
                 .putBoolean(PocketPrefs.KEY_ANIMATIONS, false)
                 .putBoolean(PocketPrefs.KEY_UI_SOUNDS, false)
                 .putBoolean(PocketPrefs.KEY_HAPTICS, false).commit();
-        ActivityController<QuickSettingsActivity> controller = Robolectric.buildActivity(QuickSettingsActivity.class).setup().visible();
+        ActivityController<QuickSettingsActivity> controller = Robolectric.buildActivity(QuickSettingsActivity.class).create();
         try {
             QuickSettingsActivity activity = controller.get();
+            // Exercise the real view/focus tree without attaching an indefinitely
+            // animated native window to Robolectric's full-surface renderer.
+            View decor = activity.getWindow().getDecorView();
+            decor.measure(View.MeasureSpec.makeMeasureSpec(1920, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY));
+            decor.layout(0, 0, 1920, 1080);
             LinearLayout tabs = activity.findViewById(R.id.pocketTabs);
             LinearLayout rows = activity.findViewById(R.id.pocketRows);
             tabs.getChildAt(0).requestFocusFromTouch();
@@ -45,7 +54,7 @@ public class HorizonSettingsFocusTest {
                 tabs.getChildAt(5).performClick();
                 assertTrue(tabs.getChildAt(5).isSelected());
             }
-        } finally { controller.pause().stop().destroy(); }
+        } finally { controller.destroy(); }
     }
 
     private static boolean contains(View view, String text) {
