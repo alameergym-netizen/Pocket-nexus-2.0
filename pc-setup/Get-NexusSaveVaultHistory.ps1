@@ -58,7 +58,7 @@ function Read-NexusSnapshot($Directory, [bool]$Verify) {
         Game = $Game
         CreatedUtc = $timestamp
         Verified = $Verify
-        Checksums = @($digests | ForEach-Object { $_.Value })
+        Checksums = @($digests | ForEach-Object { $_.Name.Split('/')[1] + '  ' + $_.Value })
     }
 }
 

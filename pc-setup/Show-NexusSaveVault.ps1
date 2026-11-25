@@ -66,6 +66,7 @@ foreach ($name in @('Exact game name', 'Ludusavi executable', 'Local vault folde
 
 $history = New-Object System.Windows.Forms.ListBox
 $history.Dock = 'Fill'
+$history.HorizontalScrollbar = $true
 $history.AccessibleName = 'Save snapshots for this game'
 $history.DisplayMember = 'Label'
 $layout.Controls.Add($history, 0, 4)
@@ -193,6 +194,19 @@ $form.add_FormClosing({
     }
 }.GetNewClosure())
 $form.Controls.Add($layout)
+if (-not [System.Windows.Forms.SystemInformation]::HighContrast) {
+    $form.BackColor = [System.Drawing.Color]::FromArgb(17, 24, 36)
+    $form.ForeColor = [System.Drawing.Color]::WhiteSmoke
+    foreach ($control in ($fields + @($history, $details))) {
+        $control.BackColor = [System.Drawing.Color]::FromArgb(29, 40, 57)
+        $control.ForeColor = [System.Drawing.Color]::WhiteSmoke
+    }
+    foreach ($button in ($browsers + @($actions.Controls))) {
+        $button.FlatStyle = 'Flat'
+        $button.BackColor = [System.Drawing.Color]::FromArgb(50, 72, 103)
+        $button.ForeColor = [System.Drawing.Color]::WhiteSmoke
+    }
+}
 try {
     if ($Owner) { [void]$form.ShowDialog($Owner) } else { [void]$form.ShowDialog() }
 } finally {
