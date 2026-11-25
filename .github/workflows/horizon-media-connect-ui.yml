@@ -6,11 +6,15 @@ on:
         description: Verify the installed upstream Better xCloud Android handoff
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      cloud_client_runtime:
+        type: boolean
+        default: false
   pull_request:
     branches: [horizon-foundation]
     paths:
       - 'app/src/main/java/com/limelight/pocket/music/**'
-      - 'app/src/main/java/com/limelight/pocket/cloud/**'
       - 'app/src/main/java/com/limelight/pocket/files/**'
       - 'app/src/main/java/com/limelight/pocket/streaming/HorizonRemotePlay.java'
       - 'app/src/main/java/com/limelight/PcView.java'
@@ -19,12 +23,11 @@ on:
       - 'app/src/main/res/values/horizon_connect.xml'
       - '.github/tests/media_connect_workspace.py'
       - '.github/tests/files_save_copy.py'
-      - '.github/tests/cloud_client_workspace.py'
       - '.github/workflows/horizon-media-connect-ui.yml'
 permissions:
   contents: read
 concurrency:
-  group: horizon-media-connect-ui-${{ github.ref }}
+  group: horizon-media-connect-ui-${{ github.ref }}-${{ inputs.cloud_client_runtime || false }}
   cancel-in-progress: true
 jobs:
   media-connect:
@@ -73,11 +76,7 @@ jobs:
           script: |
             python3 -u .github/tests/media_connect_workspace.py app/build/outputs/apk/nonRoot_game/debug/*.apk
             python3 -u .github/tests/files_save_copy.py
-            if [ -f "$RUNNER_TEMP/nexus-upstream-cloud.apk" ]; then
-              python3 -u .github/tests/cloud_client_workspace.py "$RUNNER_TEMP/nexus-upstream-cloud.apk"
-            else
-              python3 -u .github/tests/cloud_client_workspace.py
-            fi
+            python3 -u .github/tests/cloud_client_workspace.py '${{ inputs.cloud_client_runtime && 'installed' || 'fallback' }}' "$RUNNER_TEMP/nexus-upstream-cloud.apk"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

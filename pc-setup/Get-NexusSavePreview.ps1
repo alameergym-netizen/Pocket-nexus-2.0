@@ -2,12 +2,14 @@
 param(
     [Parameter(Mandatory = $true)][string]$Ludusavi,
     [Parameter(Mandatory = $true)][ValidateSet('Backup', 'Restore')][string]$Action,
-    [Parameter(Mandatory = $true)][string]$Game
+    [Parameter(Mandatory = $true)][string]$Game,
+    [string]$ConfigDirectory,
+    [string]$BackupDirectory
 )
 $ErrorActionPreference = 'Stop'
 
 $runner = Join-Path $PSScriptRoot 'Invoke-NexusLudusavi.ps1'
-$selected = & $runner -Ludusavi $Ludusavi -Action $Action -Game $Game
+$selected = & $runner -Ludusavi $Ludusavi -Action $Action -Game $Game -ConfigDirectory $ConfigDirectory -BackupDirectory $BackupDirectory
 $files = @($selected.files.PSObject.Properties | Where-Object { -not $_.Value.ignored })
 $registry = @($selected.registry.PSObject.Properties | Where-Object { -not $_.Value.ignored })
 $changedFiles = @($files | Where-Object { $_.Value.change -eq 'Different' -or $_.Value.change -eq 'Removed' })

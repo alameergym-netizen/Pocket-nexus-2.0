@@ -25,10 +25,13 @@ def main(wrapper_apk):
     controls.RESULTS.mkdir(exist_ok=True)
     open_client_choices()
     controls.wait_for("built-in fallback and optional external client setup", lambda tree:
-                      controls.has(tree, "Better xCloud Android setup") and not controls.has(tree, WRAPPER))
+                      any(n.get("text", "").endswith(("Pocket Nexus player (built in)", "Built in + Better xCloud"))
+                          for n in tree.iter("node"))
+                      and controls.has(tree, "Better xCloud Android setup") and not controls.has(tree, WRAPPER))
     controls.capture("01-cloud-wrapper-unavailable")
     if not wrapper_apk:
         return
+    assert Path(wrapper_apk).is_file(), "The pinned upstream APK was not downloaded"
 
     controls.adb("install", "-g", wrapper_apk, timeout=120)
     open_client_choices()
@@ -48,6 +51,6 @@ def main(wrapper_apk):
 
 if __name__ == "__main__":
     try:
-        main(sys.argv[1] if len(sys.argv) > 1 else None)
+        main(sys.argv[2] if sys.argv[1] == "installed" else None)
     finally:
         controls.capture("final")
