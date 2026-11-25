@@ -30,6 +30,7 @@ $timer.add_Tick({
         $details = $layout.GetControlFromPosition(0, 5)
         if ($state.Phase -eq 0) {
             if (-not ($actions.Controls | Where-Object Text -eq 'Recover to folder...')) { throw 'The recovery action is missing.' }
+            if (-not ($actions.Controls | Where-Object Text -eq 'Batch backup...')) { throw 'The batch backup entry is missing.' }
             $layout.GetControlFromPosition(1, 0).Text = 'Fixture Game'
             $layout.GetControlFromPosition(1, 2).Text = $directory
             ($actions.Controls | Where-Object Text -eq 'Load history').PerformClick()

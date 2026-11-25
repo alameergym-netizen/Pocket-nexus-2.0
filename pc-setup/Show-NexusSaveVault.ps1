@@ -152,6 +152,15 @@ foreach ($action in @(
     }.GetNewClosure())
     $actions.Controls.Add($button)
 }
+$queue = New-Object System.Windows.Forms.Button
+$queue.Text = 'Batch backup...'
+$queue.AutoSize = $true
+$queue.add_Click({
+    if ($state.Worker) { return }
+    & (Join-Path $PSScriptRoot 'Show-NexusSaveQueue.ps1') -Owner $form `
+        -Game $fields[0].Text -Ludusavi $fields[1].Text -VaultDirectory $fields[2].Text
+}.GetNewClosure())
+$actions.Controls.Add($queue)
 
 $timer.add_Tick({
     if (-not $state.Job.IsCompleted) { return }
