@@ -48,4 +48,31 @@ public class HorizonConnectionLeaseTest {
         assertFalse(l.requestStop(() -> fail("already released")));
         assertFalse(l.leaveNative());
     }
+
+    @Test public void controllerInputFollowsNativeOwnershipAcrossHandoff() {
+        HorizonConnectionLease previous = new HorizonConnectionLease();
+        HorizonConnectionLease next = new HorizonConnectionLease();
+        assertTrue(previous.begin());
+        assertTrue(next.begin());
+        assertFalse(previous.ownsNativeInput());
+        assertFalse(next.ownsNativeInput());
+        assertTrue(previous.enterNative());
+        assertTrue(previous.ownsNativeInput());
+        assertFalse(next.ownsNativeInput());
+
+        assertTrue(previous.requestStop(() -> assertFalse(previous.ownsNativeInput())));
+        assertTrue(previous.leaveNative());
+        assertTrue(next.enterNative());
+        assertFalse(previous.ownsNativeInput());
+        assertTrue(next.ownsNativeInput());
+    }
+
+    @Test public void unsuccessfulNativeStartRevokesInputEvenWithoutStop() {
+        HorizonConnectionLease lease = new HorizonConnectionLease();
+        assertTrue(lease.begin());
+        assertTrue(lease.enterNative());
+        assertTrue(lease.ownsNativeInput());
+        assertTrue(lease.leaveNative());
+        assertFalse(lease.ownsNativeInput());
+    }
 }

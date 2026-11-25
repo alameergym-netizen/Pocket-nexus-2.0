@@ -496,7 +496,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private final Runnable backgroundPing = () -> {
         if (connected) {
             timerHandler.postDelayed(Game.this.backgroundPing, 20);
-            MoonBridge.sendEmptyPayload();
+            conn.sendEmptyPayload();
         }
     };
 
@@ -5563,6 +5563,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             conn.cancelBeforeNative();
             releaseUsbDriver();
             timerHandler.removeCallbacks(pocketPoorCheck);
+            timerHandler.removeCallbacks(backgroundPing);
             pocketAdaptiveDecision.reset();
             updatePipAutoEnter();
 

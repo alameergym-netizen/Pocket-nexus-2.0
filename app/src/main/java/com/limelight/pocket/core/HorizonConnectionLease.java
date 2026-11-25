@@ -9,6 +9,8 @@ public final class HorizonConnectionLease {
         return true;
     }
     public synchronized boolean cancelled() { return cancelled; }
+    /** Hold this lease throughout the input call to exclude stop and ownership handoff. */
+    public synchronized boolean ownsNativeInput() { return nativeOwner && !cancelled; }
     public synchronized boolean enterNative() {
         if (!started || cancelled || nativeOwner) return false;
         nativeOwner = true;
