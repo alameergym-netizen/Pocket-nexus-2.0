@@ -11,6 +11,7 @@ FILES = (
     "pc-setup/PocketNexus-PC.ps1",
     "pc-setup/NexusSecureHost.cs",
     "pc-setup/NexusVibepollo.cs",
+    "pc-setup/NexusGpuTelemetry.cs",
     "pc-setup/README.txt",
     "pc-setup/Test-NexusUpgrade.ps1",
     "pc-setup/Stage-NexusHostDev.ps1",
