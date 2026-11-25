@@ -27,4 +27,14 @@ public class HorizonLibraryLayoutTest {
         assertEquals(300, s.detailWidth);
         assertEquals(9, s.columns);
     }
+    @Test public void titaniumKeepsRoomForTheSourceIndexOnSmallDisplays() {
+        HorizonLibraryLayout wide = HorizonLibraryLayout.forWindow(960, 540, false, true);
+        assertTrue(wide.split);
+        assertEquals(2, wide.columns);
+        assertTrue(wide.artHeight > 0);
+        HorizonLibraryLayout narrow = HorizonLibraryLayout.forWindow(360, 720, false, true);
+        assertFalse(narrow.split);
+        assertEquals(1, narrow.columns);
+        assertEquals(0, narrow.artHeight);
+    }
 }
