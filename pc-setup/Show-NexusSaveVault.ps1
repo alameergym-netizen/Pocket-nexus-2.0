@@ -90,6 +90,7 @@ $paths = @{
     'History' = Join-Path $PSScriptRoot 'Get-NexusSaveVaultHistory.ps1'
     'Verify' = Join-Path $PSScriptRoot 'Get-NexusSaveVaultHistory.ps1'
     'RestorePreview' = Join-Path $PSScriptRoot 'Get-NexusSaveVaultHistory.ps1'
+    'RecoverCopy' = Join-Path $PSScriptRoot 'Get-NexusSaveVaultHistory.ps1'
 }
 $actions = New-Object System.Windows.Forms.FlowLayoutPanel
 $actions.Dock = 'Fill'
@@ -100,7 +101,7 @@ $layout.SetColumnSpan($actions, 3)
 foreach ($action in @(
     @{ Label = 'Preview backup'; Kind = 'Preview' }, @{ Label = 'Create backup'; Kind = 'Backup' },
     @{ Label = 'Load history'; Kind = 'History' }, @{ Label = 'Verify snapshot'; Kind = 'Verify' },
-    @{ Label = 'Preview restore'; Kind = 'RestorePreview' }
+    @{ Label = 'Preview restore'; Kind = 'RestorePreview' }, @{ Label = 'Recover to folder...'; Kind = 'RecoverCopy' }
 )) {
     $button = New-Object System.Windows.Forms.Button
     $button.Text = $action.Label
@@ -119,11 +120,19 @@ foreach ($action in @(
             'Preview' { $arguments.Ludusavi = $exe; $arguments.Action = 'Backup' }
             'Backup' { $arguments.Ludusavi = $exe; $arguments.VaultDirectory = $vault }
             'History' { $arguments.VaultDirectory = $vault }
-            { $_ -in @('Verify', 'RestorePreview') } {
+            { $_ -in @('Verify', 'RestorePreview', 'RecoverCopy') } {
                 if (-not $history.SelectedItem) { $details.Text = 'Select a snapshot from the history first.'; return }
                 $arguments.VaultDirectory = $vault
                 $arguments.VerifySnapshot = $history.SelectedItem.Snapshot
                 if ($kind -eq 'RestorePreview') { $arguments.Ludusavi = $exe }
+                if ($kind -eq 'RecoverCopy') {
+                    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+                    $dialog.Description = 'Choose a folder for a separate copy of the selected snapshot. Nexus creates a new subfolder for the recovered files.'
+                    try {
+                        if ($dialog.ShowDialog($form) -ne 'OK') { return }
+                        $arguments.RecoveryDirectory = $dialog.SelectedPath
+                    } finally { $dialog.Dispose() }
+                }
             }
         }
         $worker = [System.Management.Automation.PowerShell]::Create()
@@ -164,6 +173,10 @@ $timer.add_Tick({
                 $details.Text = if ($result.Count) { "$($result.Count) matching snapshots. Select one to verify its files." } else { 'No matching snapshots in this vault.' }
             }
             'Verify' { $details.Text = "Both snapshot files verified with SHA-256`r`n$($result.Snapshot)`r`n" + ($result.Checksums -join "`r`n") }
+            'RecoverCopy' {
+                $registry = if ($result.RegistrySkipped) { "`r`nRegistry entries remain in the snapshot." } else { '' }
+                $details.Text = "Recovered $($result.Files) files with SHA-256 readback`r`n$($result.Directory)`r`nNEXUS-RECOVERY.json lists each recovered file and its checksum.$registry"
+            }
             'RestorePreview' { $details.Text = "Restore preview for $($result.Game)`r`nFiles: $($result.Files)   Registry keys: $($result.RegistryKeys)`r`nDifferent or missing files: $($result.DifferentOrRemovedFiles)`r`nDifferent or missing registry keys: $($result.DifferentOrRemovedRegistryKeys)`r`nLudusavi result: $($result.Decision) / $($result.Change)" }
         }
     } catch {
