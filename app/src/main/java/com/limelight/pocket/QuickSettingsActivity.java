@@ -75,6 +75,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
     private final List<TextView> tabs = new ArrayList<>();
     private final List<Runnable> rowRefreshers = new ArrayList<>();
     private View panelReturnFocus;
+    private boolean movingFocus;
     private final com.limelight.pocket.romm.RomMCatalog rommCatalog = new com.limelight.pocket.romm.RomMCatalog(this);
     private LinearLayout rowsContainer;
     private ScrollView rowsScroll;
@@ -135,7 +136,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 if (hasFocus) {
                     PocketUi.tick(this);
                 }
-                if (hasFocus && currentTab != index) {
+                if (hasFocus && !movingFocus && currentTab != index) {
                     selectTab(index, true);
                 }
             });
@@ -193,7 +194,9 @@ public class QuickSettingsActivity extends ConsoleActivity {
     public void showConsolePanel(String title, String subtitle, String stats, List<StreamMenuView.Item> items) {
         if (!isConsolePanelShowing()) panelReturnFocus = getCurrentFocus();
         super.showConsolePanel(title, subtitle, stats, items);
-        focusConsolePanel();
+        movingFocus = true;
+        try { focusConsolePanel(); }
+        finally { movingFocus = false; }
     }
 
     @Override
@@ -202,8 +205,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
         View previous = panelReturnFocus;
         panelReturnFocus = null;
         if (!isFinishing() && !tabs.isEmpty()) {
-            if (previous == null || !previous.isAttachedToWindow() || !previous.requestFocusFromTouch()) {
-                tabs.get(currentTab).requestFocusFromTouch();
+            if (previous == null || !previous.isAttachedToWindow() || !focusInSelectedTab(previous)) {
+                focusInSelectedTab(tabs.get(currentTab));
             }
         }
         super.onConsolePanelClosed();
@@ -318,11 +321,20 @@ public class QuickSettingsActivity extends ConsoleActivity {
         }
     }
 
+    /** Android restores a default focus while leaving touch mode. Keep the selected tab
+     * during that transition, then allow normal tab navigation again. */
+    private boolean focusInSelectedTab(View target) {
+        boolean previous = movingFocus;
+        movingFocus = true;
+        try { return target.requestFocusFromTouch(); }
+        finally { movingFocus = previous; }
+    }
+
     private void focusFirstRow() {
         for (int i = 0; i < rowsContainer.getChildCount(); i++) {
             View child = rowsContainer.getChildAt(i);
             if (child.isFocusable()) {
-                child.requestFocusFromTouch();
+                focusInSelectedTab(child);
                 return;
             }
         }
