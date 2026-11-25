@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="horizon_recovery_heading">Recovery</string>
+    <string name="horizon_compatibility_start">Compatibility stream start</string>
+    <string name="horizon_compatibility_start_sub">Use H.264, SDR and up to 10 Mbps on the next manual PC stream while Pocket Nexus stays open. Frame generation pauses for this launch.</string>
+    <string name="horizon_compatibility_armed">Next manual stream</string>
     <string name="horizon_other_launcher">Open another Android launcher</string>
     <string name="horizon_other_launcher_sub">Leave Pocket Nexus for this session and keep your default Home app.</string>
 </resources>
