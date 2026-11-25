@@ -214,7 +214,8 @@ def main(apk, upstream_apk):
                  any(n.get("package") == "com.android.settings" for n in t.iter("node")))
         capture("07-app-info")
         adb("shell", "input", "keyevent", "KEYCODE_BACK")
-        wait_for("back from App info", clients)
+        wait_for("back from App info", lambda t: has(t, TITLE) and has(t, "App info and permissions")
+                 and contains(t, "Better xCloud"))
         print("PASS: an installed upstream client, its version and App info", flush=True)
 
     setup_device(480, "1.3")
