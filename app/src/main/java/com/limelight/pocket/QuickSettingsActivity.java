@@ -73,6 +73,7 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     private final List<TextView> tabs = new ArrayList<>();
     private final List<Runnable> rowRefreshers = new ArrayList<>();
+    private View panelReturnFocus;
     private final com.limelight.pocket.romm.RomMCatalog rommCatalog = new com.limelight.pocket.romm.RomMCatalog(this);
     private LinearLayout rowsContainer;
     private ScrollView rowsScroll;
@@ -188,8 +189,22 @@ public class QuickSettingsActivity extends ConsoleActivity {
     }
 
     @Override
+    public void showConsolePanel(String title, String subtitle, String stats, List<StreamMenuView.Item> items) {
+        if (!isConsolePanelShowing()) panelReturnFocus = getCurrentFocus();
+        super.showConsolePanel(title, subtitle, stats, items);
+        focusConsolePanel();
+    }
+
+    @Override
     protected void onConsolePanelClosed() {
         rommCatalog.close();
+        View previous = panelReturnFocus;
+        panelReturnFocus = null;
+        if (!isFinishing() && !tabs.isEmpty()) {
+            if (previous == null || !previous.isAttachedToWindow() || !previous.requestFocusFromTouch()) {
+                tabs.get(currentTab).requestFocusFromTouch();
+            }
+        }
         super.onConsolePanelClosed();
     }
 

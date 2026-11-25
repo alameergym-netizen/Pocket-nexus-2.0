@@ -1210,6 +1210,12 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         return consolePanel != null && consolePanel.isShowing();
     }
 
+    protected final void focusConsolePanel() {
+        if (!isConsolePanelShowing()) return;
+        consolePanel.setFocusableInTouchMode(true);
+        consolePanel.requestFocus();
+    }
+
     protected void onConsolePanelClosed() { }
 
     /** A glass side panel driven by the controller, like the in-stream menu. */
