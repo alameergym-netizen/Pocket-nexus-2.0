@@ -804,14 +804,14 @@ public class FilesActivity extends Activity {
         io.execute(() -> {
             try {
                 VerifiedSaveCopy.Preview backup = VerifiedSaveCopy.preview(selected);
-                boolean conflict = new File(folder, backup.name()).exists();
+                boolean conflict = new File(folder, backup.name).exists();
                 main.post(() -> {
                     if (!canShowRestorePreview(request, folder)) return;
                     List<StreamMenuView.Item> items = new ArrayList<>();
-                    items.add(StreamMenuView.Item.info(getString(R.string.horizon_save_original_name), backup.name()));
+                    items.add(StreamMenuView.Item.info(getString(R.string.horizon_save_original_name), backup.name));
                     items.add(StreamMenuView.Item.info(getString(R.string.horizon_save_payload_size),
-                            Formatter.formatFileSize(this, backup.size())));
-                    items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_digest, backup.digest())));
+                            Formatter.formatFileSize(this, backup.size)));
+                    items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_digest, backup.digest)));
                     items.add(StreamMenuView.Item.note(getString(conflict
                             ? R.string.horizon_save_copy_conflict : R.string.horizon_save_copy_separate)));
                     items.add(StreamMenuView.Item.action(getString(R.string.horizon_restore_save_copy),

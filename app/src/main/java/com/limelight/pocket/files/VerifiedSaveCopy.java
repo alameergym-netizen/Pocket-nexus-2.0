@@ -30,7 +30,17 @@ final class VerifiedSaveCopy {
 
     private VerifiedSaveCopy() { }
 
-    record Preview(String name, long size, String digest) { }
+    static final class Preview {
+        final String name;
+        final long size;
+        final String digest;
+
+        private Preview(String name, long size, String digest) {
+            this.name = name;
+            this.size = size;
+            this.digest = digest;
+        }
+    }
 
     static boolean isBackup(File file) {
         return file.getName().toLowerCase(Locale.ROOT).endsWith(EXTENSION);
@@ -68,8 +78,10 @@ final class VerifiedSaveCopy {
         File staging = stage(cache);
         try {
             Preview actual = read(archive, staging);
-            if (!actual.equals(confirmed)) throw new IOException("Save backup changed after preview");
-            VerifiedFileTransfer.transfer(new File(staging, actual.name()), destination, false);
+            if (confirmed == null || !actual.digest.equals(confirmed.digest)) {
+                throw new IOException("Save backup changed after preview");
+            }
+            VerifiedFileTransfer.transfer(new File(staging, actual.name), destination, false);
         } finally {
             cleanup(staging);
         }

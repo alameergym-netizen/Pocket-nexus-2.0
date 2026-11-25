@@ -37,9 +37,9 @@ public class VerifiedSaveCopyTest {
         assertTrue(second.isFile());
 
         VerifiedSaveCopy.Preview preview = VerifiedSaveCopy.preview(first);
-        assertEquals(saveName, preview.name());
-        assertEquals(original.length, preview.size());
-        assertTrue(preview.digest().matches("[a-f0-9]{64}"));
+        assertEquals(saveName, preview.name);
+        assertEquals(original.length, preview.size);
+        assertTrue(preview.digest.matches("[a-f0-9]{64}"));
         VerifiedSaveCopy.restore(first, folder, cache, preview);
         assertArrayEquals(original, Files.readAllBytes(new File(folder, "حفظゲーム (2).sav").toPath()));
         assertArrayEquals(new byte[] {2, 3}, Files.readAllBytes(save.toPath()));
