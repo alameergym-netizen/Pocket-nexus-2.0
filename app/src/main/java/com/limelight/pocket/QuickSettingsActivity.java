@@ -399,6 +399,14 @@ public class QuickSettingsActivity extends ConsoleActivity {
         // First: is the way to the PC good enough, and what bit rate can it carry?
         addAction(getString(R.string.pocket_cc_title), getString(R.string.pocket_cc_sub), null, this::connectionCheck);
 
+        int[] sceneLimits = com.limelight.pocket.device.HorizonDisplayScene.LIMITS;
+        String[] sceneSteps = new String[sceneLimits.length];
+        sceneSteps[0] = getString(R.string.pocket_off);
+        for (int i = 1; i < sceneLimits.length; i++) sceneSteps[i] = sceneLimits[i] + "%";
+        addChoice(getString(R.string.horizon_scene_display_cap), getString(R.string.horizon_scene_display_cap_sub),
+                sceneSteps, () -> com.limelight.pocket.device.HorizonDisplayScene.limitIndex(PocketPrefs.streamBrightnessCap(this)),
+                index -> prefs().edit().putInt(PocketPrefs.KEY_SCENE_DISPLAY_CAP, sceneLimits[index]).apply(), null);
+
         addHeader(R.string.pocket_header_quality);
 
         final String[] presetKeys = {PocketSetup.PRESET_BATTERY, PocketSetup.PRESET_BALANCED, PocketSetup.PRESET_QUALITY};
