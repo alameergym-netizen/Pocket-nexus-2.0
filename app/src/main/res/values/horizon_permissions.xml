@@ -17,4 +17,6 @@
     <string name="horizon_perm_granted">Granted</string>
     <string name="horizon_perm_missing">Not granted</string>
     <string name="horizon_perm_unavailable">Unavailable</string>
+    <string name="horizon_perm_bluetooth">Bluetooth audio details</string>
+    <string name="horizon_perm_bluetooth_desc">Reads existing paired-device names when you open Bluetooth audio details.</string>
 </resources>
