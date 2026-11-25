@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_clients_title">Clients and sources</string>
+    <string name="horizon_clients_sub">Every streaming, cloud, console, PC-game, emulator, media and library client Pocket Nexus works with or is evaluating, with what each one really does here.</string>
+    <string name="horizon_clients_intro">A description only: nothing here signs in, installs or starts a game. Installed apps are found on this handheld; everything else is labelled as it is.</string>
+    <string name="horizon_clients_checking">Checking installed apps…</string>
+
+    <string name="horizon_clients_group_pc_streaming">PC streaming</string>
+    <string name="horizon_clients_group_cloud">Cloud gaming</string>
+    <string name="horizon_clients_group_console">Your consoles</string>
+    <string name="horizon_clients_group_local_pc">PC games on this handheld</string>
+    <string name="horizon_clients_group_emulation">Emulation</string>
+    <string name="horizon_clients_group_media">Media and chat</string>
+    <string name="horizon_clients_group_pc_host">On your PC</string>
+    <string name="horizon_clients_group_sources">Library and update sources</string>
+
+    <string name="horizon_clients_state_built_in">Built in</string>
+    <string name="horizon_clients_state_installed">Installed</string>
+    <string name="horizon_clients_state_installed_version">Installed · %1$s</string>
+    <string name="horizon_clients_state_missing">Not installed</string>
+    <string name="horizon_clients_state_web">Official site</string>
+    <string name="horizon_clients_state_pc">On your PC</string>
+    <string name="horizon_clients_state_research">Research only</string>
+    <string name="horizon_clients_state_unverified">Identity unverified</string>
+
+    <string name="horizon_clients_mode_built_in">Part of Pocket Nexus.</string>
+    <string name="horizon_clients_mode_app">Pocket Nexus opens your installed app. Sign-in, purchases and settings stay in that app.</string>
+    <string name="horizon_clients_mode_web">Pocket Nexus opens the official site. Sign-in and play stay with the provider.</string>
+    <string name="horizon_clients_mode_pc">Runs on your PC. Pocket Nexus connects to it from the handheld.</string>
+    <string name="horizon_clients_mode_research">Being evaluated for Pocket Nexus. Nothing from it is included or available here yet.</string>
+    <string name="horizon_clients_mode_unresolved">Its canonical project has not been confirmed, so Pocket Nexus makes no claim about it.</string>
+
+    <string name="horizon_clients_session_observed">Pocket Nexus runs this stream and sees its session.</string>
+    <string name="horizon_clients_session_provider">The service manages sign-in, queues and play. Pocket Nexus only knows that it opened the service.</string>
+    <string name="horizon_clients_session_opened">Pocket Nexus opens the app and cannot see whether a game is running.</string>
+    <string name="horizon_clients_session_media">What plays can appear in Pocket Nexus through Android\'s media controls when notification access is allowed.</string>
+    <string name="horizon_clients_session_none">No session runs through Pocket Nexus.</string>
+    <string name="horizon_clients_resume_yes">Quick Resume can return to a stream Pocket Nexus started.</string>
+    <string name="horizon_clients_resume_no">Pocket Nexus does not resume it. Any resume is the client\'s own.</string>
+
+    <string name="horizon_clients_note_nexus_pc_stream">The built-in engine, derived from Moonlight and Artemis, streams from Vibepollo, Apollo or Sunshine on your PC.</string>
+    <string name="horizon_clients_note_player">Runs the service\'s own site full screen inside Pocket Nexus, in a separate process.</string>
+    <string name="horizon_clients_note_better_xcloud">Optional. If a selected title has no supported link, the app opens without that title.</string>
+    <string name="horizon_clients_note_romm">Read-only catalog from your own RomM server over verified HTTPS. No downloads or save sync.</string>
+    <string name="horizon_clients_note_obtainium">Imports an Obtainium export and can check public stable release tags on GitHub.</string>
+    <string name="horizon_clients_note_vibepollo">Primary host. Nexus Host reads its local metadata with a scoped token.</string>
+    <string name="horizon_clients_note_playnite">Nexus Host can read an opt-in Playnite export. No launching from it yet.</string>
+    <string name="horizon_clients_note_ludusavi">Nexus Host uses a Ludusavi you provide for per-game Windows save snapshots and previews.</string>
+
+    <string name="horizon_clients_package">Package: %1$s</string>
+    <string name="horizon_clients_packages_expected">Looks for: %1$s</string>
+    <string name="horizon_clients_open_official">Open official page</string>
+    <string name="horizon_clients_open_project">Open project page</string>
+    <string name="horizon_clients_app_info">App info and permissions</string>
+    <string name="horizon_clients_no_link">No verified link</string>
+    <string name="horizon_clients_unavailable">No app on this handheld can open that page</string>
+    <string name="horizon_clients_close">Close</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_a11y_choice_previous">Previous option for %1$s</string>
+    <string name="horizon_a11y_choice_next">Next option for %1$s</string>
+    <string name="horizon_a11y_favorite_on">In favourites</string>
+    <string name="horizon_a11y_favorite_off">Not in favourites</string>
+</resources>

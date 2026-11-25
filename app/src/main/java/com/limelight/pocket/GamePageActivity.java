@@ -854,6 +854,8 @@ public class GamePageActivity extends ConsoleActivity {
         favButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
         favButton.setTextColor(fav ? 0xFFFFD54F : androidx.core.content.ContextCompat.getColor(this, R.color.pocket_text));
         favButton.setContentDescription(getString(R.string.pocket_page_favorite));
+        androidx.core.view.ViewCompat.setStateDescription(favButton,
+                getString(fav ? R.string.horizon_a11y_favorite_on : R.string.horizon_a11y_favorite_off));
     }
 
     private static float luminance(int color) {

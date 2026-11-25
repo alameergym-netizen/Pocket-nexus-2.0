@@ -114,8 +114,9 @@ public final class SectionBar {
         // A soft light around the one you're on; a shadow keeps the others readable on art
         tab.setShadowLayer(on ? 10 * d : 6 * d, 0, 0, on ? 0x59FFFFFF : 0x99000000);
         tab.setPadding(Math.round(9 * d), 0, Math.round(9 * d), 0);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                Math.round(25 * d));
+        // 28 dp tall so the tab can be tapped (WCAG 2.2 target size); the pill stays 25 dp
+        int target = Math.round(28 * d), inset = (target - Math.round(25 * d)) / 2;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, target);
         lp.gravity = Gravity.CENTER_VERTICAL;
         lp.setMarginEnd(Math.round(2*d));
         tab.setLayoutParams(lp);
@@ -125,7 +126,8 @@ public final class SectionBar {
                     new int[]{(accent&0x00FFFFFF)|0x99000000,(accent&0x00FFFFFF)|0x33000000});
             selected.setCornerRadius(100*d);
             selected.setStroke(Math.max(1,Math.round(d)),accent);
-            tab.setBackground(selected);
+            tab.setBackground(new android.graphics.drawable.InsetDrawable(selected, 0, inset, 0, inset));
+            tab.setSelected(true);
         }
         if (on && PocketPrefs.animationsEnabled(activity)) {
             tab.setAlpha(0.6f);
