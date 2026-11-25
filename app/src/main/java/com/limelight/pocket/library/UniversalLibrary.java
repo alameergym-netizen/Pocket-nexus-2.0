@@ -266,6 +266,10 @@ public final class UniversalLibrary {
             long t = 0;
             for (Way w : g.ways) {
                 t += PlayTime.seconds(app, w.item);
+                if (romRoots.size() == 1 && HomeItem.RETRO.equals(w.item.kind)) {
+                    HomeItem rom = w.item;
+                    t += PlayTime.seconds(app, new HomeItem(rom.kind, rom.name, rom.a, rom.b, "", rom.n));
+                }
             }
             g.seconds = t;
         }

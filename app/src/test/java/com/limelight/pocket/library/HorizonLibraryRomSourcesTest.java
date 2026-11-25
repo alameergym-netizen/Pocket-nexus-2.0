@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 
+import com.limelight.pocket.PocketPrefs;
 import com.limelight.pocket.home.HomeItem;
 import com.limelight.pocket.home.HomeStore;
 import com.limelight.pocket.retro.RetroLibrary;
@@ -53,11 +54,14 @@ public class HorizonLibraryRomSourcesTest {
     @Test public void singleSourceKeepsLegacyHistoryWithoutCreatingAnAmbiguousWay() throws IOException {
         File internal = scan("internal", "ps2");
         HomeItem legacy = new HomeItem(HomeItem.RETRO, GAME, "ps2", GAME + ".iso", "", 0);
+        HomeStore.pin(context, legacy);
         HomeStore.record(context, legacy);
+        PocketPrefs.prefs(context).edit().putLong("pocket_pt_" + legacy.key(), 120).commit();
         UniversalLibrary.Game game = findGame();
         assertEquals(1, game.ways.size());
         assertEquals(internal.getAbsolutePath(), game.best().item.c);
         assertTrue(game.best().last > 0);
+        assertEquals(120, game.seconds);
         assertTrue(HomeStore.load(context).stream().anyMatch(entry -> entry.item.key().equals(legacy.key())));
     }
 
