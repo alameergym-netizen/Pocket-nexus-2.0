@@ -34,6 +34,7 @@ public final class CloudClients {
 
     private static final String KEY = "pocket_cloud_client_";
     private static final String CHROME = "com.android.chrome";
+    static final String BETTER_XCLOUD_ANDROID = "com.redphx.betterxc";
 
     /** Other full apps for a service (open source ones, with their own extras). */
     private static String[] altPackages(CloudService s) {
@@ -79,8 +80,17 @@ public final class CloudClients {
         if (browser != null) {
             out.add(new Client(BROWSER, browser, c.getString(R.string.pocket_cloud_with_browser, label(pm, browser))));
         }
+        if (s == CloudService.XCLOUD && pm.getLaunchIntentForPackage(BETTER_XCLOUD_ANDROID) != null) {
+            out.add(new Client(APP, BETTER_XCLOUD_ANDROID, c.getString(R.string.horizon_cloud_better_android)));
+        }
         out.add(builtIn(c, s));
         return out;
+    }
+
+    static String installedVersion(Context context, Client client) {
+        if (client.pkg == null) return null;
+        try { return context.getPackageManager().getPackageInfo(client.pkg, 0).versionName; }
+        catch (PackageManager.NameNotFoundException | RuntimeException unavailable) { return null; }
     }
 
     private static String label(PackageManager pm, String pkg) {
@@ -114,6 +124,10 @@ public final class CloudClients {
     public static Client preferred(Context c, CloudService s) {
         List<Client> all = available(c, s);
         String want = prefs(c).getString(KEY + s.id, null);
+        return choose(all, want, s == CloudService.XCLOUD && BetterXcloud.enabled(c));
+    }
+
+    static Client choose(List<Client> all, String want, boolean builtInEnhancement) {
         if (want != null) {
             for (Client cl : all) {
                 if (cl.id().equals(want)) {
@@ -121,11 +135,15 @@ public final class CloudClients {
                 }
             }
         }
-        if (s == CloudService.XCLOUD && BetterXcloud.enabled(c)) {
+        if (builtInEnhancement) {
             // Better xCloud lives in the built-in player: that one, unless another was picked
             return all.get(all.size() - 1);
         }
-        return all.get(0);
+        // The separate Android app is available only after explicit selection.
+        for (Client client : all) {
+            if (!BETTER_XCLOUD_ANDROID.equals(client.pkg)) return client;
+        }
+        return all.get(all.size() - 1);
     }
 
     public static void setPreferred(Context c, CloudService s, Client cl) {
@@ -185,6 +203,9 @@ public final class CloudClients {
                     Intent launch = a.getPackageManager().getLaunchIntentForPackage(cl.pkg);
                     if (launch != null) {
                         a.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        if (url != null && !url.isEmpty()) {
+                            Toast.makeText(a, R.string.horizon_cloud_choose_in_client, Toast.LENGTH_LONG).show();
+                        }
                         return HorizonCloudDispatch.Result.EXTERNAL_APP_DISPATCHED;
                     }
                     break;

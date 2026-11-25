@@ -46,8 +46,11 @@ public final class HomeLauncher {
         // Cloud owns its request at the shared dispatch boundary, including direct Cloud screens.
         if (HomeItem.CLOUD.equals(item.kind)) {
             CloudService service = CloudService.byId(item.a);
-            if (service != null && CloudClients.play(a, service, item.b.isEmpty() ? null : item.b).dispatched()) {
-                HomeStore.record(a, item);
+            if (service == null) return;
+            String titleUrl = item.b.isEmpty() ? null : item.b;
+            com.limelight.pocket.cloud.HorizonCloudDispatch.Result result = CloudClients.play(a, service, titleUrl);
+            if (result.dispatched()) {
+                if (result.dispatchedRequestedTarget(titleUrl != null)) HomeStore.record(a, item);
                 PocketSounds.play(a, PocketSounds.SELECT);
             }
             return;

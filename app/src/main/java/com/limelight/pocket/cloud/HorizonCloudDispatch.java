@@ -10,6 +10,9 @@ public final class HorizonCloudDispatch {
         REJECTED, EXTERNAL_LINK_DISPATCHED, EXTERNAL_APP_DISPATCHED,
         BROWSER_DISPATCHED, INTERNAL_PLAYER_DISPATCHED;
         public boolean dispatched() { return this != REJECTED; }
+        public boolean dispatchedRequestedTarget(boolean titleSpecified) {
+            return dispatched() && (!titleSpecified || this != EXTERNAL_APP_DISPATCHED);
+        }
         public boolean gameplayConfirmed() { return false; }
     }
     public static boolean claim(HorizonLaunchRequests requests, String service, String url, long now) {

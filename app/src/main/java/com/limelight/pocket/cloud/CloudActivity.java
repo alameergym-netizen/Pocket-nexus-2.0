@@ -304,14 +304,28 @@ public class CloudActivity extends ConsoleActivity implements CarouselAdapter.Li
     private void pushClients(final CloudService s) {
         List<StreamMenuView.Item> items = new ArrayList<>();
         CloudClients.Client now = CloudClients.preferred(this, s);
+        boolean betterAndroidInstalled = false;
         for (final CloudClients.Client cl : CloudClients.available(this, s)) {
+            betterAndroidInstalled |= CloudClients.BETTER_XCLOUD_ANDROID.equals(cl.pkg);
             items.add(StreamMenuView.Item.action((cl.id().equals(now.id()) ? "\u2713  " : "") + cl.label, () -> {
                 CloudClients.setPreferred(this, s, cl);
                 PocketSounds.play(this, PocketSounds.TOGGLE_ON);
                 hideConsolePanel();
                 heroPos = -1;
                 updateHero(Math.max(0, java.util.Arrays.asList(CloudService.ALL).indexOf(s)));
-            }));
+            }).withValue(CloudClients.installedVersion(this, cl)));
+        }
+        if (s == CloudService.XCLOUD) {
+            items.add(StreamMenuView.Item.note(getString(R.string.horizon_cloud_better_android_note)));
+            if (!betterAndroidInstalled) {
+                items.add(StreamMenuView.Item.action(getString(R.string.horizon_cloud_better_android_setup), () -> {
+                    Intent setup = new Intent(Intent.ACTION_VIEW, Uri.parse("https://better-xcloud.github.io/android/"));
+                    try { startActivity(setup); }
+                    catch (RuntimeException unavailable) {
+                        Toast.makeText(this, R.string.pocket_cloud_cant_open, Toast.LENGTH_SHORT).show();
+                    }
+                }));
+            }
         }
         items.add(StreamMenuView.Item.note(getString(R.string.pocket_cloud_clients_note)));
         pushConsolePage(getString(R.string.pocket_cloud_play_with), items);
