@@ -31,6 +31,7 @@ import com.limelight.R;
 import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.pocket.ui.PocketUi;
+import com.limelight.pocket.ui.StreamMenuView;
 
 import java.util.ArrayList;
 import java.util.List;
