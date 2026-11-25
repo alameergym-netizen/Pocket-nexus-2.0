@@ -21,6 +21,8 @@ import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.regex.Matcher;
@@ -37,7 +39,7 @@ public final class HorizonSecureStatus {
     private static final int LIBRARY_TIMEOUT_MS = 20000;
     private static final String VERSION = "NEXUS1";
     private static final Pattern PAIRING = Pattern.compile(
-            "(NEXUS[12]):([1-9][0-9]{3,4}):([0-9a-f]{64}):([0-9a-f]{64})");
+            "(NEXUS[1-4]):([1-9][0-9]{3,4}):([0-9a-f]{64}):([0-9a-f]{64})");
     private static final Pattern STATUS = Pattern.compile(
             "STATUS cpu=(-?[0-9]{1,3}) ram=(-?[0-9]{1,3}) up=([0-9]{1,15}) bat=(-?[0-9]{1,3}) ac=([01])");
 
@@ -48,12 +50,14 @@ public final class HorizonSecureStatus {
         final byte[] fingerprint;
         final String key;
         final boolean library;
+        final boolean screen;
 
-        private Pairing(int port, byte[] fingerprint, String key, boolean library) {
+        private Pairing(int port, byte[] fingerprint, String key, boolean library, boolean screen) {
             this.port = port;
             this.fingerprint = fingerprint;
             this.key = key;
             this.library = library;
+            this.screen = screen;
         }
 
         static Pairing parse(String code) {
@@ -67,7 +71,9 @@ public final class HorizonSecureStatus {
             for (int i = 0; i < fingerprint.length; i++) {
                 fingerprint[i] = (byte) Integer.parseInt(encoded.substring(i * 2, i * 2 + 2), 16);
             }
-            return new Pairing(port, fingerprint, match.group(4), "NEXUS2".equals(match.group(1)));
+            char scope = match.group(1).charAt(5);
+            return new Pairing(port, fingerprint, match.group(4), scope == '2' || scope == '4',
+                    scope == '3' || scope == '4');
         }
     }
 
@@ -179,18 +185,25 @@ public final class HorizonSecureStatus {
             return;
         }
 
-        if (pairing.library) {
-            String[] labels = {
-                    activity.getString(R.string.horizon_secure_check), activity.getString(R.string.horizon_secure_games),
-                    activity.getString(R.string.horizon_secure_replace), activity.getString(R.string.horizon_secure_forget)
-            };
-            Runnable[] actions = {
-                    () -> check(activity, host, code, null), () -> showLibrary(activity, host, pairing),
-                    () -> showPairing(activity, host, pairings, pcUuid),
-                    () -> pairings.edit().remove(pcUuid).apply()
-            };
+        if (pairing.library || pairing.screen) {
+            List<String> labels = new ArrayList<>();
+            List<Runnable> actions = new ArrayList<>();
+            labels.add(activity.getString(R.string.horizon_secure_check));
+            actions.add(() -> check(activity, host, code, null));
+            if (pairing.library) {
+                labels.add(activity.getString(R.string.horizon_secure_games));
+                actions.add(() -> showLibrary(activity, host, pairing));
+            }
+            if (pairing.screen) {
+                labels.add(activity.getString(R.string.horizon_secure_screen));
+                actions.add(() -> showScreenMenu(activity, host, pairing));
+            }
+            labels.add(activity.getString(R.string.horizon_secure_replace));
+            actions.add(() -> showPairing(activity, host, pairings, pcUuid));
+            labels.add(activity.getString(R.string.horizon_secure_forget));
+            actions.add(() -> pairings.edit().remove(pcUuid).apply());
             new AlertDialog.Builder(activity).setTitle(R.string.horizon_secure_status)
-                    .setItems(labels, (dialog, which) -> actions[which].run())
+                    .setItems(labels.toArray(new CharSequence[0]), (dialog, which) -> actions.get(which).run())
                     .setNegativeButton(android.R.string.cancel, null).show();
             return;
         }
@@ -271,6 +284,54 @@ public final class HorizonSecureStatus {
                 }
             });
         }, "NexusSecureStatus").start();
+    }
+
+    private enum ScreenCommand {
+        LOCK("NEXUSL", R.string.horizon_secure_lock),
+        DISPLAY_OFF("NEXUSD", R.string.horizon_secure_display_off);
+
+        final String wire;
+        final int label;
+
+        ScreenCommand(String wire, int label) {
+            this.wire = wire;
+            this.label = label;
+        }
+    }
+
+    private static void showScreenMenu(Activity activity, String host, Pairing pairing) {
+        if (host == null || host.isEmpty() || UsbBridge.HOST_IP.equals(host)) {
+            showResult(activity, activity.getString(R.string.horizon_secure_no_address));
+            return;
+        }
+        ScreenCommand[] commands = ScreenCommand.values();
+        String[] labels = new String[commands.length];
+        for (int i = 0; i < commands.length; i++) labels[i] = activity.getString(commands[i].label);
+        new AlertDialog.Builder(activity).setTitle(R.string.horizon_secure_screen)
+                .setItems(labels, (menu, which) -> new AlertDialog.Builder(activity)
+                        .setTitle(commands[which].label)
+                        .setMessage(R.string.horizon_secure_screen_confirm)
+                        .setPositiveButton(R.string.horizon_secure_screen_send,
+                                (dialog, button) -> sendScreenCommand(activity, host, pairing, commands[which]))
+                        .setNegativeButton(android.R.string.cancel, null).show())
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private static void sendScreenCommand(Activity activity, String host, Pairing pairing, ScreenCommand command) {
+        new Thread(() -> {
+            String reply;
+            try { reply = request(host, pairing, command.wire, TIMEOUT_MS, input -> PcCompanion.readLine(input, 128)); }
+            catch (Exception e) { reply = null; }
+            int message = "OK".equals(reply) ? R.string.horizon_secure_screen_accepted
+                    : "ERR auth".equals(reply) ? R.string.horizon_secure_screen_denied
+                    : "ERR busy".equals(reply) ? R.string.horizon_secure_screen_busy
+                    : R.string.horizon_secure_screen_failed;
+            activity.runOnUiThread(() -> {
+                if (!activity.isFinishing() && !activity.isDestroyed()) {
+                    showResult(activity, activity.getString(message));
+                }
+            });
+        }, "NexusSecureScreen").start();
     }
 
     private static void showLibrary(Activity activity, String host, Pairing pairing) {

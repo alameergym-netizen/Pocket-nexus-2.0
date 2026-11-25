@@ -510,6 +510,11 @@ public static class PocketCompanion {
         Process.Start(info);
     }
 
+    public static string SecureScreen(string action) {
+        if (SelfTestMode || (action != "lock" && action != "displayoff")) return "ERR screen";
+        return Power(action);
+    }
+
     static string Power(string action) {
         Action act;
         if (action == "sleep") { act = delegate () { SetSuspendState(false, false, false); }; }
@@ -1929,7 +1934,8 @@ function Start-NexusSecureStatus {
     if ("PcGames" -as [type]) {
         $library = [Delegate]::CreateDelegate([Action[IO.Stream]], [PcGames].GetMethod("WriteSecureLibrary"))
     }
-    $script:secureHost = [PocketNexus.NexusSecureHost]::new($certificate, $credentials, [Net.IPAddress]::Any, $SecureStatusPort, $status, $library)
+    $screen = [Delegate]::CreateDelegate([Func[string,string]], [PocketCompanion].GetMethod("SecureScreen"))
+    $script:secureHost = [PocketNexus.NexusSecureHost]::new($certificate, $credentials, [Net.IPAddress]::Any, $SecureStatusPort, $status, $library, $screen)
 }
 
 function Update-NexusSecureMenu {
@@ -1937,6 +1943,8 @@ function Update-NexusSecureMenu {
         $script:secureToggle.Checked = Test-Path -LiteralPath $script:secureStatusFlag
         $script:secureIssue.Enabled = [bool]$script:secureHost
         $script:secureLibraryIssue.Enabled = [bool]$script:secureHost -and [bool]("PcGames" -as [type])
+        $script:secureScreenIssue.Enabled = [bool]$script:secureHost
+        $script:secureLibraryScreenIssue.Enabled = $script:secureLibraryIssue.Enabled
         $script:secureRevoke.Enabled = [bool]$script:secureHost
     }
     if ($script:hostSummary) { $script:hostSummary.Text = Get-HostDashboardText }
@@ -1960,7 +1968,7 @@ function Switch-NexusSecureStatus {
     Update-NexusSecureMenu
 }
 
-function Request-NexusSecureDevice([bool]$revoke, [bool]$library = $false) {
+function Request-NexusSecureDevice([bool]$revoke, [bool]$library = $false, [bool]$screen = $false) {
     if (-not $script:secureHost) { return }
     Add-Type -AssemblyName Microsoft.VisualBasic -ErrorAction Stop
     $names = $script:secureHost.DeviceNames()
@@ -1976,7 +1984,11 @@ function Request-NexusSecureDevice([bool]$revoke, [bool]$library = $false) {
             $confirm = [System.Windows.Forms.MessageBox]::Show("Replace the existing key for $name?", "Nexus Host secure status", "YesNo")
             if ($confirm -ne "Yes") { return }
         }
-        $pairing = $script:secureHost.Issue($name, $library)
+        if ($screen) {
+            $grant = [System.Windows.Forms.MessageBox]::Show("Allow $name to lock Windows or turn off this PC's display?", "Nexus Host screen controls", "YesNo")
+            if ($grant -ne "Yes") { return }
+        }
+        $pairing = $script:secureHost.Issue($name, $library, $screen)
         try {
             [System.Windows.Forms.Clipboard]::SetText($pairing)
         } catch {
@@ -2439,6 +2451,14 @@ function Start-Tray {
     $script:secureLibraryIssue = $secureMenu.DropDownItems.Add("Copy status and game list pairing code")
     $script:secureLibraryIssue.add_Click({
         try { Request-NexusSecureDevice $false $true } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not issue a game list code.", "Nexus Host secure status") }
+    })
+    $script:secureScreenIssue = $secureMenu.DropDownItems.Add("Copy status and screen controls code")
+    $script:secureScreenIssue.add_Click({
+        try { Request-NexusSecureDevice $false $false $true } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not issue a screen controls code.", "Nexus Host secure status") }
+    })
+    $script:secureLibraryScreenIssue = $secureMenu.DropDownItems.Add("Copy status, games and screen controls code")
+    $script:secureLibraryScreenIssue.add_Click({
+        try { Request-NexusSecureDevice $false $true $true } catch { [void][System.Windows.Forms.MessageBox]::Show("Could not issue a game list and screen controls code.", "Nexus Host secure status") }
     })
     $script:secureRevoke = $secureMenu.DropDownItems.Add("Revoke device")
     $script:secureRevoke.add_Click({

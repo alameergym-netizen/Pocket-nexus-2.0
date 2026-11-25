@@ -20,10 +20,12 @@ public final class HorizonStartupRecovery {
 
     private HorizonStartupRecovery() {}
 
-    public static synchronized void begin(Context context, Object owner, Intent intent) {
-        startingResume = intent.getBooleanExtra(EXTRA_RESUME_START, false) ? owner : null;
+    public static synchronized boolean begin(Context context, Object owner, Intent intent) {
+        boolean automatic = intent.getBooleanExtra(EXTRA_RESUME_START, false);
+        startingResume = automatic ? owner : null;
         intent.removeExtra(EXTRA_RESUME_START);
         marker(context).delete();
+        return automatic;
     }
 
     public static synchronized void end(Object owner) {

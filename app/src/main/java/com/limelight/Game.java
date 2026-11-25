@@ -29,6 +29,7 @@ import com.limelight.pocket.core.HorizonDeferredTask;
 import com.limelight.pocket.core.HorizonLaunchRequests;
 import com.limelight.pocket.PocketAdaptive;
 import com.limelight.pocket.streaming.HorizonStreamSafety;
+import com.limelight.pocket.streaming.HorizonStreamCompatibility;
 import com.limelight.pocket.PcCompanion;
 import com.limelight.pocket.PocketMic;
 import com.limelight.pocket.PcPower;
@@ -392,6 +393,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     // v2: adaptive stream, seamless resume, mic, playtime
     private int pocketStreamBitrate;
     private int pocketStreamLimitReason;
+    private int pocketLowBatteryPercent;
+    private boolean horizonCompatibility;
     private com.limelight.pocket.streaming.HorizonAdaptiveMemory.Scope pocketAdaptiveScope;
     private final com.limelight.pocket.streaming.HorizonAdaptiveDecision pocketAdaptiveDecision =
             new com.limelight.pocket.streaming.HorizonAdaptiveDecision();
@@ -502,7 +505,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         super.onCreate(savedInstanceState);
 
         instance = this;
-        HorizonStartupRecovery.begin(this, this, getIntent());
+        boolean startingAutomaticResume = HorizonStartupRecovery.begin(this, this, getIntent());
+        horizonCompatibility = HorizonStreamCompatibility.take(startingAutomaticResume,
+                getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID));
         timerHandler = new Handler(Looper.getMainLooper());
 
         UiHelper.setLocale(this);
@@ -515,7 +520,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
-        applyPocketBatterySaver();
+        pocketLowBatteryPercent = pocketLowBatteryLevel();
         // Artemis Pocket: this game's own settings win over the normal ones
         String pocketProfileUuid = getIntent().getStringExtra(EXTRA_PC_UUID);
         int pocketProfileApp = getIntent().getIntExtra(EXTRA_APP_ID, 0);
@@ -544,6 +549,15 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         int pocketFpsOverride = getIntent().getIntExtra(ResumeTicket.EXTRA_FPS, 0);
         if (pocketFpsOverride > 0) {
             prefConfig.fps = pocketFpsOverride;
+        }
+        applyLowBatteryVideoBudget();
+        if (pocketLowBatteryPercent >= 0) {
+            Toast.makeText(this, getString(R.string.pocket_battery_saver_on, pocketLowBatteryPercent),
+                    Toast.LENGTH_LONG).show();
+        }
+        if (horizonCompatibility) {
+            HorizonStreamCompatibility.configure(prefConfig);
+            pocketProfileFrameGen = com.limelight.pocket.GameProfile.FRAME_GEN_OFF;
         }
         // Frame generation: stream at half the screen's refresh rate, show at the full rate
         pocketFrameGen = pocketProfileFrameGen == com.limelight.pocket.GameProfile.FRAME_GEN_ON
@@ -628,6 +642,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             prefConfig.width = displayWidth;
             prefConfig.height = displayHeight;
             prefConfig.fps = currentMode.getRefreshRate();
+            applyLowBatteryVideoBudget();
             prefConfig.videoScaleMode = PreferenceConfiguration.ScaleMode.STRETCH;
             prefConfig.enableFloatingButton = false;
             prefConfig.showOverlayZoomToggleButton = false;
@@ -970,13 +985,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         // H.264 is always supported
         int supportedVideoFormats = MoonBridge.VIDEO_FORMAT_H264;
-        if (decoderRenderer.isHevcSupported()) {
+        if (!horizonCompatibility && decoderRenderer.isHevcSupported()) {
             supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_H265;
             if (willStreamHdr && decoderRenderer.isHevcMain10Hdr10Supported()) {
                 supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_H265_MAIN10;
             }
         }
-        if (decoderRenderer.isAv1Supported()) {
+        if (!horizonCompatibility && decoderRenderer.isAv1Supported()) {
             supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN8;
             if (willStreamHdr && decoderRenderer.isAv1Main10Supported()) {
                 supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN10;
@@ -2507,33 +2522,22 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
      * Artemis Pocket: on low battery (and not charging), stream at 720p/60 with a lower bitrate
      * so the session lasts longer. Only this session is affected; settings are untouched.
      */
-    private void applyPocketBatterySaver() {
-        if (!PocketPrefs.autoBatterySaver(this) || prefConfig == null) {
-            return;
-        }
+    private int pocketLowBatteryLevel() {
+        if (!PocketPrefs.autoBatterySaver(this)) return -1;
         Intent battery = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-        if (battery == null) {
-            return;
+        if (battery == null) return -1;
+        return HorizonStreamSafety.lowBatteryPercent(battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1),
+                battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1), battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0));
+    }
+
+    private void applyLowBatteryVideoBudget() {
+        if (pocketLowBatteryPercent < 0) return;
+        if (HorizonStreamSafety.exceedsLowBatteryResolution(prefConfig.width, prefConfig.height)) {
+            boolean portrait = prefConfig.height > prefConfig.width;
+            prefConfig.width = portrait ? HorizonStreamSafety.LOW_BATTERY_HEIGHT : HorizonStreamSafety.LOW_BATTERY_WIDTH;
+            prefConfig.height = portrait ? HorizonStreamSafety.LOW_BATTERY_WIDTH : HorizonStreamSafety.LOW_BATTERY_HEIGHT;
         }
-        int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-        int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-        int plugged = battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
-        if (level < 0 || scale <= 0 || plugged != 0) {
-            return;
-        }
-        int pct = Math.round(level * 100f / scale);
-        if (pct > 20) {
-            return;
-        }
-        if (prefConfig.width * prefConfig.height > 1280 * 720) {
-            prefConfig.width = 1280;
-            prefConfig.height = 720;
-        }
-        if (prefConfig.fps > 60) {
-            prefConfig.fps = 60;
-        }
-        prefConfig.bitrate = Math.min(prefConfig.bitrate, 15000);
-        Toast.makeText(this, getString(R.string.pocket_battery_saver_on, pct), Toast.LENGTH_LONG).show();
+        prefConfig.fps = Math.min(prefConfig.fps, HorizonStreamSafety.LOW_BATTERY_FPS);
     }
 
     /** Artemis Pocket: tap the Xbox Guide button on the PC (from the quick menu). */
@@ -2923,6 +2927,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 com.limelight.pocket.device.HorizonAudio.streamRouteRows(this))).withIcon("INFO"));
 
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_sm_header_quality)));
+        if (horizonCompatibility) {
+            items.add(StreamMenuView.Item.info(getString(R.string.horizon_compatibility_start),
+                    getString(R.string.pocket_on)));
+        }
         final String bitrateTitle = getString(R.string.pocket_sm_bitrate);
         items.add(StreamMenuView.Item.submenu(bitrateTitle, () -> streamMenu.push(bitrateTitle, pocketBitrateItems()))
                 .withValue(Math.round(pocketStreamBitrate / 1000f) + " Mbps").withIcon("SPEED"));
@@ -2936,12 +2944,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         final String fgTitle = getString(R.string.pocket_sm_framegen);
         items.add(StreamMenuView.Item.submenu(fgTitle, () -> streamMenu.push(fgTitle, pocketFrameGenItems()))
                 .withValue(pocketFrameGenLabel()).withIcon("SPARKLE"));
-        items.add(StreamMenuView.Item.value(getString(R.string.pocket_sm_adaptive),
-                onOff(PocketPrefs.adaptiveStream(this)), direction -> {
-                    boolean on = !PocketPrefs.adaptiveStream(this);
-                    PocketPrefs.prefs(this).edit().putBoolean(PocketPrefs.KEY_ADAPTIVE, on).apply();
-                    return onOff(on);
-                }).withIcon("WIFI"));
+        if (horizonCompatibility) {
+            items.add(StreamMenuView.Item.info(getString(R.string.pocket_sm_adaptive), getString(R.string.pocket_off)));
+        } else {
+            items.add(StreamMenuView.Item.value(getString(R.string.pocket_sm_adaptive),
+                    onOff(PocketPrefs.adaptiveStream(this)), direction -> {
+                        boolean on = !PocketPrefs.adaptiveStream(this);
+                        PocketPrefs.prefs(this).edit().putBoolean(PocketPrefs.KEY_ADAPTIVE, on).apply();
+                        return onOff(on);
+                    }).withIcon("WIFI"));
+        }
 
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_sm_header_pc)));
         final String powerTitle = getString(R.string.pocket_sm_power);
@@ -3024,40 +3036,44 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private int pocketChooseBitrate(boolean metered) {
         boolean usb = UsbLink.isUsbAddress(host);
-        pocketAdaptiveScope = usb || metered ? null : PocketAdaptive.activeScope(this, pocketPcUuid());
+        pocketAdaptiveScope = horizonCompatibility || usb || metered ? null : PocketAdaptive.activeScope(this, pocketPcUuid());
         int configured = pocketProfileBitrate > 0 ? pocketProfileBitrate
                 : (metered ? prefConfig.meteredBitrate : (usb ? PocketPrefs.usbBitrateKbps(this) : prefConfig.bitrate));
         int override = getIntent().getIntExtra(ResumeTicket.EXTRA_BITRATE, 0);
         int chosen = override > 0 ? override : configured;
-        if (override <= 0 && !metered && !usb) {
+        if (override <= 0 && !metered && !usb && !horizonCompatibility) {
             chosen = PocketAdaptive.startBitrate(this, configured, pocketAdaptiveScope);
         }
+        if (horizonCompatibility) chosen = HorizonStreamCompatibility.capBitrate(chosen);
         return pocketApplyStreamSafety(chosen);
     }
 
     private int pocketApplyStreamSafety(int chosen) {
         pocketStreamLimitReason = 0;
-        if (!PocketPrefs.powerLimitsStream(this)) return chosen;
-        android.os.PowerManager manager = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (manager == null) return chosen;
-
         boolean batterySaver = false;
         HorizonStreamSafety.Thermal thermal = HorizonStreamSafety.Thermal.UNRESTRICTED;
-        try {
-            batterySaver = manager.isPowerSaveMode();
-            if (Build.VERSION.SDK_INT >= 29) {
-                int state = manager.getCurrentThermalStatus();
-                if (state >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) {
-                    thermal = HorizonStreamSafety.Thermal.CRITICAL;
-                } else if (state >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
-                    thermal = HorizonStreamSafety.Thermal.SEVERE;
+        if (PocketPrefs.powerLimitsStream(this)) {
+            android.os.PowerManager manager = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (manager != null) {
+                try {
+                    batterySaver = manager.isPowerSaveMode();
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        int state = manager.getCurrentThermalStatus();
+                        if (state >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) {
+                            thermal = HorizonStreamSafety.Thermal.CRITICAL;
+                        } else if (state >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
+                            thermal = HorizonStreamSafety.Thermal.SEVERE;
+                        }
+                    }
+                } catch (RuntimeException ignored) {
+                    // Use whichever public device signals Android supplied.
                 }
             }
-        } catch (RuntimeException ignored) {
-            // Use whichever public device signals Android supplied.
         }
-        HorizonStreamSafety.Decision decision = HorizonStreamSafety.limit(chosen, batterySaver, thermal);
+        HorizonStreamSafety.Decision decision = HorizonStreamSafety.limit(chosen, batterySaver, thermal,
+                pocketLowBatteryPercent >= 0);
         switch (decision.reason) {
+            case LOW_BATTERY: pocketStreamLimitReason = R.string.horizon_stream_limit_low_battery; break;
             case CRITICAL_THERMAL: pocketStreamLimitReason = R.string.horizon_stream_limit_critical; break;
             case SEVERE_THERMAL: pocketStreamLimitReason = R.string.horizon_stream_limit_severe; break;
             case BATTERY_SAVER: pocketStreamLimitReason = R.string.horizon_stream_limit_battery_saver; break;
@@ -3080,7 +3096,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     private void pocketOnConnectionStatus(boolean poor) {
-        if (!ownsStreamCallback() || pocketSwitching || !connected || !PocketPrefs.adaptiveStream(this)) return;
+        if (horizonCompatibility || !ownsStreamCallback() || pocketSwitching || !connected
+                || !PocketPrefs.adaptiveStream(this)) return;
         long now = android.os.SystemClock.elapsedRealtime();
         if (pocketSessionStartMs == 0) return;
         int steps = getIntent().getIntExtra(ResumeTicket.EXTRA_ADAPTIVE_STEPS, 0);
@@ -3096,7 +3113,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     private void pocketMaybeStepDown() {
-        if (!ownsStreamCallback() || pocketSwitching || !connected || !PocketPrefs.adaptiveStream(this)) return;
+        if (horizonCompatibility || !ownsStreamCallback() || pocketSwitching || !connected
+                || !PocketPrefs.adaptiveStream(this)) return;
         long now = android.os.SystemClock.elapsedRealtime();
         int steps = getIntent().getIntExtra(ResumeTicket.EXTRA_ADAPTIVE_STEPS, 0);
         if (!pocketAdaptiveDecision.allowed(now, pocketSessionStartMs, steps)

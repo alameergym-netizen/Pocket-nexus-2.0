@@ -146,7 +146,13 @@ def main(apk):
     quick_settings = wait_for("console settings", lambda t: has(t, "Settings") and has(t, "System"))
     tap_label(quick_settings, "System")
     recovery = wait_for("Android launcher recovery action", lambda t: has(t, "Recovery")
-                        and has(t, "Open another Android launcher"))
+                        and has(t, "Open another Android launcher") and has(t, "Compatibility stream start"))
+    tap_label(recovery, "Compatibility stream start")
+    armed = wait_for("compatibility mode arms for the next manual stream",
+                     lambda t: has(t, "Next manual stream"))
+    tap_label(armed, "Compatibility stream start")
+    recovery = wait_for("compatibility mode can be cancelled",
+                        lambda t: has(t, "Compatibility stream start") and not has(t, "Next manual stream"))
     capture("05-system-recovery")
     tap_label(recovery, "Open another Android launcher")
     wait_for("Android launcher or launcher chooser", lambda t: not has(t, "Open another Android launcher")

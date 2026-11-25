@@ -35,7 +35,7 @@ namespace PocketNexus
                 Check(Exchange(host.Port, first, "NEXUS1 " + new string('0', 64)) == "ERR auth",
                     "Unknown key rejected even from loopback", results);
                 Check(NoCommandReply(host.Port, first),
-                    "Secure listener accepts only the status protocol", results);
+                    "Secure listener rejects unregistered power commands", results);
                 string wrongPin = first.Replace(host.Fingerprint, new string('0', 64));
                 bool untrusted = false;
                 try { Exchange(host.Port, wrongPin, null); }
@@ -81,16 +81,65 @@ namespace PocketNexus
                 Check(RejectsPlaintext(host.Port, second), "Plaintext receives no status", results);
             }
             finally { host.Stop(); }
+            CheckScreenControls(certificate, credentialFile + ".controls", results);
             return results.ToArray();
         }
 
-        static NexusSecureHost Start(X509Certificate2 certificate, string path)
+        static void CheckScreenControls(X509Certificate2 certificate, string path,
+                System.Collections.Generic.List<string> results)
+        {
+            string action = null;
+            Func<string, string> observe = command => { action = command; return "OK"; };
+            string status, library, screen, full;
+            var host = Start(certificate, path, observe);
+            try
+            {
+                status = host.Issue("Status only");
+                library = host.Issue("Library only", true);
+                screen = host.Issue("Screen only", false, true);
+                full = host.Issue("Both scopes", true, true);
+                Check(screen.StartsWith("NEXUS3:") && full.StartsWith("NEXUS4:"),
+                    "Screen-only and combined pairing codes identify their capabilities", results);
+                Check(Exchange(host.Port, status, "NEXUSL " + status.Split(':')[3]) == "ERR auth" &&
+                    Exchange(host.Port, library, "NEXUSD " + library.Split(':')[3]) == "ERR auth" && action == null,
+                    "Older scopes cannot execute screen controls", results);
+                Check(Exchange(host.Port, screen, "NEXUSG " + screen.Split(':')[3]) == "ERR auth",
+                    "Screen permission does not grant library access", results);
+                Check(Exchange(host.Port, screen, "NEXUSL " + screen.Split(':')[3]) == "OK" && action == "lock",
+                    "Only an authorized screen request queues a lock", results);
+                Check(!File.ReadAllText(path + ".screen").Contains(screen.Split(':')[3]),
+                    "Screen permissions store digests", results);
+            }
+            finally { host.Stop(); }
+            host = Start(certificate, path, observe);
+            try
+            {
+                Check(Exchange(host.Port, full, "NEXUSG " + full.Split(':')[3]) == "S\tFixture\tsteam\t1" &&
+                    Exchange(host.Port, full, "NEXUSD " + full.Split(':')[3]) == "OK" && action == "displayoff",
+                    "Combined scope preserves library and display operation after restart", results);
+                Check(host.Revoke("Both scopes") &&
+                    Exchange(host.Port, full, "NEXUSL " + full.Split(':')[3]) == "ERR auth",
+                    "Revocation immediately prevents future screen dispatch", results);
+            }
+            finally { host.Stop(); }
+            File.WriteAllText(path + ".screen", "unreadable scope data");
+            host = Start(certificate, path, observe);
+            try
+            {
+                Check(Exchange(host.Port, screen, null) == Status &&
+                    Exchange(host.Port, screen, "NEXUSL " + screen.Split(':')[3]) == "ERR auth",
+                    "An invalid screen grants file preserves status and denies control", results);
+            }
+            finally { host.Stop(); }
+        }
+
+        static NexusSecureHost Start(X509Certificate2 certificate, string path, Func<string, string> screen = null)
         {
             return new NexusSecureHost(certificate, path, IPAddress.Loopback, 0, () => Status, stream =>
             {
                 byte[] payload = Encoding.UTF8.GetBytes("S\tFixture\tsteam\t1\nEND 1\n");
                 stream.Write(payload, 0, payload.Length);
-            });
+            }, screen);
         }
 
         static void Check(bool condition, string name, System.Collections.Generic.List<string> results)

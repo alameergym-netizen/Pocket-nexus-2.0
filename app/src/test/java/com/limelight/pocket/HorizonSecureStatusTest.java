@@ -36,7 +36,17 @@ public class HorizonSecureStatusTest {
         String common = ":47111:" + FINGERPRINT + ":" + KEY;
         assertFalse(HorizonSecureStatus.Pairing.parse("NEXUS1" + common).library);
         assertTrue(HorizonSecureStatus.Pairing.parse("NEXUS2" + common).library);
-        assertNull(HorizonSecureStatus.Pairing.parse("NEXUS3" + common));
+        assertNull(HorizonSecureStatus.Pairing.parse("NEXUS5" + common));
+    }
+
+    @Test public void screenScopeIsIndependentAndCanBeCombinedWithLibrary() {
+        String common = ":47111:" + FINGERPRINT + ":" + KEY;
+        assertFalse(HorizonSecureStatus.Pairing.parse("NEXUS1" + common).screen);
+        assertFalse(HorizonSecureStatus.Pairing.parse("NEXUS2" + common).screen);
+        assertTrue(HorizonSecureStatus.Pairing.parse("NEXUS3" + common).screen);
+        assertFalse(HorizonSecureStatus.Pairing.parse("NEXUS3" + common).library);
+        assertTrue(HorizonSecureStatus.Pairing.parse("NEXUS4" + common).screen);
+        assertTrue(HorizonSecureStatus.Pairing.parse("NEXUS4" + common).library);
     }
 
     @Test public void acceptsOnlyBoundedStatusWithAllFields() {
