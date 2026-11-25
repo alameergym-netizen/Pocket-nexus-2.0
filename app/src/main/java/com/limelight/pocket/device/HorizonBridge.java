@@ -174,16 +174,26 @@ public final class HorizonBridge {
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_bridge_safety)));
         PowerManager pm = (PowerManager) a.getSystemService(Context.POWER_SERVICE);
         int thermal = -1;
-        boolean saver = false;
-        try {
-            if (pm != null) {
-                saver = pm.isPowerSaveMode();
-                if (Build.VERSION.SDK_INT >= 29) { thermal = pm.getCurrentThermalStatus(); }
+        Boolean saver = null;
+        if (pm != null) {
+            try { saver = pm.isPowerSaveMode(); } catch (RuntimeException ignored) { }
+            if (Build.VERSION.SDK_INT >= 29) {
+                try { thermal = pm.getCurrentThermalStatus(); } catch (RuntimeException ignored) { }
             }
-        } catch (RuntimeException ignored) {}
+        }
+        int[] thermalLabel = {R.string.horizon_thermal_none, R.string.horizon_thermal_light,
+                R.string.horizon_thermal_moderate, R.string.horizon_thermal_severe, R.string.horizon_thermal_critical,
+                R.string.horizon_thermal_emergency, R.string.horizon_thermal_shutdown};
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_thermal_status),
+                a.getString(HorizonBridgePolicy.hasThermalStatus(thermal)
+                        ? thermalLabel[thermal] : R.string.horizon_bridge_unknown)));
+        rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_bridge_battery_saver),
+                a.getString(saver == null ? R.string.horizon_bridge_unknown
+                        : saver ? R.string.pocket_on : R.string.pocket_off)));
         int[] advice = {R.string.horizon_bridge_advice_unknown, R.string.horizon_bridge_advice_normal,
                 R.string.horizon_bridge_advice_reduce, R.string.horizon_bridge_advice_stop};
-        rows.add(StreamMenuView.Item.note(a.getString(advice[HorizonBridgePolicy.recommendation(thermal, saver)])));
+        rows.add(StreamMenuView.Item.note(a.getString(advice[
+                HorizonBridgePolicy.recommendation(thermal, Boolean.TRUE.equals(saver))])));
         rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_power_title), HorizonPower.batteryPower(a)));
         HandheldTools.addTools(a, rows);
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh), () -> show(a)));

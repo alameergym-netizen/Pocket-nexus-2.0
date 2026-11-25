@@ -15,6 +15,15 @@
     <string name="horizon_bridge_current">Current frequency</string>
     <string name="horizon_bridge_max">Current maximum</string>
     <string name="horizon_bridge_safety">Thermal guidance</string>
+    <string name="horizon_thermal_status">Android thermal status</string>
+    <string name="horizon_bridge_battery_saver">Android Battery Saver</string>
+    <string name="horizon_thermal_none">No pressure</string>
+    <string name="horizon_thermal_light">Light</string>
+    <string name="horizon_thermal_moderate">Moderate</string>
+    <string name="horizon_thermal_severe">Severe</string>
+    <string name="horizon_thermal_critical">Critical</string>
+    <string name="horizon_thermal_emergency">Emergency</string>
+    <string name="horizon_thermal_shutdown">Shutdown threshold</string>
     <string name="horizon_bridge_advice_unknown">Thermal status is unavailable. Keep manufacturer limits and avoid automatic tuning.</string>
     <string name="horizon_bridge_advice_normal">Android reports no or light thermal pressure. Keep manufacturer limits.</string>
     <string name="horizon_bridge_advice_reduce">Reduce workload or streaming quality; keep cooling and thermal safeguards enabled.</string>
