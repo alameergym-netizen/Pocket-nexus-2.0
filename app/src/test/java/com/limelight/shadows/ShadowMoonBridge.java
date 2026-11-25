@@ -2,9 +2,30 @@ package com.limelight.shadows;
 
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
+import org.robolectric.annotation.Resetter;
 
 @Implements(value = com.limelight.nvstream.jni.MoonBridge.class, isInAndroidSdk = false)
 public class ShadowMoonBridge {
+    public static int mouseMoves;
+    public static int controllerArrivals;
+    public static int keepalives;
+
+    @Resetter
+    public static void resetInputCounters() {
+        mouseMoves = controllerArrivals = keepalives = 0;
+    }
+
+    @Implementation
+    protected static void sendMouseMove(short x, short y) { mouseMoves++; }
+
+    @Implementation
+    protected static int sendControllerArrivalEvent(byte number, short mask, byte type, int buttons, short caps) {
+        controllerArrivals++;
+        return 0;
+    }
+
+    @Implementation
+    protected static void sendEmptyPayload() { keepalives++; }
 
     // Static initializer override to prevent System.loadLibrary
     @Implementation
