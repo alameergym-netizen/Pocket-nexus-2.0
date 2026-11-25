@@ -14,6 +14,7 @@ OPTIONS = "horizon_library_options_action"
 FIRST = "Aster Circuit"
 SECOND = "Boreal Drift"
 COLLECTION = "Weekend"
+CROSS_PROVIDER = "Cinder Quest"
 
 
 def node_with_label(tree, label):
@@ -76,7 +77,8 @@ def add_collection(name):
 
 
 def weekend_membership(tree):
-    return selected(tree, COLLECTION) and library_with_games(tree) and node_with_label(tree, SECOND) is None
+    return (selected(tree, COLLECTION) and library_with_games(tree)
+            and node_with_label(tree, SECOND) is None and node_with_label(tree, CROSS_PROVIDER) is None)
 
 
 def check_collections():
@@ -118,6 +120,19 @@ def check_collections():
     print("PASS: duplicate adds, active selection, restart, membership removal, and empty collection deletion", flush=True)
 
 
+def check_provider_choice():
+    library = controls.wait_for("same title has a library card", lambda t: node_with_label(t, CROSS_PROVIDER) is not None)
+    tap(node_with_label(library, CROSS_PROVIDER))
+    controls.wait_for("choose PC or Xbox Cloud Gaming before dispatch", lambda t:
+                      controls.has(t, "Choose which provider to use for this title.")
+                      and controls.has(t, "PC") and controls.has(t, "Xbox Cloud Gaming"))
+    controls.capture("10-cross-provider-choice")
+    controls.key("BUTTON_B")
+    controls.wait_for("B returns to the Library without launching a provider", lambda t:
+                      library_with_games(t) and not controls.has(t, "Choose which provider to use for this title."))
+    print("PASS: an unplayed same-title PC and Cloud group requires an explicit provider", flush=True)
+
+
 def main(apk):
     controls.RESULTS.mkdir(exist_ok=True)
     controls.adb("install", "-g", apk, timeout=180)
@@ -135,7 +150,9 @@ def main(apk):
         "pref\tstring\tpocket_home_layout\thorizon_workspace\n"
         "pin\tpc\tAster Circuit\temulator-test-pc\t\t\t501\n"
         "pin\tpc\tAster Circuit\temulator-test-pc\t\t\t509\n"
-        "pin\tpc\tBoreal Drift\temulator-test-pc\t\t\t502\n",
+        "pin\tpc\tBoreal Drift\temulator-test-pc\t\t\t502\n"
+        "pin\tpc\tCinder Quest\temulator-test-pc\t\t\t503\n"
+        "pin\tcloud\tCinder Quest\txcloud\tcinder-quest\t\t0\n",
         encoding="utf-8",
     )
     controls.adb("push", str(seed), seed_dir + "/seed.txt")
@@ -166,6 +183,7 @@ def main(apk):
     controls.wait_for("touch restores All filter", lambda t: selected(t, "All") and library_with_games(t))
     print("PASS: wide split, controller focus, game detail and filter with touch return", flush=True)
     check_collections()
+    check_provider_choice()
 
     controls.setup_device(480)
     compact = open_library()
