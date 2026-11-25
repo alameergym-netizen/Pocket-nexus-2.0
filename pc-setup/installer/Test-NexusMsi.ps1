@@ -48,8 +48,10 @@ try {
     $link = $shell.CreateShortcut($linkPath)
     $expectedTarget = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $expectedScript = Join-Path $install 'PocketNexus-PC.ps1'
-    Check ($link.TargetPath -eq $expectedTarget -and $link.WorkingDirectory -eq $install -and
-        $link.Arguments.EndsWith(' -Background') -and $link.Arguments.Contains('"' + $expectedScript + '"')) 'the shortcut uses the installed script on demand'
+    Check ($link.TargetPath -eq $expectedTarget) ("the shortcut uses Windows PowerShell ($($link.TargetPath))")
+    Check ($link.WorkingDirectory.TrimEnd([char]92) -eq $install) ("the shortcut works from the installation directory ($($link.WorkingDirectory))")
+    Check ($link.Arguments -match '^-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "([^"]+)" -Background$' -and
+        $Matches[1] -eq $expectedScript) ("the shortcut launches the installed script on demand ($($link.Arguments))")
 
     $manifest = Get-Content -LiteralPath (Join-Path $install 'SHA256-MANIFEST.json') -Raw | ConvertFrom-Json
     foreach ($item in $manifest.files.PSObject.Properties) {
