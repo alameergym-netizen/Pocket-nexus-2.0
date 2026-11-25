@@ -14,10 +14,14 @@ public final class HorizonBridgePolicy {
 
     /** Android thermal levels: moderate and above warrant caution; missing is never normal. */
     public static int recommendation(int thermalStatus, boolean batterySaver) {
-        if (thermalStatus >= 3) { return 3; } // stop heavy workload
+        if (hasThermalStatus(thermalStatus) && thermalStatus >= 3) { return 3; } // stop heavy workload
         if (thermalStatus == 2 || batterySaver) { return 2; } // reduce workload
         if (thermalStatus == 0 || thermalStatus == 1) { return 1; } // standard limits
         return 0; // unknown
+    }
+
+    public static boolean hasThermalStatus(int status) {
+        return status >= 0 && status <= 6; // PowerManager THERMAL_STATUS_NONE through SHUTDOWN.
     }
 
     public static long parseFrequency(String value) {
