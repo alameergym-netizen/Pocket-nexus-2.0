@@ -154,6 +154,9 @@ public final class HorizonAudio {
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_buffer),
                     ms < 0 ? a.getString(R.string.horizon_audio_unavailable)
                             : a.getString(R.string.horizon_route_ms,ms)));
+            rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_audio_backlog),
+                    s.queuedAudioMs < 0 ? a.getString(R.string.horizon_audio_unavailable)
+                            : a.getString(R.string.horizon_route_ms, s.queuedAudioMs)));
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_underruns),
                     s.underruns < 0 ? a.getString(R.string.horizon_audio_unavailable) : Integer.toString(s.underruns)));
             rows.add(StreamMenuView.Item.info(a.getString(R.string.horizon_route_queue_peak),
