@@ -7,9 +7,14 @@ on:
       - 'pc-setup/installer/**'
       - 'pc-setup/Stage-NexusHostDev.ps1'
       - 'pc-setup/tests/package_host.py'
+      - 'tools/Sign-NexusHostMsi.ps1'
+      - 'tools/tests/Test-NexusMsiSigning.ps1'
       - '.github/workflows/horizon-windows-msi.yml'
 permissions:
   contents: read
+concurrency:
+  group: horizon-windows-msi-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   msi:
     runs-on: windows-latest
@@ -45,6 +50,11 @@ jobs:
           & pc-setup/installer/Test-NexusMsi.ps1 -Older "$env:RUNNER_TEMP\NexusHost-previous.msi" -Newer dist/NexusHost-dev-x64.msi -LogDirectory dist/msi-logs
           $sha = (Get-FileHash -LiteralPath dist/NexusHost-dev-x64.msi -Algorithm SHA256).Hash.ToLowerInvariant()
           "$sha  NexusHost-dev-x64.msi" | Set-Content -LiteralPath dist/NexusHost-dev-x64.msi.sha256 -Encoding ascii
+      - name: Verify signing an MSI copy with a disposable test certificate
+        timeout-minutes: 3
+        shell: powershell
+        run: |
+          & tools/tests/Test-NexusMsiSigning.ps1 -Msi dist/NexusHost-dev-x64.msi -OutputMsi "$env:RUNNER_TEMP\NexusHost-ci-signature-fixture.msi"
       - name: Upload verified development MSI
         uses: actions/upload-artifact@v4
         with:

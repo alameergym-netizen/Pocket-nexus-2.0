@@ -18,6 +18,12 @@ The Windows MSI job builds an unsigned development package from the verified pay
 
 The MSI job tests installation, payload hashes, upgrade, downgrade refusal, shortcut and removal on an isolated Windows runner. The published CI artifact is a development build. Production code signing and physical desktop acceptance remain part of the release gate.
 
+### Owner-local signing
+
+For an authorized release, use `tools/Sign-NexusHostMsi.ps1` from the trusted checkout. Pass `-Msi` with the verified unsigned installer, its `-ExpectedSha256`, the Windows SDK `-SignTool` path, the `-CertificateThumbprint` from the current user's Personal store, and a new `-OutputMsi` path. Use `-TimestampServer` with an approved HTTPS RFC 3161 service for release signing. Windows verifies the selected signature and timestamp before publishing the separate output file. The result contains the signed artifact and public certificate SHA-256 digests.
+
+CI signs a disposable fixture using a temporary test certificate and uploads the original unsigned development package. Production certificates, signing access and final Windows installer distribution stay with the owner.
+
 Optional Android preflight: from a Windows PowerShell terminal, run Test-NexusUpgrade.ps1 with -Apk and trusted Android SDK paths for -Adb, -Aapt and -ApkSigner. If multiple devices are attached, select -Serial locally. Authorize USB debugging only on your trusted computer. It reads the installed base APK into a temporary directory, verifies both APK signatures and compares package, current signer set and version code. It never calls install/uninstall/clear. It rejects signer mismatch, different package and non-newer version, and does not prove actual installation or settings compatibility. The extracted base APK is deleted in a finally block. Run -SelfTest without a device to test policy. Fresh installs require a separate procedure.
 
 ### Optional Windows save preview
