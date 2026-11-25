@@ -721,7 +721,15 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     private void maybeAutoResume() {
-        if (pendingResume != null || !allowsAutoResume() || !ResumeTicket.isArmed(this)) {
+        if (pendingResume != null || !allowsAutoResume()) {
+            return;
+        }
+        if (HorizonStartupRecovery.take(this)) {
+            ResumeTicket.disarm(this);
+            Toast.makeText(this, R.string.horizon_resume_paused_after_crash, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!ResumeTicket.isArmed(this)) {
             return;
         }
         int reason = ResumeTicket.reason(this);

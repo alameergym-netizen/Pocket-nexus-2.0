@@ -26,6 +26,7 @@ public class HorizonProfileResumeTest {
         Intent resumed = ResumeTicket.take(c);
         assertNotNull(resumed);
         assertTrue(ResumeTicket.claimDispatch(resumed));
+        assertTrue(resumed.getBooleanExtra(HorizonStartupRecovery.EXTRA_RESUME_START, false));
         assertFalse(resumed.hasExtra(PcLaunchTicket.EXTRA_TOKEN));
         assertEquals(10000, resumed.getIntExtra(ResumeTicket.EXTRA_BITRATE, 0));
         assertEquals(777, ResumeTicket.consumeProfileOwner(resumed, 0).profileId);

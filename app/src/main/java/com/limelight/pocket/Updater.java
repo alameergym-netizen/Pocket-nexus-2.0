@@ -14,6 +14,7 @@ import androidx.core.content.FileProvider;
 import com.limelight.BuildConfig;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -22,7 +23,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,7 +39,7 @@ import java.util.regex.Pattern;
  */
 public final class Updater {
 
-    private static final String REPO = "alameergym-netizen/Pocket-nexus-2.0";
+    private static final String REPO = HorizonUpdatePolicy.REPO;
     private static final String KEY_LAST_CHECK = "pocket_update_checked";
     private static final String KEY_AVAILABLE = "pocket_update_available";
     private static final long EVERY_MS = 6 * 60 * 60 * 1000L;
@@ -50,11 +53,13 @@ public final class Updater {
         public final String url;
         public final long size;
         public final List<String> changes;
+        final String digest;
 
-        Release(String sha, String url, long size, List<String> changes) {
+        Release(String sha, String url, long size, String digest, List<String> changes) {
             this.sha = sha;
             this.url = url;
             this.size = size;
+            this.digest = digest;
             this.changes = changes;
         }
     }
@@ -104,17 +109,9 @@ public final class Updater {
             String error = null;
             try {
                 JSONObject rel = new JSONObject(get("https://api.github.com/repos/" + REPO + "/releases/tags/latest"));
-                JSONArray assets = rel.getJSONArray("assets");
-                for (int i = 0; i < assets.length(); i++) {
-                    JSONObject a = assets.getJSONObject(i);
-                    Matcher m = APK.matcher(a.optString("name"));
-                    if (m.matches()) {
-                        String sha = m.group(1);
-                        if (!sha.equals(current())) {
-                            r = new Release(sha, a.getString("browser_download_url"), a.optLong("size"), changes(sha));
-                        }
-                        break;
-                    }
+                Release offer = readOffer(rel, current());
+                if (offer != null) {
+                    r = new Release(offer.sha, offer.url, offer.size, offer.digest, changes(offer.sha));
                 }
                 PocketPrefs.prefs(c).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis())
                         .putString(KEY_AVAILABLE, r != null ? r.sha : current()).apply();
@@ -125,6 +122,29 @@ public final class Updater {
             final String err = error;
             MAIN.post(() -> done.onChecked(got, err));
         });
+    }
+
+    static Release readOffer(JSONObject release, String currentSha) throws JSONException {
+        if (!"latest".equals(release.optString("tag_name")) || release.getBoolean("draft")
+                || release.getBoolean("prerelease")) return null;
+        Release result = null;
+        JSONArray assets = release.getJSONArray("assets");
+        for (int i = 0; i < assets.length(); i++) {
+            JSONObject asset = assets.getJSONObject(i);
+            Matcher name = APK.matcher(asset.optString("name"));
+            if (!name.matches()) continue;
+            String sha = name.group(1);
+            String url = asset.getString("browser_download_url");
+            long size = asset.optLong("size");
+            String digest = asset.isNull("digest") ? null : asset.getString("digest");
+            if (result != null || !HorizonUpdatePolicy.releaseAsset(url, sha) || size < 0
+                    || size > HorizonUpdatePolicy.MAX_APK_BYTES
+                    || (digest != null && !HorizonUpdatePolicy.validDigest(digest))) {
+                throw new JSONException("Invalid or ambiguous stable update metadata");
+            }
+            result = new Release(sha, url, size, digest, Collections.emptyList());
+        }
+        return result != null && !result.sha.equals(currentSha) ? result : null;
     }
 
     /** What changed from this build to that one: the commits' first lines, newest first. */
@@ -152,8 +172,7 @@ public final class Updater {
 
     /** Downloads it (with progress), into the app's cache. */
     public static synchronized void download(Context context, final Release r, final Progress p) {
-        if (BuildConfig.DEBUG || r == null || !HorizonUpdatePolicy.validSha(r.sha)
-                || !HorizonUpdatePolicy.allowedUrl(r.url)) {
+        if (BuildConfig.DEBUG || r == null || !HorizonUpdatePolicy.releaseAsset(r.url, r.sha)) {
             MAIN.post(() -> p.onDone(null, "Invalid update or development build"));
             return;
         }
@@ -179,6 +198,7 @@ public final class Updater {
                     }
                 }
                 out = new File(dir, "PocketNexus2-" + r.sha + ".apk.part");
+                MessageDigest digest = r.digest != null ? MessageDigest.getInstance("SHA-256") : null;
                 HttpURLConnection con = open(r.url);
                 long total = con.getContentLengthLong() > 0 ? con.getContentLengthLong() : r.size;
                 long got = 0;
@@ -194,6 +214,7 @@ public final class Updater {
                             throw new java.io.IOException("Update exceeds size limit");
                         }
                         o.write(buf, 0, n);
+                        if (digest != null) digest.update(buf, 0, n);
                         got += n;
                         int pct = total > 0 ? (int) Math.min(100, got * 100 / total) : 0;
                         if (pct != lastPct) {
@@ -205,8 +226,11 @@ public final class Updater {
                 } finally {
                     con.disconnect();
                 }
-                if (got == 0 || (total > 0 && got != total)) {
+                if (got == 0 || (total > 0 && got != total) || (r.size > 0 && got != r.size)) {
                     throw new java.io.IOException("Update download size mismatch");
+                }
+                if (digest != null && !HorizonUpdatePolicy.matchesDigest(r.digest, digest.digest())) {
+                    throw new java.io.IOException("Update download SHA-256 mismatch");
                 }
                 if (!validPackage(c, out)) {
                     throw new java.io.IOException("Update package, version or signing certificate mismatch");

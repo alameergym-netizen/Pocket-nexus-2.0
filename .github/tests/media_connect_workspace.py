@@ -64,11 +64,20 @@ def main(apk):
     connect = controls.wait_for("Connect shows the no-host state and setup controls",
                                 lambda t: controls.has(t, "Connect to PC")
                                 and resource(t, "horizonConnectAdd") is not None
-                                and resource(t, "horizonConnectHelp") is not None)
+                                and resource(t, "horizonConnectHelp") is not None
+                                and resource(t, "horizonConnectRemote") is not None)
     controls.capture("03-connect-empty")
+    tap(resource(connect, "horizonConnectRemote"))
+    controls.wait_for("Remote Play lists the two official routes", lambda t:
+                      controls.has(t, "Xbox Remote Play") and controls.has(t, "PS Remote Play"))
+    controls.capture("04-connect-remote-play")
+    controls.key("BUTTON_B")
+    connect = controls.wait_for("B closes Remote Play and leaves Connect in place", lambda t:
+                                not controls.has(t, "Xbox Remote Play")
+                                and resource(t, "horizonConnectAdd") is not None)
     tap(resource(connect, "horizonConnectAdd"))
     controls.wait_for("manual host entry", lambda t: resource(t, "hostTextView") is not None)
-    controls.capture("04-connect-manual-entry")
+    controls.capture("05-connect-manual-entry")
     print("PASS: Media permission recovery and Connect controller-to-touch navigation", flush=True)
 
 

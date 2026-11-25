@@ -135,6 +135,10 @@ public final class HorizonSecureStatus {
         T read(InputStream input) throws IOException;
     }
 
+    static String requestStatus(String host, Pairing pairing) throws Exception {
+        return request(host, pairing, VERSION, TIMEOUT_MS, input -> PcCompanion.readLine(input, 128));
+    }
+
     private static <T> T request(String host, Pairing pairing, String command, int timeoutMs,
                                  ReplyReader<T> reply) throws Exception {
         SSLContext tls = SSLContext.getInstance("TLSv1.2");
@@ -247,7 +251,7 @@ public final class HorizonSecureStatus {
                 .show();
         new Thread(() -> {
             String reply;
-            try { reply = request(host, pairing, VERSION, TIMEOUT_MS, input -> PcCompanion.readLine(input, 128)); }
+            try { reply = requestStatus(host, pairing); }
             catch (Exception e) { reply = null; }
             Status status = Status.parse(reply);
             boolean revoked = "ERR auth".equals(reply);

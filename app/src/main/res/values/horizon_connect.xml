@@ -4,4 +4,12 @@
     <string name="horizon_connect_counts">Paired online: %1$d · Pairing needed: %2$d · Offline: %3$d · Unknown: %4$d</string>
     <string name="horizon_connect_add">Add PC manually</string>
     <string name="horizon_connect_usb">USB setup</string>
+    <string name="horizon_remote_title">Remote Play</string>
+    <string name="horizon_remote_subtitle">Play games from your console using its official service.</string>
+    <string name="horizon_remote_xbox">Xbox Remote Play</string>
+    <string name="horizon_remote_playstation">PS Remote Play</string>
+    <string name="horizon_remote_browser">Browser</string>
+    <string name="horizon_remote_app">Official app</string>
+    <string name="horizon_remote_get_app">Get the app</string>
+    <string name="horizon_remote_unavailable">No app is available to open this Remote Play option.</string>
 </resources>

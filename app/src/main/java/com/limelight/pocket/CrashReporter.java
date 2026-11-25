@@ -34,6 +34,10 @@ public final class CrashReporter {
         final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
             try {
+                HorizonStartupRecovery.recordFatal(app);
+            } catch (Throwable ignored) {
+            }
+            try {
                 save(app, thread, error, true);
             } catch (Throwable ignored) {
             }

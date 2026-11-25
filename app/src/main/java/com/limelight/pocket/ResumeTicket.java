@@ -85,6 +85,7 @@ public final class ResumeTicket {
             Bundle extras = gameIntent.getExtras() != null ? new Bundle(gameIntent.getExtras()) : new Bundle();
             extras.remove(com.limelight.pocket.pclib.PcLaunchTicket.EXTRA_TOKEN);
             extras.remove(EXTRA_CLAIM);
+            extras.remove(HorizonStartupRecovery.EXTRA_RESUME_START);
             extras.remove(EXTRA_PROFILE_HOST);
             extras.remove(EXTRA_PROFILE_STREAM);
             extras.remove(EXTRA_PROFILE_ID);
@@ -199,6 +200,7 @@ public final class ResumeTicket {
         if (intent==null) return false;
         boolean ok=CLAIM.finish(intent.getLongExtra(EXTRA_CLAIM,0),System.currentTimeMillis(),epoch())!=null;
         intent.removeExtra(EXTRA_CLAIM);
+        if (ok) intent.putExtra(HorizonStartupRecovery.EXTRA_RESUME_START, true);
         return ok;
     }
     public static synchronized void cancel(Intent intent) {
