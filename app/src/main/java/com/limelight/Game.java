@@ -393,6 +393,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     // v2: adaptive stream, seamless resume, mic, playtime
     private int pocketStreamBitrate;
     private int pocketStreamLimitReason;
+    private int pocketLowBatteryPercent;
     private boolean horizonCompatibility;
     private com.limelight.pocket.streaming.HorizonAdaptiveMemory.Scope pocketAdaptiveScope;
     private final com.limelight.pocket.streaming.HorizonAdaptiveDecision pocketAdaptiveDecision =
@@ -519,7 +520,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
-        applyPocketBatterySaver();
+        pocketLowBatteryPercent = pocketLowBatteryLevel();
         // Artemis Pocket: this game's own settings win over the normal ones
         String pocketProfileUuid = getIntent().getStringExtra(EXTRA_PC_UUID);
         int pocketProfileApp = getIntent().getIntExtra(EXTRA_APP_ID, 0);
@@ -548,6 +549,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         int pocketFpsOverride = getIntent().getIntExtra(ResumeTicket.EXTRA_FPS, 0);
         if (pocketFpsOverride > 0) {
             prefConfig.fps = pocketFpsOverride;
+        }
+        applyLowBatteryVideoBudget();
+        if (pocketLowBatteryPercent >= 0) {
+            Toast.makeText(this, getString(R.string.pocket_battery_saver_on, pocketLowBatteryPercent),
+                    Toast.LENGTH_LONG).show();
         }
         if (horizonCompatibility) {
             HorizonStreamCompatibility.configure(prefConfig);
@@ -636,6 +642,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             prefConfig.width = displayWidth;
             prefConfig.height = displayHeight;
             prefConfig.fps = currentMode.getRefreshRate();
+            applyLowBatteryVideoBudget();
             prefConfig.videoScaleMode = PreferenceConfiguration.ScaleMode.STRETCH;
             prefConfig.enableFloatingButton = false;
             prefConfig.showOverlayZoomToggleButton = false;
@@ -2515,33 +2522,22 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
      * Artemis Pocket: on low battery (and not charging), stream at 720p/60 with a lower bitrate
      * so the session lasts longer. Only this session is affected; settings are untouched.
      */
-    private void applyPocketBatterySaver() {
-        if (!PocketPrefs.autoBatterySaver(this) || prefConfig == null) {
-            return;
-        }
+    private int pocketLowBatteryLevel() {
+        if (!PocketPrefs.autoBatterySaver(this)) return -1;
         Intent battery = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-        if (battery == null) {
-            return;
+        if (battery == null) return -1;
+        return HorizonStreamSafety.lowBatteryPercent(battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1),
+                battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1), battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0));
+    }
+
+    private void applyLowBatteryVideoBudget() {
+        if (pocketLowBatteryPercent < 0) return;
+        if (HorizonStreamSafety.exceedsLowBatteryResolution(prefConfig.width, prefConfig.height)) {
+            boolean portrait = prefConfig.height > prefConfig.width;
+            prefConfig.width = portrait ? HorizonStreamSafety.LOW_BATTERY_HEIGHT : HorizonStreamSafety.LOW_BATTERY_WIDTH;
+            prefConfig.height = portrait ? HorizonStreamSafety.LOW_BATTERY_WIDTH : HorizonStreamSafety.LOW_BATTERY_HEIGHT;
         }
-        int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-        int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-        int plugged = battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
-        if (level < 0 || scale <= 0 || plugged != 0) {
-            return;
-        }
-        int pct = Math.round(level * 100f / scale);
-        if (pct > 20) {
-            return;
-        }
-        if (prefConfig.width * prefConfig.height > 1280 * 720) {
-            prefConfig.width = 1280;
-            prefConfig.height = 720;
-        }
-        if (prefConfig.fps > 60) {
-            prefConfig.fps = 60;
-        }
-        prefConfig.bitrate = Math.min(prefConfig.bitrate, 15000);
-        Toast.makeText(this, getString(R.string.pocket_battery_saver_on, pct), Toast.LENGTH_LONG).show();
+        prefConfig.fps = Math.min(prefConfig.fps, HorizonStreamSafety.LOW_BATTERY_FPS);
     }
 
     /** Artemis Pocket: tap the Xbox Guide button on the PC (from the quick menu). */
@@ -3048,33 +3044,36 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (override <= 0 && !metered && !usb && !horizonCompatibility) {
             chosen = PocketAdaptive.startBitrate(this, configured, pocketAdaptiveScope);
         }
-        int safe = pocketApplyStreamSafety(chosen);
-        return horizonCompatibility ? HorizonStreamCompatibility.capBitrate(safe) : safe;
+        if (horizonCompatibility) chosen = HorizonStreamCompatibility.capBitrate(chosen);
+        return pocketApplyStreamSafety(chosen);
     }
 
     private int pocketApplyStreamSafety(int chosen) {
         pocketStreamLimitReason = 0;
-        if (!PocketPrefs.powerLimitsStream(this)) return chosen;
-        android.os.PowerManager manager = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (manager == null) return chosen;
-
         boolean batterySaver = false;
         HorizonStreamSafety.Thermal thermal = HorizonStreamSafety.Thermal.UNRESTRICTED;
-        try {
-            batterySaver = manager.isPowerSaveMode();
-            if (Build.VERSION.SDK_INT >= 29) {
-                int state = manager.getCurrentThermalStatus();
-                if (state >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) {
-                    thermal = HorizonStreamSafety.Thermal.CRITICAL;
-                } else if (state >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
-                    thermal = HorizonStreamSafety.Thermal.SEVERE;
+        if (PocketPrefs.powerLimitsStream(this)) {
+            android.os.PowerManager manager = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (manager != null) {
+                try {
+                    batterySaver = manager.isPowerSaveMode();
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        int state = manager.getCurrentThermalStatus();
+                        if (state >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) {
+                            thermal = HorizonStreamSafety.Thermal.CRITICAL;
+                        } else if (state >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
+                            thermal = HorizonStreamSafety.Thermal.SEVERE;
+                        }
+                    }
+                } catch (RuntimeException ignored) {
+                    // Use whichever public device signals Android supplied.
                 }
             }
-        } catch (RuntimeException ignored) {
-            // Use whichever public device signals Android supplied.
         }
-        HorizonStreamSafety.Decision decision = HorizonStreamSafety.limit(chosen, batterySaver, thermal);
+        HorizonStreamSafety.Decision decision = HorizonStreamSafety.limit(chosen, batterySaver, thermal,
+                pocketLowBatteryPercent >= 0);
         switch (decision.reason) {
+            case LOW_BATTERY: pocketStreamLimitReason = R.string.horizon_stream_limit_low_battery; break;
             case CRITICAL_THERMAL: pocketStreamLimitReason = R.string.horizon_stream_limit_critical; break;
             case SEVERE_THERMAL: pocketStreamLimitReason = R.string.horizon_stream_limit_severe; break;
             case BATTERY_SAVER: pocketStreamLimitReason = R.string.horizon_stream_limit_battery_saver; break;
