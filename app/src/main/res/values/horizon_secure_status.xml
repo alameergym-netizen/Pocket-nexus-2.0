@@ -22,4 +22,13 @@
     <string name="horizon_secure_games_failed">Could not read the secure game list. Check the Nexus Host version and device key.</string>
     <string name="horizon_secure_game_installed">Installed</string>
     <string name="horizon_secure_game_other_state">Other install state</string>
+    <string name="horizon_secure_screen">Secure screen controls</string>
+    <string name="horizon_secure_lock">Lock Windows</string>
+    <string name="horizon_secure_display_off">Turn off PC display</string>
+    <string name="horizon_secure_screen_confirm">Send this command to the paired PC?</string>
+    <string name="horizon_secure_screen_send">Send command</string>
+    <string name="horizon_secure_screen_accepted">The PC accepted the screen command.</string>
+    <string name="horizon_secure_screen_denied">This device key lacks screen controls. Check the pairing in Nexus Host.</string>
+    <string name="horizon_secure_screen_busy">A screen command was just accepted. Try again in a moment.</string>
+    <string name="horizon_secure_screen_failed">The PC did not confirm the screen command.</string>
 </resources>
