@@ -71,6 +71,12 @@ jobs:
         run: |
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-LudusaviBackup.ps1
           exit $LASTEXITCODE
+      - name: Verify real multi-game backups, failures and stopping through the Windows queue
+        if: ${{ inputs.ludusavi_runtime }}
+        shell: powershell
+        run: |
+          & powershell.exe -STA -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-SaveQueue.ps1 -Screenshot dist/Nexus-Save-Queue.png
+          exit $LASTEXITCODE
       - name: Package development Windows helper
         shell: pwsh
         run: python pc-setup/tests/package_host.py dist/NexusHost-dev.zip
@@ -98,5 +104,6 @@ jobs:
           path: |
             horizon-windows.log
             dist/Nexus-Save-Vault.png
+            dist/Nexus-Save-Queue.png
           if-no-files-found: warn
           retention-days: 7
