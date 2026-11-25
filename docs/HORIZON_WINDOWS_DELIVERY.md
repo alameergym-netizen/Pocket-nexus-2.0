@@ -8,4 +8,8 @@ Use a trusted copy of `Stage-NexusHostDev.ps1` with `-Archive` and `-ExpectedSha
 
 Optional Android preflight: from a Windows PowerShell terminal, run Test-NexusUpgrade.ps1 with -Apk and trusted Android SDK paths for -Adb, -Aapt and -ApkSigner. If multiple devices are attached, select -Serial locally. Authorize USB debugging only on your trusted computer. It reads the installed base APK into a temporary directory, verifies both APK signatures and compares package, current signer set and version code. It never calls install/uninstall/clear. It rejects signer mismatch, different package and non-newer version, and does not prove actual installation or settings compatibility. The extracted base APK is deleted in a finally block. Run -SelfTest without a device to test policy. Fresh installs require a separate procedure.
 
+### Optional Windows save preview
+
+From Windows PowerShell, run `Get-NexusSavePreview.ps1 -Ludusavi <path-to-ludusavi.exe> -Action Backup -Game <exact-game-title>` to see which local saves differ from the configured backup. Use `-Action Restore` to compare a configured backup with the live saves. The output shows counts of files and registry keys and flags differing or removed entries without printing paths. The helper runs one preview and disables cloud synchronization and manifest update checks. It uses the local Ludusavi installation and its configuration. Actual backup and restore remain separate actions in Ludusavi. [Ludusavi v0.31.0 CLI](https://github.com/mtkennerly/ludusavi/blob/v0.31.0/docs/cli.md)
+
 G01 remains pending owner signing and physical upgrade/migration checks. Windows production installer, signed distribution, actual GUI validation, encrypted transport and host compatibility remain release work.
