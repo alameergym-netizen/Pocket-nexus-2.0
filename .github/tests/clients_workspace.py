@@ -164,7 +164,7 @@ def main(apk, upstream_apk):
              and has(t, "Pocket Nexus runs this stream and sees its session.")
              and has(t, "Quick Resume can return to a stream Pocket Nexus started."))
     wait_for("installed apps are checked, and a missing official app is not offered",
-             lambda t: contains(t, "GeForce NOW app, Not installed"))
+             lambda t: contains(t, "Xbox app, Not installed"))
     capture("01-wide-pc-streaming")
 
     move_focus_to("Starwire", "DPAD_DOWN")
