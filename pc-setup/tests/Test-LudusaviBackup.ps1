@@ -68,6 +68,13 @@ try {
     $preview = & $history -VaultDirectory $vault -Game $game -VerifySnapshot $snapshotId -Ludusavi $executable[0].FullName -ConfigDirectory $config
     Check ($preview.Operation -ceq 'Restore preview' -and $preview.Files -eq 1 -and
         ([IO.File]::ReadAllBytes($save) -join ',') -eq ($changed -join ',')) 'the verified historical snapshot has a real read-only restore preview'
+    $recoveryDestination = Join-Path $fixture 'Recovered files'
+    [void][IO.Directory]::CreateDirectory($recoveryDestination)
+    $recovery = & $history -VaultDirectory $vault -Game $game -VerifySnapshot $snapshotId -RecoveryDirectory $recoveryDestination
+    $copy = @(Get-ChildItem -LiteralPath $recovery.Directory -Filter 'private sample save.dat' -Recurse)
+    Check ($recovery.Files -eq 1 -and $copy.Count -eq 1 -and
+        ([IO.File]::ReadAllBytes($copy[0].FullName) -join ',') -eq ($data -join ',') -and
+        ([IO.File]::ReadAllBytes($save) -join ',') -eq ($changed -join ',')) 'the real historical snapshot recovers a separate copy and leaves the live save intact'
     [IO.File]::AppendAllText($archive[0].FullName, 'tamper')
     try {
         & $history -VaultDirectory $vault -Game $game -VerifySnapshot $snapshotId | Out-Null

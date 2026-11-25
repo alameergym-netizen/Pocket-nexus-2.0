@@ -60,6 +60,11 @@ jobs:
         run: |
           & powershell.exe -STA -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-SaveVaultView.ps1 -Screenshot dist/Nexus-Save-Vault.png
           exit $LASTEXITCODE
+      - name: Verify recovery copies of Windows game snapshots
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-SaveRecoveryCopy.ps1
+          exit $LASTEXITCODE
       - name: Verify local backups with Ludusavi 0.31.0 and synthetic saves
         if: ${{ inputs.ludusavi_runtime }}
         shell: powershell
