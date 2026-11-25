@@ -687,7 +687,7 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     private void playGame(UniversalLibrary.Game game) {
-        if (game.requiresPcChoice()) options(game);
+        if (game.requiresPcChoice() || game.requiresRetroChoice()) options(game);
         else play(game.best());
     }
 
@@ -715,20 +715,27 @@ public class LibraryActivity extends ConsoleActivity {
             return;
         }
         PocketSounds.play(this, PocketSounds.OPEN);
-        GamePageActivity.open(this, null, uuid, HomeActivity.artId(best.item), g.title, best.label, false, false, null);
+        HomeItem retro = HomeItem.RETRO.equals(best.item.kind) && !g.requiresRetroChoice() ? best.item : null;
+        GamePageActivity.open(this, null, uuid, HomeActivity.artId(best.item), g.title, best.label,
+                false, false, null, retro);
     }
 
     /** Y: every way to play it, its status, its collections, its page. */
     private void options(final UniversalLibrary.Game g) {
         List<StreamMenuView.Item> items = new ArrayList<>();
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_ul_play_on)));
-        boolean choose = g.requiresPcChoice();
-        if (choose) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_pc_choice)));
+        boolean choosePc = g.requiresPcChoice();
+        boolean chooseRom = g.requiresRetroChoice();
+        if (choosePc) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_pc_choice)));
+        if (chooseRom) items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_rom_choice)));
         UniversalLibrary.Way best = g.best();
         for (final UniversalLibrary.Way w : g.ways) {
-            String label = choose && HomeItem.PC.equals(w.item.kind)
+            String label = choosePc && HomeItem.PC.equals(w.item.kind)
                     ? getString(R.string.horizon_library_pc_app, w.label, w.item.n) : w.label;
-            items.add(StreamMenuView.Item.action((!choose && w == best ? "▶  " : "") + label, () -> {
+            if (chooseRom && HomeItem.RETRO.equals(w.item.kind)) {
+                items.add(StreamMenuView.Item.note(getString(R.string.horizon_library_rom_path, w.item.c, w.item.b)));
+            }
+            items.add(StreamMenuView.Item.action((!choosePc && !chooseRom && w == best ? "▶  " : "") + label, () -> {
                 hideConsolePanel();
                 play(w);
             }).withIcon(w.platform == UniversalLibrary.PLATFORM_PC ? "DESKTOP"

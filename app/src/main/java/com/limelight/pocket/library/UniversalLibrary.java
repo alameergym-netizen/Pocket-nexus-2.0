@@ -92,6 +92,18 @@ public final class UniversalLibrary {
             return false;
         }
 
+        boolean requiresRetroChoice() {
+            String first = null;
+            for (Way way : ways) {
+                HomeItem item = way.item;
+                if (!HomeItem.RETRO.equals(item.kind) || item.c.isEmpty()) continue;
+                String key = item.key();
+                if (first != null && !first.equals(key)) return true;
+                first = key;
+            }
+            return false;
+        }
+
         public boolean on(int platform) {
             for (Way w : ways) {
                 if (w.platform == platform) {
@@ -168,16 +180,34 @@ public final class UniversalLibrary {
                     app.getString(R.string.pocket_ul_android), "Android", used, PLATFORM_ANDROID);
         }
 
-        // The ROMs
-        File root = RetroLibrary.romRoot(app);
-        RetroLibrary.Library lib = root != null ? RetroLibrary.cached(app, root) : null;
-        if (lib != null) {
-            EsdeConfig cfg = RetroLibrary.config(app);
+        // Use the last complete index from each readable, remembered source. Keep the configured
+        // source on the individual game so a later mount loss cannot redirect a launch.
+        List<String> romRoots = RetroLibrary.rememberedRoots(app);
+        Map<String, String> readableRoots = new HashMap<>();
+        Map<String, String> cachedRoots = new HashMap<>();
+        Set<String> absoluteRoms = new java.util.HashSet<>();
+        EsdeConfig cfg = romRoots.isEmpty() ? null : RetroLibrary.config(app);
+        for (String path : romRoots) {
+            File root = new File(path);
+            String canonical;
+            try {
+                if (!root.isDirectory() || !root.canRead()) continue;
+                canonical = root.getCanonicalPath();
+            } catch (java.io.IOException | SecurityException e) {
+                continue;
+            }
+            readableRoots.put(path, canonical);
+            if (cachedRoots.containsKey(canonical)) continue;
+            RetroLibrary.Library lib = RetroLibrary.cached(app, root);
+            if (lib == null) continue;
+            cachedRoots.put(canonical, path);
             for (List<RomScanner.Rom> roms : lib.games.values()) {
                 for (RomScanner.Rom r : roms) {
                     EsdeConfig.SystemDef s = cfg.system(r.system);
+                    if (s != null && s.absolute && !absoluteRoms.add(r.key())) continue;
                     String where = s != null && s.fullName != null ? s.fullName : r.system.toUpperCase(Locale.ROOT);
-                    add(games, seenWays, wayOwner, new HomeItem(HomeItem.RETRO, RomScanner.searchName(r.name), r.system, r.relPath, "", 0),
+                    add(games, seenWays, wayOwner, new HomeItem(HomeItem.RETRO, RomScanner.searchName(r.name),
+                                    r.system, r.relPath, path, 0),
                             where, r.system.toUpperCase(Locale.ROOT), 0, PLATFORM_RETRO);
                 }
             }
@@ -213,10 +243,16 @@ public final class UniversalLibrary {
                                     PLATFORM_ANDROID);
                         }
                         break;
-                    case HomeItem.RETRO:
-                        add(games, seenWays, wayOwner, i, i.a.toUpperCase(Locale.ROOT), i.a.toUpperCase(Locale.ROOT), e.lastUsed,
-                                PLATFORM_RETRO);
+                    case HomeItem.RETRO: {
+                        String root = i.c.isEmpty() && romRoots.size() == 1 ? romRoots.get(0) : i.c;
+                        String canonical = readableRoots.get(root);
+                        if (canonical == null) break;
+                        root = cachedRoots.getOrDefault(canonical, root);
+                        HomeItem bound = i.c.equals(root) ? i : new HomeItem(i.kind, i.name, i.a, i.b, root, i.n);
+                        String system = i.a.toUpperCase(Locale.ROOT);
+                        add(games, seenWays, wayOwner, bound, system, system, e.lastUsed, PLATFORM_RETRO);
                         break;
+                    }
                     default:
                         break;
                 }
