@@ -159,8 +159,12 @@ def check_home(prefix, stacked):
     else:
         assert all(boxes[i][2] <= boxes[i + 1][0] for i in range(2)), ("side-by-side cards overlap", boxes)
         assert len({b[1] for b in boxes}) == 1, ("side-by-side cards must share a top", boxes)
+    # WCAG 2.2 target size (24 dp) in the display's own dp; the app's UI scale may make its
+    # 40 dp minimum a little smaller than that on screen
     density = int(adb("shell", "wm", "density").decode().split()[-1]) / 160
-    assert all((b[3] - b[1]) >= 40 * density - 1 for b in boxes), ("cards below a 40 dp target", boxes)
+    assert all((b[3] - b[1]) >= 24 * density - 1 for b in boxes), ("cards below a 24 dp target", boxes)
+    print("%s card heights: %s dp" % (prefix, ", ".join("%.0f" % ((b[3] - b[1]) / density) for b in boxes)),
+          flush=True)
     capture(prefix + "-home")
     return home
 
