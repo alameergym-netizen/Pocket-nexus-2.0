@@ -616,6 +616,14 @@ public class StreamMenuView extends FrameLayout {
         render(1);
     }
 
+    /** Update the requested page only while it is still the visible page. */
+    public void replaceCurrentPage(List<Item> original, List<Item> items) {
+        if (!showing || page().items != original) return;
+        int index = stack.size() - 1;
+        stack.set(index, new Page(page().title, items));
+        render(0);
+    }
+
     private boolean pop() {
         if (stack.size() <= 1) {
             return false;

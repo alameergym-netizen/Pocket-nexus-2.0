@@ -26,6 +26,7 @@ public class ObtainiumCatalogTest {
         assertTrue(row.getBoolean("trackOnly"));
         assertTrue(row.getBoolean("prereleases"));
         assertEquals("github.com", row.getString("host"));
+        assertEquals("example/game", row.getString("githubRepository"));
         assertFalse(row.has("additionalSettings"));
         assertFalse(row.has("url"));
     }
@@ -45,5 +46,29 @@ public class ObtainiumCatalogTest {
 
     @Test(expected = JSONException.class) public void rejectsUnknownSchema() throws Exception {
         ObtainiumCatalog.parse("{\"schemaVersion\":999,\"apps\":[]}");
+    }
+
+    @Test public void githubLookupAcceptsOnlyLiteralPublicRepositoryOrReleaseList() {
+        assertEquals("owner-7/Game.App", ObtainiumGithubRelease.repositoryFrom("https://github.com/owner-7/Game.App/releases/"));
+        for (String source : new String[] {
+                "https://github.com/owner/game/releases/tag/v1", "https://github.com/owner/game?token=secret",
+                "https://github.com/owner/game#source", "https://alice@github.com/owner/game",
+                "https://github.com:8080/owner/game", "https://github.com.invalid/owner/game",
+                "https://github.com/owner/%2e%2e", "https://github.com/owner/..", "https://github.com/owner//game"
+        }) assertNull(source, ObtainiumGithubRelease.repositoryFrom(source));
+        assertFalse(ObtainiumGithubRelease.isRepository("../game"));
+        assertFalse(ObtainiumGithubRelease.isRepository("owner/game?token=secret"));
+    }
+
+    @Test public void releaseTagRequiresExplicitStableMetadataAndPlainText() throws Exception {
+        JSONObject stable = new JSONObject().put("draft", false).put("prerelease", false).put("tag_name", "release/2.0");
+        assertEquals("release/2.0", ObtainiumGithubRelease.stableTag(stable));
+        assertThrows(JSONException.class, () -> ObtainiumGithubRelease.stableTag(new JSONObject().put("tag_name", "v2")));
+        stable.put("prerelease", true);
+        assertThrows(JSONException.class, () -> ObtainiumGithubRelease.stableTag(stable));
+        stable.put("prerelease", false).put("tag_name", "v2\nreset");
+        assertThrows(JSONException.class, () -> ObtainiumGithubRelease.stableTag(stable));
+        stable.put("tag_name", "v2\u202ereset");
+        assertThrows(JSONException.class, () -> ObtainiumGithubRelease.stableTag(stable));
     }
 }
