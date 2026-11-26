@@ -125,16 +125,6 @@ public class LibraryActivity extends ConsoleActivity {
     private HorizontalScrollView tabScroll;
     private RecyclerView grid;
     private final Cards cards = new Cards();
-    /** Nexus Horizon: the host, session and network cards in the header. */
-    private com.limelight.pocket.ui.HorizonStreamDeck streamDeck;
-    private final Runnable refreshStreamDeck = new Runnable() {
-        @Override public void run() {
-            main.removeCallbacks(this);
-            if (streamDeck == null || isFinishing()) return;
-            updateStreamDeck();
-            main.postDelayed(this, 10_000);
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -185,34 +175,7 @@ public class LibraryActivity extends ConsoleActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (streamDeck != null) refreshStreamDeck.run();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        main.removeCallbacks(refreshStreamDeck);
-    }
-
-    /** The saved PCs with what Home last saw of them (the Library doesn't poll), and the network. */
-    private void updateStreamDeck() {
-        final Context app = getApplicationContext();
-        io.execute(() -> {
-            final List<com.limelight.pocket.ui.HorizonStreamCards.Host> hosts = com.limelight.pocket.ui.HorizonStreamDeck
-                    .hosts(app, com.limelight.pocket.home.HomeStore.computers(app), null, null);
-            main.post(() -> {
-                if (isFinishing() || isDestroyed() || streamDeck == null) return;
-                streamDeck.show(hosts, com.limelight.pocket.ui.HorizonStreamDeck.readLink(app));
-                streamDeck.setVisibility(View.VISIBLE);
-            });
-        });
-    }
-
-    @Override
     protected void onDestroy() {
-        main.removeCallbacks(refreshStreamDeck);
         heroToken++;
         focusGeneration++;
         if (heroArt != null) heroArt.animate().cancel();
@@ -258,12 +221,6 @@ public class LibraryActivity extends ConsoleActivity {
         int w = getResources().getDisplayMetrics().widthPixels;
         int h = getResources().getDisplayMetrics().heightPixels;
         HorizonLibraryLayout spec = HorizonLibraryLayout.forWindow(w / d, h / d, pureOled, titanium);
-        boolean signature = PocketTheme.signature(this);
-        if (signature) {
-            // Nexus Signature: letterbox bars behind the title and the hints, like a film's frame
-            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 0, true, 44);
-            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 1, false, 40);
-        }
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setClipChildren(false);
@@ -281,33 +238,6 @@ public class LibraryActivity extends ConsoleActivity {
         kicker.setLetterSpacing(0.06f);
         header.addView(kicker, new LinearLayout.LayoutParams(-2, -2));
         column.addView(header, new LinearLayout.LayoutParams(-1, -2));
-        // Nexus Horizon: where the PC games stream from, in a row under the title, when three
-        // one-line cards fit side by side and the games keep their room (short screens skip it)
-        if (PocketTheme.horizon(this) && h / d >= 420 && com.limelight.pocket.ui.HorizonStreamCards.sideBySide(
-                w / d - 2 * spec.padding, 3)) {
-            streamDeck = new com.limelight.pocket.ui.HorizonStreamDeck(this, true,
-                    new com.limelight.pocket.ui.HorizonStreamDeck.Actions() {
-                        @Override public void openHosts() {
-                            com.limelight.pocket.ui.SectionBar.go(LibraryActivity.this, -1,
-                                    com.limelight.pocket.ui.SectionBar.STREAMING);
-                        }
-
-                        @Override public void resume(com.limelight.pocket.ui.HorizonStreamCards.Host running) {
-                            // Streaming shows the running game with its resume button
-                            openHosts();
-                        }
-
-                        @Override public void openNetwork() {
-                            com.limelight.pocket.ui.HorizonStreamDeck.openNetworkPanel(LibraryActivity.this);
-                        }
-                    });
-            streamDeck.arrange(false, true);
-            streamDeck.setEdges(null, null, () -> focusAt(Math.max(0, heroPos), 0));
-            streamDeck.setVisibility(View.INVISIBLE);
-            LinearLayout.LayoutParams deckLp = new LinearLayout.LayoutParams(-1, -2);
-            deckLp.topMargin = dp(8);
-            column.addView(streamDeck, deckLp);
-        }
 
         tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);
@@ -337,12 +267,6 @@ public class LibraryActivity extends ConsoleActivity {
         detailBg.setCornerRadius(dp(pureOled ? 4 : 14));
         detailBg.setStroke(dp(1), 0x33FFFFFF);
         detail.setBackground(titanium ? TitaniumStyle.surface(this) : legacy ? LegacyStyle.dialog(this) : detailBg);
-        boolean atmosphere = PocketTheme.atmosphere(this);
-        if (atmosphere) {
-            // Nexus Atmosphere: the details on a glass pane (plain translucent glass without a blur)
-            com.limelight.pocket.ui.LiveGlass.attach(detail, null, com.limelight.pocket.ui.LiveGlass.STYLE_PANEL);
-            makeGlass(detail);
-        }
         if (legacy) {
             detail.setTag(R.id.horizon_legacy_panel, Boolean.TRUE);
             TextView index = text(10f, LegacyStyle.typeface(this), LegacyStyle.GOLD);
@@ -355,14 +279,8 @@ public class LibraryActivity extends ConsoleActivity {
         heroArt = new ImageView(this);
         heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
         if (titanium) heroArt.setVisibility(View.GONE);
-        int artHeight = spec.artHeight;
-        if (signature && artHeight > 0) {
-            // ...and the game's art as a widescreen still
-            artHeight = com.limelight.pocket.ui.HorizonSignature.stillHeight(spec.detailWidth - 24);
-            heroArt.setId(R.id.horizon_signature_still);
-        }
-        if (artHeight > 0) {
-            detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(artHeight)));
+        if (spec.artHeight > 0) {
+            detail.addView(heroArt, new LinearLayout.LayoutParams(-1, dp(spec.artHeight)));
         }
         title = text(spec.split ? 22f : 17f, legacy ? LegacyStyle.typeface(this) : PocketFonts.bold(),
                 legacy ? LegacyStyle.INK : 0xFFFFFFFF);
@@ -370,7 +288,7 @@ public class LibraryActivity extends ConsoleActivity {
         title.setMaxLines(spec.split ? 2 : 1);
         if (spec.split) title.setSingleLine(false);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2);
-        tl.topMargin = dp(artHeight > 0 ? 10 : 0);
+        tl.topMargin = dp(spec.artHeight > 0 ? 10 : 0);
         detail.addView(title, tl);
         meta = text(12f, legacy ? LegacyStyle.typeface(this) : PocketFonts.medium(), legacy ? LegacyStyle.DIM : 0xDEFFFFFF);
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, -2);
@@ -420,13 +338,6 @@ public class LibraryActivity extends ConsoleActivity {
         FrameLayout body = new FrameLayout(this);
         body.setClipChildren(false);
         body.setClipToPadding(false);
-        if (atmosphere) {
-            // ...and the games on a glass tray of their own, a layer under the cards
-            body.setId(R.id.horizon_atmosphere_tray);
-            com.limelight.pocket.ui.LiveGlass.attach(body, null, com.limelight.pocket.ui.LiveGlass.STYLE_PANEL);
-            makeGlass(body);
-            body.setPadding(dp(6), dp(6), dp(6), dp(6));
-        }
         workspace.addView(body, titanium && spec.split ? 0 : workspace.getChildCount(), spec.split
                 ? new LinearLayout.LayoutParams(0, -1, 1f)
                 : new LinearLayout.LayoutParams(-1, 0, 1f));
@@ -745,10 +656,15 @@ public class LibraryActivity extends ConsoleActivity {
         meta.setText(m);
         StringBuilder w = new StringBuilder();
         for (UniversalLibrary.Way way : g.ways) {
-            if (w.indexOf(way.label) >= 0) {
+            // S03: a way that can't start says why ("PSX (needs DuckStation)")
+            String label = way.ready == HorizonLibraryReadiness.Ready.APP_MISSING && way.needs != null
+                    ? getString(R.string.horizon_library_way_needs, way.label, way.needs)
+                    : way.ready == HorizonLibraryReadiness.Ready.NO_EMULATOR
+                    ? getString(R.string.horizon_library_way_no_emulator, way.label) : way.label;
+            if (w.indexOf(label) >= 0) {
                 continue;
             }
-            w.append(w.length() > 0 ? "  ·  " : "").append(way.label);
+            w.append(w.length() > 0 ? "  ·  " : "").append(label);
         }
         ways.setText(g.ways.size() > 1 ? getString(R.string.pocket_ul_plays_on_many, w) : w);
         if (launchSources != null) {
@@ -1060,6 +976,16 @@ public class LibraryActivity extends ConsoleActivity {
         }
     }
 
+    /** What a game that can't start is waiting for, in words. */
+    private String readinessText(UniversalLibrary.Game g) {
+        if (g.ready() == HorizonLibraryReadiness.Ready.NO_EMULATOR) {
+            return getString(R.string.horizon_library_no_android_emulator);
+        }
+        String app = g.missingApp();
+        return app != null ? getString(R.string.horizon_library_needs_named, app)
+                : getString(R.string.horizon_library_needs_an_app);
+    }
+
     private final class Cards extends RecyclerView.Adapter<Cards.Holder> {
         final class Holder extends RecyclerView.ViewHolder {
             final FrameLayout card;
@@ -1067,15 +993,19 @@ public class LibraryActivity extends ConsoleActivity {
             final TextView name;
             final TextView badge;
             final View dot;
+            /** S03: the game can't start as things are (its app isn't installed...). */
+            final TextView needs;
             String key;
 
-            Holder(FrameLayout frame, FrameLayout card, ImageView cover, TextView name, TextView badge, View dot) {
+            Holder(FrameLayout frame, FrameLayout card, ImageView cover, TextView name, TextView badge, View dot,
+                   TextView needs) {
                 super(frame);
                 this.card = card;
                 this.cover = cover;
                 this.name = name;
                 this.badge = badge;
                 this.dot = dot;
+                this.needs = needs;
             }
         }
 
@@ -1140,8 +1070,22 @@ public class LibraryActivity extends ConsoleActivity {
             FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(dp(10), dp(10), Gravity.TOP | Gravity.END);
             dlp.setMargins(0, dp(7), dp(7), 0);
             card.addView(dot, dlp);
+            TextView needs = text(8.5f, titanium ? Typeface.MONOSPACE : PocketFonts.bold(), 0xFF1A1206);
+            needs.setId(R.id.horizon_library_needs);
+            needs.setLetterSpacing(0.04f);
+            needs.setPadding(dp(6), dp(2), dp(6), dp(2));
+            needs.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            GradientDrawable nb = new GradientDrawable();
+            nb.setCornerRadius(legacy ? 0 : dp(6));
+            nb.setColor(0xF2F5B841);
+            needs.setBackground(nb);
+            FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+            nlp.setMargins(dp(6), dp(6), dp(20), 0);
+            if (titanium) nlp.setMarginStart(dp(57));
+            needs.setVisibility(View.GONE);
+            card.addView(needs, nlp);
             frame.addView(card, new FrameLayout.LayoutParams(-1, -2));
-            final Holder h = new Holder(frame, card, cover, name, badge, dot);
+            final Holder h = new Holder(frame, card, cover, name, badge, dot, needs);
             FocusGlow.apply(card, radius, false, pureOled || titanium || legacy ? 1f : 1.08f, (v, has) -> {
                 if (has) {
                     int p = h.getBindingAdapterPosition();
@@ -1196,6 +1140,20 @@ public class LibraryActivity extends ConsoleActivity {
                 }
             }
             h.badge.setText(b);
+            HorizonLibraryReadiness.Ready ready = g.ready();
+            boolean flagged = HorizonLibraryReadiness.flagged(ready);
+            // The card keeps its title as its name; a screen reader hears what it waits for as
+            // its state (Android 11+), and everyone sees the chip
+            if (flagged) {
+                h.needs.setText(ready == HorizonLibraryReadiness.Ready.NO_EMULATOR
+                        ? R.string.horizon_library_no_emulator : R.string.horizon_library_needs_app);
+                h.needs.setVisibility(View.VISIBLE);
+                if (Build.VERSION.SDK_INT >= 30) h.card.setStateDescription(readinessText(g));
+            }
+            else {
+                h.needs.setVisibility(View.GONE);
+                if (Build.VERSION.SDK_INT >= 30) h.card.setStateDescription(null);
+            }
             int status = GameShelf.status(LibraryActivity.this, g.key);
             if (status != GameShelf.NONE) {
                 GradientDrawable dot = new GradientDrawable();

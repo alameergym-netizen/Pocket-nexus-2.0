@@ -42,6 +42,10 @@ public final class UniversalLibrary {
         public final String badge;
         public final long last;
         public final int platform;
+        /** Whether it starts as things are on the handheld (set when the Library is gathered). */
+        public HorizonLibraryReadiness.Ready ready = HorizonLibraryReadiness.Ready.READY;
+        /** The app it is waiting for, when {@link #ready} is APP_MISSING (an emulator's name...). */
+        public String needs;
 
         Way(HomeItem item, String label, String badge, long last, int platform) {
             this.item = item;
@@ -115,6 +119,24 @@ public final class UniversalLibrary {
 
         boolean requiresLaunchChoice() {
             return requiresPcChoice() || requiresRetroChoice() || requiresAlternateProviderChoice();
+        }
+
+        /** Whether it can start as things are (the best of its ways). */
+        public HorizonLibraryReadiness.Ready ready() {
+            List<HorizonLibraryReadiness.Ready> r = new ArrayList<>(ways.size());
+            for (Way w : ways) r.add(w.ready);
+            return HorizonLibraryReadiness.summary(r);
+        }
+
+        /** The one app it is waiting for, or null. */
+        public String missingApp() {
+            List<HorizonLibraryReadiness.Ready> r = new ArrayList<>(ways.size());
+            List<String> n = new ArrayList<>(ways.size());
+            for (Way w : ways) {
+                r.add(w.ready);
+                n.add(w.needs);
+            }
+            return HorizonLibraryReadiness.missingApp(r, n);
         }
 
         public boolean on(int platform) {
@@ -275,6 +297,7 @@ public final class UniversalLibrary {
         }
 
         List<Game> out = new ArrayList<>(games.values());
+        assess(app, out);
         for (Game g : out) {
             long t = 0;
             for (Way w : g.ways) {
@@ -287,6 +310,64 @@ public final class UniversalLibrary {
             g.seconds = t;
         }
         return out;
+    }
+
+    /**
+     * Checks each way the way its launch would (S03): ROMs against their system's emulator app,
+     * GameNative / GameHub Lite games against that app. Blocking (package lookups).
+     */
+    private static void assess(Context app, List<Game> games) {
+        EsdeConfig cfg = null;
+        // An emulator installed or removed since the last look counts now
+        com.limelight.pocket.retro.RetroLauncher.forget();
+        for (Game g : games) {
+            for (Way w : g.ways) {
+                HomeItem i = w.item;
+                try {
+                    switch (i.kind) {
+                        case HomeItem.PC:
+                        case HomeItem.PC_LIBRARY_GAME:
+                        case HomeItem.CLOUD:
+                            w.ready = HorizonLibraryReadiness.Ready.STREAMS;
+                            break;
+                        case HomeItem.NATIVE: {
+                            if (cfg == null) cfg = RetroLibrary.config(app);
+                            boolean lite = com.limelight.pocket.home.HomeLauncher.GAMEHUB_LITE.equals(i.a);
+                            if (com.limelight.pocket.retro.RetroLauncher.component(app, cfg,
+                                    lite ? "GAMEHUB-LITE" : "GAMENATIVE") == null) {
+                                w.ready = HorizonLibraryReadiness.Ready.APP_MISSING;
+                                w.needs = lite ? "GameHub Lite" : "GameNative";
+                            }
+                            break;
+                        }
+                        case HomeItem.RETRO: {
+                            if (cfg == null) cfg = RetroLibrary.config(app);
+                            EsdeConfig.SystemDef system = cfg.system(i.a);
+                            if (system == null) {
+                                w.ready = HorizonLibraryReadiness.Ready.NO_EMULATOR;
+                                break;
+                            }
+                            RomScanner.Rom rom = new RomScanner.Rom(system.name, i.b, new File(i.c, i.b), false);
+                            EsdeConfig.Command cmd = RetroLibrary.gameCommand(app, null, system, rom);
+                            if (cmd == null || cmd.isPlaceholder()) {
+                                w.ready = HorizonLibraryReadiness.Ready.NO_EMULATOR;
+                            }
+                            else if (!com.limelight.pocket.retro.RetroLauncher.installed(app, cfg, cmd)) {
+                                w.ready = HorizonLibraryReadiness.Ready.APP_MISSING;
+                                // The app to install: RetroArch for a core ("Beetle PSX"), else the emulator
+                                w.needs = cmd.isRetroArch() ? "RetroArch" : cmd.shortLabel();
+                            }
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                } catch (RuntimeException unknown) {
+                    // Unknown stays as it was (never flagged on a guess)
+                    w.ready = HorizonLibraryReadiness.Ready.READY;
+                }
+            }
+        }
     }
 
     private static void add(Map<String, Game> games, Map<String, Way> seenWays, Map<String, Game> wayOwner, HomeItem item, String label,
