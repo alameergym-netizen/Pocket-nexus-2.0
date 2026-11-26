@@ -79,6 +79,9 @@ public class ControlCenterActivity extends Activity {
     private boolean titanium;
     private boolean legacy;
     private final Handler main = new Handler(Looper.getMainLooper());
+    /** Nexus Horizon: the host, session and network cards under the title. */
+    private com.limelight.pocket.ui.HorizonStreamDeck streamDeck;
+    private long streamDeckAt;
 
     private TextView clock;
     private TextView batteryBig;
@@ -189,6 +192,36 @@ public class ControlCenterActivity extends Activity {
         bg.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
         panel.setBackground(titanium ? TitaniumStyle.surface(this)
                 : legacy ? com.limelight.pocket.ui.LegacyStyle.dialog(this) : bg);
+        if (com.limelight.pocket.ui.PocketTheme.signature(this)) {
+            // Nexus Signature: a black slate, square-cornered, with a hairline in the accent, in
+            // a letterboxed frame
+            GradientDrawable slate = new GradientDrawable();
+            slate.setColor(com.limelight.pocket.ui.HorizonSignature.SLATE);
+            slate.setCornerRadius(dp(com.limelight.pocket.ui.HorizonSignature.SLATE_CORNER));
+            slate.setStroke(Math.max(1, dp(1)), (accent(this) & 0x00FFFFFF) | 0x80000000);
+            panel.setBackground(slate);
+            panel.setId(R.id.horizon_signature_panel);
+            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 0, true,
+                    com.limelight.pocket.ui.HorizonSignature.TOP_BAR);
+            com.limelight.pocket.ui.HorizonSignatureFrame.place(root, 1, false, 40);
+        }
+        if (com.limelight.pocket.ui.PocketTheme.atmosphere(this)) {
+            // Nexus Atmosphere: a lighter, layered pane over the blurred screen (Android 12+),
+            // denser where nothing is blurred behind it, with a light from above and a bright rim
+            boolean blurBehind = !titanium && !legacy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+            GradientDrawable pane = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    com.limelight.pocket.ui.HorizonAtmosphere.controlPane(blurBehind));
+            pane.setCornerRadius(dp(22));
+            pane.setStroke(Math.max(1, dp(1)), com.limelight.pocket.ui.HorizonAtmosphere.RIM);
+            GradientDrawable sheen = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{com.limelight.pocket.ui.HorizonAtmosphere.SHEEN_TOP, 0x00FFFFFF});
+            sheen.setCornerRadius(dp(22));
+            android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
+                    new android.graphics.drawable.Drawable[]{pane, sheen});
+            layers.setLayerInset(1, 0, 0, 0, dp(spec.height) * 3 / 5);
+            panel.setBackground(layers);
+            panel.setId(R.id.horizon_atmosphere_panel);
+        }
         if (legacy) {
             // The dialog frame draws its own rule; keep the workspace padding inside it
             panel.setPadding(pad + dp(4), dp(16), pad + dp(4), dp(16));
@@ -217,6 +250,10 @@ public class ControlCenterActivity extends Activity {
         clock.setText(DateFormat.getTimeFormat(this).format(new Date()));
         head.addView(clock, wrap());
         panel.addView(head, matchWrap());
+        streamDeck = null;
+        if (com.limelight.pocket.ui.PocketTheme.horizon(this)) {
+            addStreamDeck(spec.width - 2 * spec.padding);
+        }
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFocusable(false);
@@ -359,6 +396,57 @@ public class ControlCenterActivity extends Activity {
                 first.requestFocusFromTouch();
             }
         });
+    }
+
+    /**
+     * Nexus Horizon's streaming cards, one line each, side by side when they fit across the
+     * panel (else stacked). They open Streaming, the running game there, or Android's network
+     * panel; the focus reaches them UP from the tiles and goes back DOWN.
+     */
+    private void addStreamDeck(int innerWidthDp) {
+        streamDeck = new com.limelight.pocket.ui.HorizonStreamDeck(this, true,
+                new com.limelight.pocket.ui.HorizonStreamDeck.Actions() {
+                    @Override public void openHosts() {
+                        com.limelight.pocket.ui.SectionBar.go(ControlCenterActivity.this, -1,
+                                com.limelight.pocket.ui.SectionBar.STREAMING);
+                    }
+
+                    @Override public void resume(com.limelight.pocket.ui.HorizonStreamCards.Host running) {
+                        openHosts();
+                    }
+
+                    @Override public void openNetwork() {
+                        com.limelight.pocket.ui.HorizonStreamDeck.openNetworkPanel(ControlCenterActivity.this);
+                    }
+                });
+        boolean side = com.limelight.pocket.ui.HorizonStreamCards.sideBySide(innerWidthDp, 3);
+        streamDeck.arrange(!side, true);
+        streamDeck.setEdges(null, null, () -> {
+            if (first != null) first.requestFocus();
+        });
+        streamDeck.setVisibility(View.INVISIBLE);
+        LinearLayout.LayoutParams lp = matchWrap();
+        lp.topMargin = dp(10);
+        panel.addView(streamDeck, lp);
+        streamDeckAt = 0;
+    }
+
+    /** The saved PCs with what Home last saw of them, and the network (every 10 s at most). */
+    private void updateStreamDeck() {
+        final com.limelight.pocket.ui.HorizonStreamDeck deck = streamDeck;
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (deck == null || (streamDeckAt != 0 && now - streamDeckAt < 10_000)) return;
+        streamDeckAt = now;
+        final Context app = getApplicationContext();
+        new Thread(() -> {
+            final java.util.List<com.limelight.pocket.ui.HorizonStreamCards.Host> hosts = com.limelight.pocket.ui
+                    .HorizonStreamDeck.hosts(app, com.limelight.pocket.home.HomeStore.computers(app), null, null);
+            main.post(() -> {
+                if (isFinishing() || deck != streamDeck) return;
+                deck.show(hosts, com.limelight.pocket.ui.HorizonStreamDeck.readLink(app));
+                deck.setVisibility(View.VISIBLE);
+            });
+        }, "horizon-stream-cards").start();
     }
 
     private TextView section(int label) {
@@ -574,6 +662,7 @@ public class ControlCenterActivity extends Activity {
         if (wifi == null) {
             return;
         }
+        updateStreamDeck();
         boolean wifiOn = false;
         try {
             WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
@@ -646,6 +735,7 @@ public class ControlCenterActivity extends Activity {
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
         View focus = getCurrentFocus();
         if (down && first != null && !(focus instanceof Tile) && !(focus instanceof Bar)
+                && !(streamDeck != null && streamDeck.owns(focus))
                 && code != KeyEvent.KEYCODE_BUTTON_B && code != KeyEvent.KEYCODE_BACK
                 && code != KeyEvent.KEYCODE_BUTTON_MODE && code != KeyEvent.KEYCODE_ESCAPE) {
             // Nothing of the panel has the focus yet: the first key puts it on the first tile
