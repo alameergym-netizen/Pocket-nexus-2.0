@@ -4,8 +4,18 @@ package com.limelight.pocket.streaming;
 public final class HorizonStreamBenchmark {
     private final Histogram decode = new Histogram();
     private final Histogram output = new Histogram();
-    private long lastOutputNs;
+    private static final int MAX_SEQUENCE_ADVANCE = 16_384;
+    private static final int MAX_REORDERED_FRAMES = 240;
+    private final double longOutputGapNs;
+    private long firstOutputNs, lastOutputNs;
+    private int longOutputGaps;
+    private int lastFrameNumber, receivedFrames, sequenceBreaks;
+    private long missingFrames;
     private boolean finished;
+
+    public HorizonStreamBenchmark(float requestedFps) {
+        longOutputGapNs = requestedFps > 0 && !Float.isInfinite(requestedFps) ? 2_000_000_000.0 / requestedFps : 0;
+    }
 
     public synchronized void recordDecode(long nanoseconds) {
         if (!finished) decode.record(nanoseconds);
@@ -13,22 +23,62 @@ public final class HorizonStreamBenchmark {
 
     public synchronized void recordOutput(long nanoseconds) {
         if (finished || nanoseconds <= lastOutputNs) return;
-        if (lastOutputNs != 0) output.record(nanoseconds - lastOutputNs);
+        if (lastOutputNs == 0) {
+            firstOutputNs = nanoseconds;
+        } else {
+            long gap = nanoseconds - lastOutputNs;
+            output.record(gap);
+            if (longOutputGapNs > 0 && gap > longOutputGapNs) longOutputGaps++;
+        }
         lastOutputNs = nanoseconds;
+    }
+
+    public synchronized void recordIncomingFrame(int frameNumber) {
+        if (finished) return;
+        if (receivedFrames != 0) {
+            // Java int subtraction preserves adjacent values across the 32-bit sequence wrap.
+            int advance = frameNumber - lastFrameNumber;
+            if (advance <= 0 && advance >= -MAX_REORDERED_FRAMES) return;
+            if (advance < 0 || advance > MAX_SEQUENCE_ADVANCE) sequenceBreaks++;
+            else missingFrames += advance - 1;
+        }
+        receivedFrames++;
+        lastFrameNumber = frameNumber;
     }
 
     public synchronized Result finish() {
         finished = true;
-        return new Result(decode.summary(), output.summary());
+        Percentiles outputSummary = output.summary();
+        double framesPerSecond = outputSummary.samples == 0 ? -1
+                : outputSummary.samples * 1_000_000_000.0 / (lastOutputNs - firstOutputNs);
+        return new Result(decode.summary(), outputSummary, framesPerSecond,
+                outputSummary.samples == 0 || longOutputGapNs == 0 ? -1 : longOutputGaps,
+                receivedFrames, missingFrames, sequenceBreaks);
     }
 
     public static final class Result {
         public final Percentiles decode;
         public final Percentiles output;
 
-        private Result(Percentiles decode, Percentiles output) {
+        public final double outputFramesPerSecond;
+        public final int longOutputGaps, receivedFrames, sequenceBreaks;
+        public final long missingFrames;
+
+        private Result(Percentiles decode, Percentiles output, double outputFramesPerSecond, int longOutputGaps,
+                       int receivedFrames, long missingFrames, int sequenceBreaks) {
             this.decode = decode;
             this.output = output;
+            this.outputFramesPerSecond = outputFramesPerSecond;
+            this.longOutputGaps = longOutputGaps;
+            this.receivedFrames = receivedFrames;
+            this.missingFrames = missingFrames;
+            this.sequenceBreaks = sequenceBreaks;
+        }
+
+        public double observedLossPercent() {
+            // A single frame, or frames separated only by a sequence reset, give no measurable span.
+            if (receivedFrames - sequenceBreaks < 2) return -1;
+            return 100.0 * missingFrames / (receivedFrames + missingFrames);
         }
     }
 

@@ -2428,7 +2428,7 @@ function Show-HostDashboard {
     $actions.Dock = "Fill"
     $actions.WrapContents = $true
     $actions.AutoSize = $true
-    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Playnite Library", "Save Vault", "Close")) {
+    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Playnite Library", "Audio output", "Save Vault", "Close")) {
         $button = New-Object System.Windows.Forms.Button
         $button.Text = $label
         $button.AutoSize = $true
@@ -2453,6 +2453,10 @@ function Show-HostDashboard {
             "Playnite Library" { $button.add_Click({
                 try { & (Join-Path $here "Show-NexusPlayniteLibrary.ps1") -Owner $script:hostDashboard -DataDirectory $DataDir }
                 catch { [void][System.Windows.Forms.MessageBox]::Show("Playnite Library could not open. Check the Nexus Host installation.", "Nexus Host") }
+            }) }
+            "Audio output" { $button.add_Click({
+                try { & (Join-Path $here "Show-NexusAudioOutput.ps1") -Owner $script:hostDashboard }
+                catch { [void][System.Windows.Forms.MessageBox]::Show("Audio output could not open. Check the Nexus Host installation.", "Nexus Host") }
             }) }
             "Save Vault" { $button.add_Click({
                 try { & (Join-Path $here "Show-NexusSaveVault.ps1") -Owner $script:hostDashboard }

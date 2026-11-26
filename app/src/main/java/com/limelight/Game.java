@@ -27,6 +27,7 @@ import com.limelight.pocket.HorizonStartupRecovery;
 import com.limelight.pocket.HorizonSecureStatus;
 import com.limelight.pocket.ResumeTicket;
 import com.limelight.pocket.core.HorizonStreamObserver;
+import com.limelight.pocket.core.HorizonStreamSelection;
 import com.limelight.pocket.core.HorizonDeferredTask;
 import com.limelight.pocket.core.HorizonLaunchRequests;
 import com.limelight.pocket.device.HorizonPower;
@@ -219,6 +220,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private boolean displayedFailureDialog = false;
     private volatile long horizonStreamTicket;
     private long horizonSelectionGeneration;
+    private boolean horizonRejectedSelection;
     private HorizonDeferredTask horizonSignInTask, horizonFallbackTask;
     private final Handler horizonDeferredHandler = new Handler(Looper.getMainLooper());
 
@@ -381,6 +383,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onStart() {
         super.onStart();
+        if (horizonRejectedSelection) return;
         horizonInputVisible = true;
         com.limelight.pocket.global.GlobalButtonEngine.streamTookInput();
     }
@@ -522,6 +525,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        horizonSelectionGeneration = HorizonStreamSelection.capture(getIntent());
+        if (!HorizonStreamSelection.current(horizonSelectionGeneration)) {
+            horizonRejectedSelection = true;
+            finish();
+            return;
+        }
 
         instance = this;
         boolean startingAutomaticResume = HorizonStartupRecovery.begin(this, this, getIntent());
@@ -1155,8 +1164,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 // Der Decoder erhält die jeweils aktive Oberfläche vom Container
                 decoderRenderer.setRenderTarget(streamContainer.getSurface());
 
+                // Surface callbacks can arrive after the owner selected a different game.
+                if (!HorizonStreamSelection.current(horizonSelectionGeneration)) {
+                    finish();
+                    return;
+                }
+
                 // Starten Sie die NvConnection
-                horizonSelectionGeneration = currentLaunchGeneration();
                 horizonStreamTicket = HorizonStreamObserver.instance().beginAttempt(
                         com.limelight.pocket.core.HorizonLaunchTarget.pc(pocketPcUuid(), appId));
                 connecting = true;
@@ -1474,6 +1488,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        if (horizonRejectedSelection) return;
 
         // Set requested orientation for possible new screen size
         setPreferredOrientationForActivity();
@@ -1689,6 +1704,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (horizonRejectedSelection) return;
 
         // We can't guarantee the state of modifiers keys which may have
         // lifted while focus was not on us. Clear the modifier state.
@@ -1970,6 +1986,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @TargetApi(Build.VERSION_CODES.N)
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
         super.onMultiWindowModeChanged(isInMultiWindowMode);
+        if (horizonRejectedSelection) return;
 
         // In multi-window, we don't want to use the full-screen layout
         // flag. It will cause us to collide with the system UI.
@@ -1992,6 +2009,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @TargetApi(Build.VERSION_CODES.O)
     public void onPictureInPictureModeChanged(boolean inPictureInPicture, Configuration configuration) {
         super.onPictureInPictureModeChanged(inPictureInPicture, configuration);
+        if (horizonRejectedSelection) return;
         if (connected && ownsStreamCallback()) {
             HorizonStreamObserver.instance().setBackground(horizonStreamTicket, inPictureInPicture);
         }
@@ -1999,6 +2017,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        if (horizonRejectedSelection) {
+            super.onDestroy();
+            return;
+        }
         stopDisplayScene();
         finishBenchmark(false);
         HorizonStartupRecovery.end(this);
@@ -2054,12 +2076,17 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     protected void onResume() {
         super.onResume();
+        if (horizonRejectedSelection) return;
         sceneForeground = true;
         if (connected) startDisplayScene();
     }
 
     @Override
     protected void onPause() {
+        if (horizonRejectedSelection) {
+            super.onPause();
+            return;
+        }
         sceneForeground = false;
         stopDisplayScene();
         finishBenchmark(false);
@@ -2083,6 +2110,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        if (horizonRejectedSelection) {
+            super.onStop();
+            return;
+        }
         HorizonStartupRecovery.end(this);
         cancelDeferredTasks();
         horizonInputVisible = false;
@@ -2382,6 +2413,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyDown(KeyEvent event) {
+        if (horizonRejectedSelection) return true;
         if (pocketKeyMonitorUntil != 0 && event.getRepeatCount() == 0) {
             if (android.os.SystemClock.uptimeMillis() < pocketKeyMonitorUntil) {
                 showPocketToast(describeKeyForMonitor(event), true, 1800);
@@ -2488,6 +2520,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyUp(KeyEvent event) {
+        if (horizonRejectedSelection) return true;
         if (handlePocketKey(event, false)) {
             return true;
         }
@@ -2940,7 +2973,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private void startBenchmark() {
         if (!connected || !ownsStreamCallback() || decoderRenderer == null || runningBenchmark != null) return;
-        runningBenchmark = new HorizonStreamBenchmark();
+        runningBenchmark = new HorizonStreamBenchmark(prefConfig.fps);
         benchmarkStartMs = android.os.SystemClock.elapsedRealtime();
         decoderRenderer.captureBenchmark(runningBenchmark);
         timerHandler.postDelayed(benchmarkTimeout, 60_000);
@@ -2964,16 +2997,20 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (UsbLink.isUsbAddress(host)) route = R.string.pocket_link_usb;
         else if (negotiated == StreamConfiguration.STREAM_CFG_LOCAL) route = R.string.horizon_benchmark_local;
         else if (negotiated == StreamConfiguration.STREAM_CFG_REMOTE) route = R.string.horizon_benchmark_remote;
-        String loss = decoderRenderer != null && decoderRenderer.pocketStatsAt > 0
-                && android.os.SystemClock.uptimeMillis() - decoderRenderer.pocketStatsAt < 3000
-                ? String.format(Locale.ROOT, "%.2f%%", decoderRenderer.pocketLossPct)
-                : getString(R.string.horizon_assist_unavailable);
+        String unavailable = getString(R.string.horizon_assist_unavailable);
+        double observedLoss = result.observedLossPercent();
+        String loss = observedLoss < 0 ? unavailable : String.format(Locale.ROOT, "%.2f%%", observedLoss);
+        String outputFps = result.outputFramesPerSecond < 0 ? unavailable
+                : String.format(Locale.ROOT, "%.1f", result.outputFramesPerSecond);
+        String longGaps = result.longOutputGaps < 0 ? unavailable : Integer.toString(result.longOutputGaps);
         HorizonPower.Observations power = HorizonPower.observe(this);
         benchmarkReport = getString(R.string.horizon_benchmark_header, codec, getString(route), seconds,
                 prefConfig.width, prefConfig.height, Math.round(prefConfig.fps)) + "\n"
                 + benchmarkPercentiles(R.string.horizon_benchmark_decode, result.decode) + "\n"
                 + benchmarkPercentiles(R.string.horizon_benchmark_intervals, result.output) + "\n"
-                + getString(R.string.horizon_benchmark_loss, loss) + "\n"
+                + getString(R.string.horizon_benchmark_output_rate, outputFps, longGaps) + "\n"
+                + getString(R.string.horizon_benchmark_capture_loss, loss, result.receivedFrames, result.missingFrames,
+                        result.sequenceBreaks) + "\n"
                 + getString(R.string.horizon_benchmark_power,
                         power.thermal < 0 ? getString(R.string.horizon_assist_unavailable) : Integer.toString(power.thermal),
                         power.batterySaver == null ? getString(R.string.horizon_assist_unavailable) : onOff(power.batterySaver))
@@ -4507,6 +4544,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     public boolean handleKeyMultiple(KeyEvent event) {
+        if (horizonRejectedSelection) return true;
         // We can receive keys from a software keyboard that don't correspond to any existing
         // KEYCODE value. Android will give those to us as an ACTION_MULTIPLE KeyEvent.
         //
@@ -5070,6 +5108,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     // Returns true if the event was consumed
     // NB: View is only present if called from a view callback
     public boolean handleMotionEvent(View view, MotionEvent event) {
+        if (horizonRejectedSelection) return true;
         if (streamMenu != null && streamMenu.isShowing()) {
             if ((event.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
                 float hx = event.getAxisValue(MotionEvent.AXIS_HAT_X);
@@ -6388,6 +6427,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void onBackPressed() {
+        if (horizonRejectedSelection) return;
         if(prefConfig.enableBackMenu){
             showGameMenu(null);
             return;

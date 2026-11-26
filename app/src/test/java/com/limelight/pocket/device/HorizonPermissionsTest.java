@@ -17,8 +17,8 @@ import static com.limelight.pocket.device.HorizonPermissions.Capability.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 33)
 public class HorizonPermissionsTest {
-    @Test public void listsAllSixOptionalCapabilities() {
-        assertEquals(6, HorizonPermissions.Capability.values().length);
+    @Test public void listsAllSevenOptionalCapabilities() {
+        assertEquals(7, HorizonPermissions.Capability.values().length);
         for (HorizonPermissions.Capability c : HorizonPermissions.Capability.values()) {
             assertNotEquals(0, c.title);
             assertNotEquals(0, c.description);
@@ -44,6 +44,17 @@ public class HorizonPermissionsTest {
         Shadows.shadowOf(c).grantPermissions(Manifest.permission.RECORD_AUDIO);
         assertEquals(R.string.horizon_perm_granted, HorizonPermissions.status(c, MICROPHONE));
         assertNull(Shadows.shadowOf(c).getNextStartedActivity());
+    }
+    @Test public void bluetoothPermissionIsReadWithoutOpeningSettings() {
+        Application context = RuntimeEnvironment.getApplication();
+        Shadows.shadowOf(context).denyPermissions(Manifest.permission.BLUETOOTH_CONNECT);
+        assertEquals(R.string.horizon_perm_missing, HorizonPermissions.status(context, BLUETOOTH_DETAILS));
+        Shadows.shadowOf(context).grantPermissions(Manifest.permission.BLUETOOTH_CONNECT);
+        assertEquals(R.string.horizon_perm_granted, HorizonPermissions.status(context, BLUETOOTH_DETAILS));
+        Intent settings = HorizonPermissions.settingsIntent(context, BLUETOOTH_DETAILS);
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, settings.getAction());
+        assertEquals("package:" + context.getPackageName(), settings.getDataString());
+        assertNull(Shadows.shadowOf(context).getNextStartedActivity());
     }
     @Test public void readingAllStatusesDoesNotOpenSettings() {
         Application c = RuntimeEnvironment.getApplication();

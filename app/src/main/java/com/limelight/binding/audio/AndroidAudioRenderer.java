@@ -191,14 +191,8 @@ public class AndroidAudioRenderer implements AudioRenderer {
 
         // Software EQ is opt-in, stereo only and mutually exclusive with external DSP.
         if (!enableAudioFx && samplesPerFrame > 0 && samplesPerFrame <= 8192) {
-            String mode = "off";
-            try {
-                mode = com.limelight.pocket.PocketPrefs.prefs(context)
-                        .getString(HorizonStreamDsp.KEY_PROFILE, "off");
-            } catch (ClassCastException ignored) {
-                // A malformed imported preference must never prevent stream startup.
-            }
-            dsp = HorizonStreamDsp.create(mode, sampleRate, audioConfiguration.channelCount);
+            dsp = HorizonStreamEqSettings.create(com.limelight.pocket.PocketPrefs.prefs(context),
+                    sampleRate, audioConfiguration.channelCount);
             if (dsp != null) { dspBuffer = new short[samplesPerFrame * 2]; }
         }
         return 0;

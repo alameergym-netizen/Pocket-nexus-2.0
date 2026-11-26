@@ -40,7 +40,7 @@ jobs:
         run: sudo chmod 666 /dev/kvm
       - name: Verify workspace and capture screenshots
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
-        timeout-minutes: 15
+        timeout-minutes: 25
         with:
           api-level: 33
           arch: x86_64

@@ -110,6 +110,7 @@ public class ServerHelper {
             gameIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         }
         if(gameIntent == null) gameIntent = new Intent(parent, Game.class);
+        com.limelight.pocket.core.HorizonStreamSelection.stamp(gameIntent);
         // Artemis Pocket: if this PC is on the other end of the USB-C cable, stream over the cable
         String usbAddress = UsbLink.getUsbAddressFor(parent, computer.uuid);
         if (usbAddress != null) {
