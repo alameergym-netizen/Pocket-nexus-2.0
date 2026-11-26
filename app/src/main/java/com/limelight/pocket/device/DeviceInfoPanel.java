@@ -17,10 +17,8 @@ import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ui.StreamMenuView;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * "This handheld": its chip (named the way people know it: Snapdragon 8 Gen 2 ...), GPU, what its
@@ -102,18 +100,21 @@ public final class DeviceInfoPanel {
 
         items.add(StreamMenuView.Item.header(a.getString(R.string.pocket_info_screen)));
         Display display = a.getWindowManager().getDefaultDisplay();
-        Set<String> rates = new LinkedHashSet<>();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            for (Display.Mode mode : display.getSupportedModes()) {
-                rates.add(Math.round(mode.getRefreshRate()) + " Hz");
-            }
-        }
+        HorizonDisplayModes modes = HorizonDisplayModes.read(display);
         android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
         display.getRealMetrics(dm);
         items.add(StreamMenuView.Item.info(a.getString(R.string.pocket_info_resolution), dm.widthPixels + " × " + dm.heightPixels));
-        if (!rates.isEmpty()) {
-            items.add(StreamMenuView.Item.info(a.getString(R.string.pocket_info_refresh), android.text.TextUtils.join(", ", rates)));
+        String unknown = a.getString(R.string.pocket_display_not_reported);
+        items.add(StreamMenuView.Item.info(a.getString(R.string.pocket_display_active_mode),
+                modes.active != null ? modes.active : unknown));
+        if (modes.supported != null && !modes.supported.isEmpty()) {
+            items.add(StreamMenuView.Item.info(a.getString(R.string.pocket_info_refresh), modes.supported));
         }
+        items.add(StreamMenuView.Item.info(a.getString(R.string.pocket_display_seamless),
+                modes.seamless == null ? unknown : modes.seamless.isEmpty()
+                        ? a.getString(R.string.pocket_display_none_listed) : modes.seamless));
+        items.add(StreamMenuView.Item.info(a.getString(R.string.pocket_display_adaptive),
+                modes.adaptive == null ? unknown : a.getString(modes.adaptive ? R.string.yes : R.string.no)));
         String hdr = a.getString(R.string.pocket_off);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && display.isHdr()) {
             hdr = a.getString(R.string.pocket_on);
