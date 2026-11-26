@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nexus Signature: the cinematic frame (HorizonSignature). -->
+<resources>
+    <item name="horizon_signature_bar_top" type="id"/>
+    <item name="horizon_signature_bar_bottom" type="id"/>
+    <item name="horizon_signature_rule" type="id"/>
+    <item name="horizon_signature_still" type="id"/>
+    <item name="horizon_signature_panel" type="id"/>
+</resources>

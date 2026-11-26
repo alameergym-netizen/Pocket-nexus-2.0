@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nexus Atmosphere: the layered glass surfaces (HorizonAtmosphere). -->
+<resources>
+    <item name="horizon_atmosphere_tray" type="id"/>
+    <item name="horizon_atmosphere_veil" type="id"/>
+    <item name="horizon_atmosphere_panel" type="id"/>
+</resources>
