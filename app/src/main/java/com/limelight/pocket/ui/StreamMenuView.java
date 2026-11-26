@@ -730,7 +730,11 @@ public class StreamMenuView extends FrameLayout {
             focusInto(content);
             return;
         }
-        View next = focused.focusSearch(focusDirection);
+        // Searched inside the page only: views of the screen behind the menu (still focusable,
+        // only hidden from accessibility) must never win a nearer-looking match
+        View next = content instanceof ViewGroup
+                ? android.view.FocusFinder.getInstance().findNextFocus((ViewGroup) content, focused, focusDirection)
+                : null;
         if (next != null && next != focused && inside(content, next) && next.requestFocus(focusDirection)) {
             PocketSounds.play(getContext(), PocketSounds.NAV);
         }
