@@ -10,10 +10,12 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -69,6 +71,15 @@ final class HomeDock {
     private final HorizontalScrollView scroll;
     private final TextView label;
     private int lastFocus;
+    /** What the buttons show now: rebuilding the same row would only lose a touch or the focus. */
+    private String shown;
+    /** A finger is on the dock: a rebuild waits until it lifts, so the tap still opens its app. */
+    private boolean touching;
+    private long touchedAt;
+    private boolean refreshPending;
+    /** A press longer than this (a finger resting, or a lift the dock never saw) no longer holds a rebuild back. */
+    private static final long HOLD_MS = 3000;
+    private final Runnable refreshLater = this::refresh;
 
     HomeDock(HomeActivity activity, Host host) {
         this.activity = activity;
@@ -82,7 +93,26 @@ final class HomeDock {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setClipChildren(false);
         row.setClipToPadding(false);
-        scroll=new HorizontalScrollView(activity);
+        scroll=new HorizontalScrollView(activity) {
+            @Override
+            public boolean dispatchTouchEvent(MotionEvent event) {
+                int action = event.getActionMasked();
+                if (action == MotionEvent.ACTION_DOWN) {
+                    touching = true;
+                    touchedAt = SystemClock.uptimeMillis();
+                }
+                boolean handled = super.dispatchTouchEvent(event);
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    touching = false;
+                    if (refreshPending) {
+                        refreshPending = false;
+                        // After the click the touch just posted
+                        row.post(refreshLater);
+                    }
+                }
+                return handled;
+            }
+        };
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scroll.setClipToPadding(false);
@@ -155,17 +185,54 @@ final class HomeDock {
         return activity.getPackageManager().getLaunchIntentForPackage(pkg) != null;
     }
 
-    /** Builds the buttons again (after a change, or an app was installed or removed). */
+    /**
+     * Builds the buttons again after a change (an entry moved, or an app on the dock was
+     * installed, updated or removed). When nothing on the dock changed the buttons stay as they
+     * are, and while a finger is on the dock the rebuild waits for it to lift: replacing a button
+     * between touch down and up would lose that tap.
+     */
     void refresh() {
+        List<String> list = entries();
+        String next = signature(list);
+        if (next.equals(shown) && row.getChildCount() == list.size()) {
+            return;
+        }
+        if (touching && SystemClock.uptimeMillis() - touchedAt < HOLD_MS) {
+            refreshPending = true;
+            row.removeCallbacks(refreshLater);
+            row.postDelayed(refreshLater, HOLD_MS);
+            return;
+        }
+        touching = false;
+        refreshPending = false;
+        row.removeCallbacks(refreshLater);
         int keep = focusedIndex();
         row.removeAllViews();
-        List<String> list = entries();
         for (int i = 0; i < list.size(); i++) {
             row.addView(button(list.get(i), i));
         }
+        shown = next;
         if (keep >= 0) {
             focus(Math.min(keep, row.getChildCount() - 1));
         }
+    }
+
+    /** The entries in order and, for Android apps, their last update (their icon may change). */
+    private String signature(List<String> list) {
+        StringBuilder b = new StringBuilder();
+        for (String e : list) {
+            b.append(e);
+            if (e.startsWith(APP)) {
+                try {
+                    b.append('@').append(activity.getPackageManager()
+                            .getPackageInfo(e.substring(APP.length()), 0).lastUpdateTime);
+                } catch (PackageManager.NameNotFoundException | RuntimeException gone) {
+                    b.append("@-");
+                }
+            }
+            b.append('\n');
+        }
+        return b.toString();
     }
 
     boolean hasFocus() {

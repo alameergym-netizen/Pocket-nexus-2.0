@@ -197,6 +197,23 @@ gradle.taskGraph.whenReady { graph ->
     }
 }
 
+
+// Keep the already selected Bouncy Castle 1.81 release family reproducible.
+// bcpkix 1.81 requests bcutil via [1.81,1.82); resolving this range
+// repeatedly requires Maven metadata, which has caused HTTP 429 in UI CI.
+// Only rewrite this exact range for these two companion modules. Explicit
+// versions and other ranges (including future security updates) are untouched.
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.bouncycastle' &&
+                ['bcprov-jdk18on', 'bcutil-jdk18on'].contains(details.requested.name) &&
+                details.requested.version == '[1.81,1.82)') {
+            details.useVersion('1.81')
+            details.because('Align companion modules with the existing Bouncy Castle 1.81 pin')
+        }
+    }
+}
+
 dependencies {
     implementation 'org.bouncycastle:bcprov-jdk18on:1.81'
     implementation 'org.bouncycastle:bcpkix-jdk18on:1.81'
