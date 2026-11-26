@@ -22,7 +22,9 @@ public final class HeadphonesNoiseControl {
         LIGHT(HeadphonesReadback.NoiseMode.ANC,0,"5A 00 07 00 2B 04 01 02 01 00 E1 1C"),
         BALANCED(HeadphonesReadback.NoiseMode.ANC,2,"5A 00 07 00 2B 04 01 02 01 02 C1 5E"),
         DEEP(HeadphonesReadback.NoiseMode.ANC,3,"5A 00 07 00 2B 04 01 02 01 03 D1 7F"),
-        AWARENESS(HeadphonesReadback.NoiseMode.AWARENESS,255,"5A 00 07 00 2B 04 01 02 02 FF AA BF");
+        AWARENESS(HeadphonesReadback.NoiseMode.AWARENESS,255,"5A 00 07 00 2B 04 01 02 02 FF AA BF"),
+        // Vendor auto-level mode transition from the pinned HuaweiPods vector; native prompts unverified.
+        ANC_AUTO(HeadphonesReadback.NoiseMode.ANC,255,"5A 00 07 00 2B 04 01 02 01 FF FF EC");
         final HeadphonesReadback.NoiseMode mode;
         final int level;
         private final String vector;
@@ -36,7 +38,7 @@ public final class HeadphonesNoiseControl {
             return out;
         }
         boolean matches(HeadphonesReadback.Noise n) {
-            return n!=null && n.mode==mode && (mode!=HeadphonesReadback.NoiseMode.ANC || n.rawLevel==level);
+            return n!=null && n.mode==mode && (mode!=HeadphonesReadback.NoiseMode.ANC || (this==ANC_AUTO?n.rawLevel<=3:n.rawLevel==level));
         }
     }
     enum Outcome { MODEL_UNCONFIRMED, READ_REQUIRED, ALREADY_SELECTED, CONFIRMED, UNCONFIRMED }

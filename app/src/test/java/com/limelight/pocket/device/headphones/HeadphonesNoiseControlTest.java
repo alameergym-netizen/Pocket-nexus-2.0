@@ -27,7 +27,7 @@ public class HeadphonesNoiseControlTest {
     private static byte[] noise(int level,int mode) { return frame(0x2b,0x2a,1,2,level,mode); }
     private static byte[] ack(int status) { return frame(0x2b,4,2,1,status); }
     @Test public void allFixedVectorsAreValidAndModelSpecific() {
-        int[] levels={0,1,0,2,3,255};
+        int[] levels={0,1,0,2,3,255,255};
         int i=0;
         for(HeadphonesNoiseControl.Selection s:HeadphonesNoiseControl.Selection.values()) {
             byte[] packet=s.packet();
@@ -44,6 +44,14 @@ public class HeadphonesNoiseControlTest {
         assertEquals(3,c.observed.rawLevel);
         assertArrayEquals(join(HeadphonesReadback.modelRequest(),HeadphonesReadback.noiseRequest(),DEEP.packet(),
                 HeadphonesReadback.noiseRequest()),out.toByteArray());
+    }
+    @Test public void autoLevelAcceptsOnlyKnownReportedAncLevel() throws Exception {
+        for(int reported:new int[]{0,1,2,3,255}) {
+            HeadphonesNoiseControl.Change c=HeadphonesNoiseControl.change(
+                new ByteArrayInputStream(join(model(),noise(0,0),ack(0),noise(reported,1))),
+                new ByteArrayOutputStream(),ANC_AUTO,()->true);
+            assertEquals(reported<=3?HeadphonesNoiseControl.Outcome.CONFIRMED:HeadphonesNoiseControl.Outcome.UNCONFIRMED,c.outcome);
+        }
     }
     @Test public void acceptedButDifferentLevelNeverConfirms() throws Exception {
         HeadphonesNoiseControl.Change c=HeadphonesNoiseControl.change(

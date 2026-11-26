@@ -91,6 +91,8 @@ public class ControlCenterActivity extends Activity {
     private TextView thermalBig;
     private Tile wifi;
     private Tile bluetooth;
+    private com.limelight.pocket.ui.StreamMenuView headphonesMenu;
+    private final com.limelight.pocket.ui.MenuKeyOwnership headphonesKeys = new com.limelight.pocket.ui.MenuKeyOwnership();
     private Tile quiet;
     private Bar brightness;
     private Bar volume;
@@ -133,6 +135,7 @@ public class ControlCenterActivity extends Activity {
         root.animate().cancel();
         root.setAlpha(1f);
         d = getResources().getDisplayMetrics().density;
+        if (headphonesMenu != null) { headphonesMenu.hide(); headphonesMenu = null; }
         root.removeAllViews();
         build();
         refresh();
@@ -156,6 +159,7 @@ public class ControlCenterActivity extends Activity {
         } catch (RuntimeException ignored) {
         }
         main.removeCallbacks(tick);
+        if (headphonesMenu != null) headphonesMenu.hide();
     }
 
     private final Runnable tick = new Runnable() {
@@ -329,6 +333,13 @@ public class ControlCenterActivity extends Activity {
             tileRow.addView(t, lp);
         }
         first = tiles[order[0]];
+        Tile headphones = new Tile(this, "VOLUME_UP", getString(R.string.horizon_headphones_center));
+        headphones.setId(View.generateViewId());
+        headphones.setMinimumHeight(dp(52));
+        headphones.setOnClickListener(v -> openHeadphones(headphones));
+        LinearLayout.LayoutParams headphonesLp = matchWrap();
+        headphonesLp.topMargin = dp(8);
+        tools.addView(headphones, headphonesLp);
 
         if (!titanium) device.addView(section(R.string.horizon_control_device), matchWrap());
         LinearLayout stats = new LinearLayout(this);
@@ -727,10 +738,31 @@ public class ControlCenterActivity extends Activity {
         }
     };
 
+    private void openHeadphones(View returnFocus) {
+        if (headphonesMenu != null && headphonesMenu.isShowing()) return;
+        final com.limelight.pocket.ui.StreamMenuView menu = new com.limelight.pocket.ui.StreamMenuView(this);
+        headphonesMenu = menu;
+        menu.setPlacement(true, 336);
+        menu.setConfirmLabel(getString(R.string.pocket_sm_confirm));
+        menu.setListener(() -> {
+            if (headphonesMenu != menu) return;
+            headphonesMenu = null;
+            root.removeView(menu);
+            returnFocus.requestFocusFromTouch();
+        });
+        root.addView(menu, new FrameLayout.LayoutParams(-1, -1));
+        com.limelight.pocket.device.headphones.HeadphonesPanel.openRoot(this, menu);
+    }
+
     // ---- Buttons --------------------------------------------------------------------------------
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        boolean headphonesShowing = headphonesMenu != null && headphonesMenu.isShowing();
+        if (headphonesKeys.consume(e, headphonesShowing)) {
+            if (headphonesShowing) headphonesMenu.handleKey(e);
+            return true;
+        }
         int code = e.getKeyCode();
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
         View focus = getCurrentFocus();
