@@ -6,7 +6,8 @@ import static org.junit.Assert.*;
 public class SpringTest {
     @Test public void scrolledCoordinatesSettleAtSixtyAndOneTwentyHertz() {
         for (int fps : new int[] {60, 120}) {
-            for (float target : new float[] {1, 100, 1000, 3000, 8000, 20000, -3000, -20000}) {
+            for (float target : new float[] {1, 100, 1000, 1080, 1545, 2048, 3000, 8000, 20000,
+                    -1080, -1545, -3000, -20000}) {
                 Spring spring = new Spring(560f, 0.84f, 0f);
                 spring.target = target;
                 settle(spring, fps);
