@@ -52,8 +52,7 @@ public final class Spring {
         // threshold. Allow a few representable steps, still far below one pixel.
         float precision = 4 * Math.max(Math.ulp(value), Math.ulp(target));
         float positionTolerance = Math.max(0.0005f, precision);
-        float velocityTolerance = precision > 0.0005f
-                ? Math.max(0.003f, precision * naturalFrequency) : 0.003f;
+        float velocityTolerance = Math.max(0.003f, precision * naturalFrequency);
         if (Math.abs(value - target) < positionTolerance && Math.abs(velocity) < velocityTolerance) {
             value = target;
             velocity = 0;
