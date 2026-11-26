@@ -41,6 +41,12 @@ def key(code):
     adb("shell", "input", "dpad", "keyevent", "KEYCODE_" + code)
 
 def capture(label):
+    # Preserve progress even if a later emulator step hits its deadline.
+    try:
+        (RESULTS / (label + "-focus.log")).write_bytes(
+            adb("shell", "logcat", "-d", "-t", "300", "-s", "NexusSettingsFocus:D", "*:S", timeout=8))
+    except subprocess.SubprocessError:
+        pass
     (RESULTS / (label + ".png")).write_bytes(adb("exec-out", "screencap", "-p"))
     print("Captured " + label, flush=True)
 
