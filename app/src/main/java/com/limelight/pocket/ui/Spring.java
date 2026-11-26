@@ -12,11 +12,14 @@ public final class Spring {
     public float target;
     private final float stiffness;
     private final float damping;
+    private final float naturalFrequency;
 
     /** dampingRatio 1 = no overshoot, ~0.6 = a lively bounce. */
     public Spring(float stiffness, float dampingRatio, float initial) {
         this.stiffness = stiffness;
-        this.damping = (float) (2 * dampingRatio * Math.sqrt(stiffness));
+        double frequency = Math.sqrt(stiffness);
+        this.naturalFrequency = (float) frequency;
+        this.damping = (float) (2 * dampingRatio * frequency);
         this.value = initial;
         this.target = initial;
     }
@@ -43,7 +46,15 @@ public final class Spring {
             velocity += accel * h;
             value += velocity * h;
         }
-        if (Math.abs(value - target) < 0.0005f && Math.abs(velocity) < 0.003f) {
+        // Deeply scrolled lists use coordinates in the thousands. At that size a
+        // float cannot represent each subpixel integration update: position can
+        // stop changing while its residual velocity never reaches the old fixed
+        // threshold. Allow a few representable steps, still far below one pixel.
+        float precision = 4 * Math.max(Math.ulp(value), Math.ulp(target));
+        float positionTolerance = Math.max(0.0005f, precision);
+        float velocityTolerance = precision > 0.0005f
+                ? Math.max(0.003f, precision * naturalFrequency) : 0.003f;
+        if (Math.abs(value - target) < positionTolerance && Math.abs(velocity) < velocityTolerance) {
             value = target;
             velocity = 0;
             return false;
