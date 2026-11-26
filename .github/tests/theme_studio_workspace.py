@@ -209,7 +209,8 @@ def main(apk):
     # Focus previews without changing anything
     move_focus_to("Nexus Signature", "DPAD_UP")
     wait_for("focus previews Signature", lambda t: has(t, "Previewing Nexus Signature")
-             and contains(t, "Home preview of Nexus Signature"))
+             and contains(t, "Home preview of Nexus Signature")
+             and contains(t, "Brings its own Home, Library and Control layouts"))
     capture("02-signature-home")
     visit_scenes("03-signature")
     assert SIGNATURE_ACCENT not in prefs(), "a preview changed the saved look"
@@ -225,6 +226,15 @@ def main(apk):
              and focused(t, "Nexus Signature"))
     capture("04-signature-applied")
     print("PASS: A then Apply writes the look and keeps the previous one", flush=True)
+
+    # Horizon and Atmosphere preview their own layout families (streaming cards, layered glass)
+    for name, label in (("Nexus Horizon", "04a-horizon"), ("Nexus Atmosphere", "04b-atmosphere")):
+        move_focus_to(name, "DPAD_DOWN")
+        wait_for(name + " preview", lambda t, n=name: has(t, "Previewing " + n)
+                 and contains(t, "Brings its own Home, Library and Control layouts"))
+        capture(label + "-home")
+        visit_scenes(label)
+    print("PASS: Signature, Horizon and Atmosphere preview their own layouts", flush=True)
 
     # Pure OLED and Titanium preview their own layouts; B leaves without applying
     move_focus_to("Nexus Pure OLED", "DPAD_DOWN")

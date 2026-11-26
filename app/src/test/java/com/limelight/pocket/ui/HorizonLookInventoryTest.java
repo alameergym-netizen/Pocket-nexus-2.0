@@ -69,7 +69,7 @@ public class HorizonLookInventoryTest {
     }
 
     @Test
-    public void onlyPureOledTitaniumAndLegacyBringTheirOwnLayouts() {
+    public void everyHorizonFamilyButCinemaBringsItsOwnLayouts() {
         HorizonLook base = HorizonLook.defaults();
         int own = 0;
         for (int i = 0; i < PocketTheme.THEMES.length; i++) {
@@ -77,9 +77,11 @@ public class HorizonLookInventoryTest {
                 own++;
                 int name = PocketTheme.THEMES[i].name;
                 assertTrue(name == R.string.horizon_theme_pure || name == R.string.horizon_theme_titanium
-                        || name == R.string.horizon_theme_legacy);
+                        || name == R.string.horizon_theme_legacy || name == R.string.horizon_theme_signature
+                        || name == R.string.horizon_theme_atmosphere || name == R.string.horizon_theme_horizon);
             }
         }
-        assertEquals(3, own);
+        // T01-T06: Signature, Atmosphere, Horizon, Pure OLED, Legacy, Titanium; Cinema shares a shelf
+        assertEquals(6, own);
     }
 }

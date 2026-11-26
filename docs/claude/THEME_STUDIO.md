@@ -9,7 +9,12 @@ Settings › Look › Theme Studio previews any look on Home, Library and Contro
 - **Reset:** "Nexus default" previews the look of a fresh install. Applying it is the reset.
 - **Custom looks:** three slots, stored in the original version-1 JSON (`horizon_look_slot_0..2`), so looks saved by earlier builds still read. Clearing a slot needs a second press.
 - **Scope:** applying changes appearance and interface sounds only: accent, backdrop, material, sound pack, Home layout, focus style, card density, card corners, art motion, colour art and live glass. Streaming, controls, library data, volume and interface size are untouched.
-- **Own layouts:** Pure OLED and Titanium are previewed with their own Home, Library and Control layouts, as the real screens are.
+- **Own layouts:** Pure OLED, Titanium, Legacy, Signature, Atmosphere and Horizon are previewed with their own Home, Library and Control layouts, as the real screens are:
+  - Signature: letterbox bars, the accent rule, the widescreen still and the black slate.
+  - Atmosphere: the glass tray, the veil and the layered pane.
+  - Horizon: the host, session and network cards.
+
+  Cinema shares the Wide shelf and is previewed as the standard layout.
 
 ## Text format (copy and paste)
 ```
@@ -50,5 +55,4 @@ Text over 2 KB, unknown or repeated keys, and unsupported values are rejected wi
 ## Not yet covered
 - per-workspace overrides
 - hero, font and icon controls
-- distinct Signature, Atmosphere, Horizon and Legacy layouts (T01–T03, T05)
 - physical appearance on the Retroid Pocket 6, which is checked at final integrated acceptance
