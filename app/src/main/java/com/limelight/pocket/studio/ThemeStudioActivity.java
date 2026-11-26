@@ -28,6 +28,7 @@ import com.limelight.pocket.PocketPrefs;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ui.HorizonLook;
 import com.limelight.pocket.ui.HorizonThemeStudio;
+import com.limelight.pocket.ui.HorizonWorkspaceLook;
 import com.limelight.pocket.ui.Layouts;
 import com.limelight.pocket.ui.PocketFonts;
 import com.limelight.pocket.ui.PocketTheme;
@@ -206,7 +207,7 @@ public class ThemeStudioActivity extends ConsoleActivity {
         summary.setMaxLines(heightDp < 420 ? 2 : 3);
         setContentView(root);
         buildRows();
-        previewView.setLook(preview, false);
+        previewView.setLook(forScene(preview), false);
         previewView.setScene(scene, false);
         updateScenes();
         updatePreviewText();
@@ -348,6 +349,11 @@ public class ThemeStudioActivity extends ConsoleActivity {
             }
         }
 
+        // T08: the Library and Nexus Control can keep their own accent on top of the look
+        header(R.string.horizon_studio_section_workspaces);
+        workspaceRow(HorizonWorkspaceLook.LIBRARY, R.string.horizon_studio_ws_library, ThemePreviewView.LIBRARY);
+        workspaceRow(HorizonWorkspaceLook.CONTROL, R.string.horizon_studio_ws_control, ThemePreviewView.CONTROL);
+
         header(R.string.horizon_studio_section_tools);
         final String defaultName = getString(R.string.horizon_studio_default);
         lookRow("default", defaultName, getString(R.string.horizon_studio_default_sub),
@@ -361,6 +367,61 @@ public class ThemeStudioActivity extends ConsoleActivity {
                 this::exportPreview);
         actionRow("import", getString(R.string.horizon_studio_import), getString(R.string.horizon_studio_import_sub),
                 this::importLook);
+    }
+
+    private static final int[] ACCENT_NAMES = {R.string.pocket_accent_white, R.string.pocket_accent_ice,
+            R.string.pocket_accent_mint, R.string.pocket_accent_lilac, R.string.pocket_accent_rose,
+            R.string.pocket_accent_amber, R.string.pocket_accent_coral, R.string.pocket_accent_lime,
+            R.string.pocket_accent_cyan, R.string.pocket_accent_violet, R.string.pocket_accent_neon,
+            R.string.pocket_accent_portal};
+
+    private int override(String workspace) {
+        return PocketPrefs.prefs(this).getInt(HorizonWorkspaceLook.key(workspace), 0);
+    }
+
+    private String accentName(int color) {
+        for (int i = 0; i < PocketTheme.ACCENTS.length && i < ACCENT_NAMES.length; i++) {
+            if (PocketTheme.ACCENTS[i] == (color | 0xFF000000)) return getString(ACCENT_NAMES[i]);
+        }
+        return String.format(java.util.Locale.ROOT, "#%06X", color & 0xFFFFFF);
+    }
+
+    /** The scene's workspace: its own accent, if it keeps one, over the look being shown. */
+    private HorizonLook forScene(HorizonLook l) {
+        String ws = scene == ThemePreviewView.LIBRARY ? HorizonWorkspaceLook.LIBRARY
+                : scene == ThemePreviewView.CONTROL ? HorizonWorkspaceLook.CONTROL : null;
+        if (l == null || ws == null) return l;
+        int accent = HorizonWorkspaceLook.accent(l.accent, override(ws));
+        return accent == l.accent ? l : new HorizonLook(accent, l.backdrop, l.material, l.sound, l.layout, l.focus,
+                l.density, l.corners, l.motion, l.colorArt, l.liveGlass);
+    }
+
+    /** A workspace's accent: focusing shows that workspace; A cycles "same as the look" and each accent. */
+    private void workspaceRow(String workspace, int title, int sceneIndex) {
+        final String key = "workspace:" + workspace;
+        final int current = override(workspace);
+        String value = current == 0 ? getString(R.string.horizon_studio_ws_follow) : accentName(current);
+        LinearLayout row = row(key, getString(title), value,
+                HorizonWorkspaceLook.accent(applied.accent, current));
+        row.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                PocketUi.tick(this);
+                disarmClear(key);
+                if (scene != sceneIndex) showScene(sceneIndex);
+            }
+        });
+        row.setOnClickListener(v -> {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            int next = HorizonWorkspaceLook.next(current, PocketTheme.ACCENTS);
+            if (next == 0) {
+                PocketPrefs.prefs(this).edit().remove(HorizonWorkspaceLook.key(workspace)).apply();
+            }
+            else {
+                PocketPrefs.prefs(this).edit().putInt(HorizonWorkspaceLook.key(workspace), next).apply();
+            }
+            previewView.setLook(forScene(preview), animate());
+            rebuildRows(key);
+        });
     }
 
     private interface LookSource {
@@ -465,13 +526,14 @@ public class ThemeStudioActivity extends ConsoleActivity {
         }
         preview = look;
         previewName = name;
-        previewView.setLook(look, animate());
+        previewView.setLook(forScene(look), animate());
         updatePreviewText();
     }
 
     private void showScene(int index) {
         scene = Math.max(ThemePreviewView.HOME, Math.min(ThemePreviewView.CONTROL, index));
         previewView.setScene(scene, animate());
+        previewView.setLook(forScene(preview), animate());
         updateScenes();
         updatePreviewText();
     }
@@ -493,6 +555,12 @@ public class ThemeStudioActivity extends ConsoleActivity {
             return;
         }
         PocketSounds.reload(this);
+        if (preview.equals(HorizonLook.defaults())) {
+            // A full reset: the workspaces follow the look again
+            android.content.SharedPreferences.Editor e = PocketPrefs.prefs(this).edit();
+            for (String ws : HorizonWorkspaceLook.WORKSPACES) e.remove(HorizonWorkspaceLook.key(ws));
+            e.apply();
+        }
         applied = HorizonThemeStudio.current(this);
         preview = applied;
         Toast.makeText(this, R.string.horizon_studio_done, Toast.LENGTH_SHORT).show();

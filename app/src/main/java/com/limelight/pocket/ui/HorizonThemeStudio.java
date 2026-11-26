@@ -64,7 +64,7 @@ public final class HorizonThemeStudio {
 
         static Look capture(Context c) {
             SharedPreferences p = PocketPrefs.prefs(c);
-            return new Look(PocketPrefs.accentColor(c), PocketPrefs.backdrop(c),
+            return new Look(PocketPrefs.lookAccent(c), PocketPrefs.backdrop(c),
                     PocketPrefs.frost(c) ? PocketPrefs.MATERIAL_FROST : PocketPrefs.MATERIAL_GLASS,
                     p.getString(PocketPrefs.KEY_SOUND_STYLE,PocketPrefs.DEFAULT_SOUND_STYLE),
                     Layouts.home(c).id, PocketPrefs.focusStyle(c), HorizonAppearance.density(c),

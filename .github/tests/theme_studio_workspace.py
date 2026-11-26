@@ -284,6 +284,25 @@ def main(apk):
     wait_prefs("custom look 1 cleared", lambda x: "horizon_look_slot_0" not in x)
     print("PASS: custom look save and confirmed clear", flush=True)
 
+    # T08: the Library keeps its own accent; Nexus Control still follows the look
+    move_focus_to("Library accent", "DPAD_DOWN", limit=60)
+    wait_for("the Library row shows the Library scene, following the look", lambda t:
+             contains(t, "Library preview of") and has(t, "Library accent, Same as the look"))
+    key("BUTTON_A")
+    wait_prefs("the Library keeps white", lambda x: '<int name="horizon_accent_library" value="-1" />' in x)
+    wait_for("the row names the Library's accent", lambda t: focused(t, "Library accent, White"))
+    key("BUTTON_A")
+    wait_prefs("the Library keeps ice", lambda x: '<int name="horizon_accent_library" value="-6301441" />' in x)
+    wait_for("the row names the next accent", lambda t: has(t, "Library accent, Ice")
+             and contains(t, "Library preview of"))
+    capture("12a-library-accent")
+    assert WHITE_ACCENT in prefs(), "a workspace accent changed the look's accent"
+    move_focus_to("Nexus Control accent", "DPAD_DOWN")
+    wait_for("Nexus Control follows the look", lambda t: contains(t, "Control preview of")
+             and has(t, "Nexus Control accent, Same as the look"))
+    assert "horizon_accent_control" not in prefs(), "the Control workspace got an accent it was not given"
+    print("PASS: a per-workspace accent is kept apart from the look", flush=True)
+
     # Copy the previewed look as text, paste it back, then close without applying
     move_focus_to("Copy preview as text", "DPAD_DOWN", limit=60)
     key("BUTTON_A")

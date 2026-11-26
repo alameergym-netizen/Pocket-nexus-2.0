@@ -664,7 +664,29 @@ public final class PocketPrefs {
 
     /** Accent color for focus and highlights (0xAARRGGBB). White by default. */
     public static int accentColor(Context context) {
+        int look = prefs(context).getInt(KEY_ACCENT, 0xFFFFFFFF);
+        // T08: the Library and Nexus Control may keep their own accent
+        String workspace = workspaceOf(context);
+        return workspace == null ? look : com.limelight.pocket.ui.HorizonWorkspaceLook.accent(look,
+                prefs(context).getInt(com.limelight.pocket.ui.HorizonWorkspaceLook.key(workspace), 0));
+    }
+
+    /** The look's own accent, whatever screen asks (the Studio and Settings show and edit this one). */
+    public static int lookAccent(Context context) {
         return prefs(context).getInt(KEY_ACCENT, 0xFFFFFFFF);
+    }
+
+    /** The workspace of the screen a context belongs to, or null. */
+    private static String workspaceOf(Context context) {
+        Context c = context;
+        for (int i = 0; i < 8 && c != null; i++) {
+            if (c instanceof android.app.Activity) {
+                return com.limelight.pocket.ui.HorizonWorkspaceLook.workspaceOf(c.getClass().getName());
+            }
+            if (!(c instanceof android.content.ContextWrapper)) return null;
+            c = ((android.content.ContextWrapper) c).getBaseContext();
+        }
+        return null;
     }
 
     public static String backdrop(Context context) {

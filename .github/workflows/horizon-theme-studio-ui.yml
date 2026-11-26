@@ -7,6 +7,7 @@ on:
       - 'app/src/main/java/com/limelight/pocket/studio/**'
       - 'app/src/main/java/com/limelight/pocket/ui/HorizonLook.java'
       - 'app/src/main/java/com/limelight/pocket/ui/HorizonThemeStudio.java'
+      - 'app/src/main/java/com/limelight/pocket/ui/HorizonWorkspaceLook.java'
       - 'app/src/main/java/com/limelight/pocket/ui/PocketTheme.java'
       - 'app/src/main/res/values/horizon_theme_studio.xml'
       - 'app/src/main/res/values/horizon_themes.xml'

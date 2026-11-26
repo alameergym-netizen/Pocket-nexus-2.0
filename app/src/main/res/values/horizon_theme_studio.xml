@@ -13,6 +13,11 @@
     <string name="horizon_studio_section_classic">Classic looks</string>
     <string name="horizon_studio_section_mine">My looks</string>
     <string name="horizon_studio_section_tools">Tools</string>
+    <!-- T08: per-workspace accents -->
+    <string name="horizon_studio_section_workspaces">Workspaces</string>
+    <string name="horizon_studio_ws_library">Library accent</string>
+    <string name="horizon_studio_ws_control">Nexus Control accent</string>
+    <string name="horizon_studio_ws_follow">Same as the look</string>
     <string name="horizon_studio_applied_badge">Applied</string>
     <string name="horizon_studio_previewing">Previewing %1$s</string>
     <string name="horizon_studio_showing_applied">Showing the applied look</string>
@@ -27,7 +32,7 @@
     <string name="horizon_studio_clear_confirm">Press again to clear custom look %1$d</string>
     <string name="horizon_studio_cleared">Custom look cleared</string>
     <string name="horizon_studio_default">Nexus default</string>
-    <string name="horizon_studio_default_sub">The look of a fresh install</string>
+    <string name="horizon_studio_default_sub">The look of a fresh install, workspaces included</string>
     <string name="horizon_studio_undo">Look before the last apply</string>
     <string name="horizon_studio_undo_sub">Preview it, then apply to undo</string>
     <string name="horizon_studio_export">Copy preview as text</string>
