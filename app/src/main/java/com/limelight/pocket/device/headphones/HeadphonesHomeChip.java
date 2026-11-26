@@ -4,6 +4,9 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -30,6 +33,23 @@ public final class HeadphonesHomeChip {
     private boolean running, inventoryPending;
     private long nextRead, generation;
     private final float density;
+    private AudioManager audioManager;
+    private boolean routeListenerRegistered;
+    private final AudioDeviceCallback routeListener=new AudioDeviceCallback() {
+        @Override public void onAudioDevicesAdded(AudioDeviceInfo[] added) { routeChanged(added); }
+        @Override public void onAudioDevicesRemoved(AudioDeviceInfo[] removed) { routeChanged(removed); }
+    };
+    private void routeChanged(AudioDeviceInfo[] devices) {
+        if(!running || devices==null) return;
+        for(AudioDeviceInfo d:devices) {
+            int t=d.getType();
+            if(t==AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || t==AudioDeviceInfo.TYPE_BLE_HEADSET || t==AudioDeviceInfo.TYPE_BLE_SPEAKER) {
+                invalidateReading();
+                // The next foreground tick verifies the new inventory. Never infer battery from a route event.
+                break;
+            }
+        }
+    }
     public HeadphonesHomeChip(ConsoleActivity activity,BooleanSupplier active) {
         this.activity=activity; this.active=active; density=activity.getResources().getDisplayMetrics().density;
         View battery=activity.findViewById(R.id.pocketBattery);
@@ -72,10 +92,19 @@ public final class HeadphonesHomeChip {
     }
     public void resume() {
         if(chip==null || running) return;
-        running=true; nextRead=0; main.post(tick);
+        running=true; nextRead=0;
+        if(Build.VERSION.SDK_INT>=31) try {
+            audioManager=(AudioManager)activity.getSystemService(Context.AUDIO_SERVICE);
+            if(audioManager!=null) { audioManager.registerAudioDeviceCallback(routeListener,main); routeListenerRegistered=true; }
+        } catch(RuntimeException ignored) { routeListenerRegistered=false; }
+        main.post(tick);
     }
     public void pause() {
-        running=false; main.removeCallbacks(tick); invalidateReading();
+        running=false; main.removeCallbacks(tick);
+        if(routeListenerRegistered && audioManager!=null) try { audioManager.unregisterAudioDeviceCallback(routeListener); }
+        catch(RuntimeException ignored) {}
+        routeListenerRegistered=false; audioManager=null;
+        invalidateReading();
     }
     private void invalidateReading() {
         generation++;
