@@ -13,7 +13,15 @@ def adb(*args, timeout=25):
     return subprocess.check_output(["adb", *args], timeout=timeout, stderr=subprocess.STDOUT)
 
 def snap():
-    adb("shell", "uiautomator", "dump", "/sdcard/control-ui.xml")
+    try:
+        result = adb("shell", "uiautomator", "dump", "/sdcard/control-ui.xml")
+    except subprocess.SubprocessError as failure:
+        with (RESULTS / "hierarchy.log").open("ab") as log:
+            log.write((str(failure) + "\n").encode())
+            log.write(getattr(failure, "output", None) or b"")
+        raise
+    with (RESULTS / "hierarchy.log").open("ab") as log:
+        log.write(result + b"\n")
     xml = adb("exec-out", "cat", "/sdcard/control-ui.xml")
     (RESULTS / "last-screen.xml").write_bytes(xml)
     return ET.fromstring(xml)
@@ -41,6 +49,12 @@ def key(code):
     adb("shell", "input", "dpad", "keyevent", "KEYCODE_" + code)
 
 def capture(label):
+    # Preserve progress even if a later emulator step hits its deadline.
+    try:
+        (RESULTS / (label + "-focus.log")).write_bytes(
+            adb("shell", "logcat", "-d", "-t", "300", "-s", "NexusSettingsFocus:D", "*:S", timeout=8))
+    except subprocess.SubprocessError:
+        pass
     (RESULTS / (label + ".png")).write_bytes(adb("exec-out", "screencap", "-p"))
     print("Captured " + label, flush=True)
 
@@ -152,6 +166,21 @@ def main(apk):
     prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8")
     assert '<int name="horizon_scene_display_cap" value="30"' in prefs, "display scene choice was not saved"
     capture("07-stream-display-scene")
+    tap_label(streaming, "Custom stream equalizer")
+    wait_for("custom EQ and explicit step controls", lambda t: has(t, "Decrease Bass · 120 Hz"))
+    key("DPAD_DOWN")
+    key("DPAD_LEFT")
+    eq = wait_for("controller reduces the first band", lambda t: has(t, "-1 dB"))
+    tap_label(eq, "Decrease Bass · 120 Hz")
+    eq = wait_for("touch reduces the same band", lambda t: has(t, "-2 dB"))
+    tap_label(eq, "Increase Bass · 120 Hz")
+    eq = wait_for("touch can also increase the band", lambda t: has(t, "-1 dB"))
+    capture("10-stream-equalizer")
+    tap_label(eq, "Use custom EQ on next stream")
+    streaming = wait_for("EQ editor returns to Streaming settings", lambda t: has(t, cap) and not has(t, "Bass · 120 Hz"))
+    prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8")
+    assert '<int name="horizon_eq_bass" value="-1"' in prefs
+    assert '<string name="horizon_stream_dsp">custom</string>' in prefs
     tap_label(streaming, "Libraries")
     library_settings = wait_for("RomM catalog entry in Library settings", lambda t: has(t, "RomM catalog"))
     tap_label(library_settings, "RomM catalog")
@@ -181,12 +210,15 @@ def main(apk):
     settings = wait_for("settings after launcher recovery", lambda t: has(t, "Settings") and has(t, "System"))
     tap_label(settings, "System")
     device = wait_for("System settings", lambda t: has(t, "Compatibility stream start"))
-    for _ in range(8):
-        if has(device, "Retroid Bridge"):
+    # Tapping System focuses its first row. D-pad focus scrolls the actual Settings
+    # container to each next row, independent of display size and touch-scroll inertia.
+    for _ in range(50):
+        if focused(device, "Retroid Bridge"):
             break
-        adb("shell", "input", "swipe", "1000", "850", "1000", "280", "300")
+        key("DPAD_DOWN")
+        time.sleep(0.2)
         device = snap()
-    assert has(device, "Retroid Bridge"), "Hardware diagnostics could not be reached"
+    assert focused(device, "Retroid Bridge"), "Hardware diagnostics could not be reached by controller"
     tap_label(device, "Retroid Bridge")
     bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
     capture("09-hardware-readings")
@@ -195,6 +227,30 @@ def main(apk):
     key("BUTTON_B")
     wait_for("return to System from hardware diagnostics", lambda t: has(t, "System") and not has(t, "Sampled at"))
     print("PASS: Retroid Bridge opens, refreshes, and returns to System", flush=True)
+    tap_label(wait_for("Bridge entry after dismissal", lambda t: has(t, "Retroid Bridge")), "Retroid Bridge")
+    bridge = wait_for("hardware observations before the preview", lambda t: has(t, "Sampled at"))
+    for _ in range(8):
+        action = next((n for n in bridge.iter("node") if n.get("text") == "CPU profile preview"), None)
+        if action is not None:
+            edges = list(map(int, re.findall(r"\d+", action.get("bounds", ""))))
+            if len(edges) == 4 and edges[2] > edges[0] and edges[3] > edges[1]:
+                break
+        # The menu is the last ScrollView, layered over the System Settings scroller.
+        scroller = next(n for n in reversed(list(bridge.iter("node")))
+                        if n.get("class") == "android.widget.ScrollView")
+        left, top, right, bottom = map(int, re.findall(r"\d+", scroller.get("bounds", "")))
+        x = str((left + right) // 2)
+        adb("shell", "input", "swipe", x, str(bottom - 20), x, str(top + 60), "350")
+        time.sleep(0.3)
+        bridge = snap()
+    tap_label(bridge, "CPU profile preview")
+    key("BUTTON_B")
+    time.sleep(1)
+    wait_for("cancelled CPU preview keeps System visible", lambda t: has(t, "System")
+             and not has(t, "CPU profile preview") and not has(t, "Reading device performance…")
+             and not any(n.get("text", "").startswith("Read-only calculation from current limits")
+                         for n in t.iter("node")))
+
 
 if __name__ == "__main__":
     try:
@@ -202,7 +258,9 @@ if __name__ == "__main__":
     finally:
         RESULTS.mkdir(exist_ok=True)
         for file, args in (("final.png", ("exec-out", "screencap", "-p")),
-                           ("crash.log", ("shell", "logcat", "-b", "crash", "-d"))):
+                           ("crash.log", ("shell", "logcat", "-b", "crash", "-d")),
+                           ("settings-focus.log", ("shell", "logcat", "-d", "-s", "NexusSettingsFocus:D", "*:S")),
+                           ("system.log", ("shell", "logcat", "-d", "-t", "800"))):
             try:
                 (RESULTS / file).write_bytes(adb(*args, timeout=8))
             except subprocess.SubprocessError:

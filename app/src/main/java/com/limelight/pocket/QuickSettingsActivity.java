@@ -31,6 +31,7 @@ import com.limelight.R;
 import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.pocket.ui.PocketUi;
+import com.limelight.pocket.ui.StreamMenuView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +74,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
 
     private final List<TextView> tabs = new ArrayList<>();
     private final List<Runnable> rowRefreshers = new ArrayList<>();
+    private View panelReturnFocus;
+    private boolean movingFocus;
     private final com.limelight.pocket.romm.RomMCatalog rommCatalog = new com.limelight.pocket.romm.RomMCatalog(this);
     private LinearLayout rowsContainer;
     private ScrollView rowsScroll;
@@ -133,13 +136,20 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 if (hasFocus) {
                     PocketUi.tick(this);
                 }
-                if (hasFocus && currentTab != index) {
+                if (hasFocus && !movingFocus && currentTab != index) {
                     selectTab(index, true);
                 }
             });
             tab.setOnClickListener(v -> {
+                // The tab is already laid out. Give it focus before removing the
+                // old rows, so Android cannot restore the first (Look) tab while
+                // the new row subtree still has no measured focus targets.
+                focusInSelectedTab(v);
                 selectTab(index, false);
-                focusFirstRow();
+                rowsContainer.post(() -> {
+                    if (currentTab == index && getCurrentFocus() == v
+                            && !isFinishing() && !isConsolePanelShowing()) focusFirstRow();
+                });
             });
             tabBar.addView(tab);
             tabs.add(tab);
@@ -188,8 +198,26 @@ public class QuickSettingsActivity extends ConsoleActivity {
     }
 
     @Override
+    public void showConsolePanel(String title, String subtitle, String stats, List<StreamMenuView.Item> items) {
+        if (!isConsolePanelShowing()) panelReturnFocus = getCurrentFocus();
+        boolean previous = movingFocus;
+        movingFocus = true;
+        try {
+            super.showConsolePanel(title, subtitle, stats, items);
+            focusConsolePanel();
+        } finally { movingFocus = previous; }
+    }
+
+    @Override
     protected void onConsolePanelClosed() {
         rommCatalog.close();
+        View previous = panelReturnFocus;
+        panelReturnFocus = null;
+        if (!isFinishing() && !tabs.isEmpty()) {
+            if (previous == null || !previous.isAttachedToWindow() || !focusInSelectedTab(previous)) {
+                focusInSelectedTab(tabs.get(currentTab));
+            }
+        }
         super.onConsolePanelClosed();
     }
 
@@ -248,6 +276,15 @@ public class QuickSettingsActivity extends ConsoleActivity {
     // ---- Tabs ---------------------------------------------------------------------------
 
     private void selectTab(int index, boolean animate) {
+        // Removing a focused row can synchronously focus the first tab. Keep the
+        // explicit selection authoritative throughout the entire row rebuild.
+        boolean previous = movingFocus;
+        movingFocus = true;
+        try { buildSelectedTab(index, animate); }
+        finally { movingFocus = previous; }
+    }
+
+    private void buildSelectedTab(int index, boolean animate) {
         int from = currentTab;
         currentTab = index;
         for (int i = 0; i < tabs.size(); i++) {
@@ -302,11 +339,20 @@ public class QuickSettingsActivity extends ConsoleActivity {
         }
     }
 
+    /** Android restores a default focus while leaving touch mode. Keep the selected tab
+     * during that transition, then allow normal tab navigation again. */
+    private boolean focusInSelectedTab(View target) {
+        boolean previous = movingFocus;
+        movingFocus = true;
+        try { return target.requestFocusFromTouch(); }
+        finally { movingFocus = previous; }
+    }
+
     private void focusFirstRow() {
         for (int i = 0; i < rowsContainer.getChildCount(); i++) {
             View child = rowsContainer.getChildAt(i);
             if (child.isFocusable()) {
-                child.requestFocus();
+                focusInSelectedTab(child);
                 return;
             }
         }
@@ -416,6 +462,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addChoice(getString(R.string.horizon_scene_display_cap), getString(R.string.horizon_scene_display_cap_sub),
                 sceneSteps, () -> com.limelight.pocket.device.HorizonDisplayScene.limitIndex(PocketPrefs.streamBrightnessCap(this)),
                 index -> prefs().edit().putInt(PocketPrefs.KEY_SCENE_DISPLAY_CAP, sceneLimits[index]).apply(), null);
+        addAction(getString(R.string.horizon_eq_title), getString(R.string.horizon_eq_sub), null,
+                () -> com.limelight.pocket.device.HorizonStreamEqPanel.show(this));
 
         addHeader(R.string.pocket_header_quality);
 
@@ -1204,6 +1252,8 @@ public class QuickSettingsActivity extends ConsoleActivity {
         addAction(getString(R.string.pocket_set_tether_support), getString(R.string.pocket_set_tether_support_sub),
                 () -> {
                     switch (UsbLink.getTetheringSupport(this)) {
+                        case UsbLink.TETHER_CHECKING:
+                            return getString(R.string.horizon_tether_checking);
                         case UsbLink.TETHER_SUPPORTED:
                             return getString(R.string.pocket_tether_supported);
                         case UsbLink.TETHER_UNSUPPORTED:
@@ -1708,9 +1758,10 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> com.limelight.pocket.device.HorizonBridge.show(this));
         addAction(getString(R.string.horizon_audio_title), getString(R.string.horizon_audio_sub), null,
                 () -> com.limelight.pocket.device.HorizonAudio.show(this));
-        String[] dspKeys = {"off","bass_restraint","dialogue","soft_treble"};
+        String[] dspKeys = {"off", "bass_restraint", "dialogue", "soft_treble",
+                com.limelight.binding.audio.HorizonStreamEqSettings.CUSTOM};
         String[] dspLabels = {getString(R.string.pocket_off),getString(R.string.horizon_dsp_bass),
-                getString(R.string.horizon_dsp_dialogue),getString(R.string.horizon_dsp_treble)};
+                getString(R.string.horizon_dsp_dialogue), getString(R.string.horizon_dsp_treble), getString(R.string.horizon_eq_custom)};
         addChoice(getString(R.string.horizon_dsp_title),getString(R.string.horizon_dsp_sub),dspLabels,
                 () -> indexOf(dspKeys,prefs().getString(com.limelight.binding.audio.HorizonStreamDsp.KEY_PROFILE,"off")),
                 index -> prefs().edit().putString(com.limelight.binding.audio.HorizonStreamDsp.KEY_PROFILE,dspKeys[index]).apply(),

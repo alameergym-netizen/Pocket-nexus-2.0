@@ -60,6 +60,11 @@ jobs:
         run: |
           & powershell.exe -STA -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-PlayniteLibraryView.ps1 -Screenshot dist/Nexus-Playnite-Library.png
           exit $LASTEXITCODE
+      - name: Read Windows audio outputs and capture the live dashboard panel
+        shell: powershell
+        run: |
+          & powershell.exe -STA -NoProfile -NonInteractive -ExecutionPolicy Bypass -File pc-setup/tests/Test-WindowsAudioOutput.ps1 -Screenshot dist/Nexus-Audio-Output.png
+          exit $LASTEXITCODE
       - name: Check the opt-in Windows save preview
         shell: powershell
         run: |
@@ -116,6 +121,7 @@ jobs:
             dist/Nexus-Save-Vault.png
             dist/Nexus-Playnite-Library.png
             dist/Nexus-Host-*.png
+            dist/Nexus-Audio-Output.png
             dist/Nexus-Save-Queue.png
           if-no-files-found: warn
           retention-days: 7
