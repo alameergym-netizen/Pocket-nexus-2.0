@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- S03: whether a Library game can start as things are on the handheld (HorizonLibraryReadiness). -->
+<resources>
+    <item name="horizon_library_needs" type="id"/>
+
+    <!-- On a card, short: its app (an emulator...) isn't installed -->
+    <string name="horizon_library_needs_app">Needs app</string>
+    <!-- On a card, short: no emulator exists for its system on Android -->
+    <string name="horizon_library_no_emulator">No emulator</string>
+    <!-- Read out and in the details: the app it is waiting for, e.g. "Needs DuckStation" -->
+    <string name="horizon_library_needs_named">Needs %1$s</string>
+    <string name="horizon_library_needs_an_app">Needs an app that isn\'t installed</string>
+    <string name="horizon_library_no_android_emulator">No Android emulator for it</string>
+    <!-- One way to play in the details, e.g. "Sony PlayStation (needs DuckStation)" -->
+    <string name="horizon_library_way_needs">%1$s (needs %2$s)</string>
+    <string name="horizon_library_way_no_emulator">%1$s (no Android emulator)</string>
+</resources>
