@@ -9,6 +9,7 @@ import android.provider.Settings;
 import android.os.Build;
 
 import com.limelight.LimeLog;
+import com.limelight.pocket.device.HorizonTetherSupport;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -215,19 +216,34 @@ public final class UsbLink {
     public static final int TETHER_UNKNOWN = 0;
     public static final int TETHER_SUPPORTED = 1;
     public static final int TETHER_UNSUPPORTED = 2;
+    public static final int TETHER_CHECKING = HorizonTetherSupport.CHECKING;
+    private static final HorizonTetherSupport TETHER_SUPPORT = new HorizonTetherSupport(task -> {
+        Thread worker = new Thread(task, "NexusTetherSupport");
+        worker.setDaemon(true);
+        worker.start();
+    }, android.os.SystemClock::elapsedRealtime);
 
     /**
      * Asks Android whether this ROM can do USB tethering at all (it has interface patterns for it).
      * Some handheld ROMs strip it out, which also hides the switch in Settings.
+     * Returns a cached readback immediately; the first read checks in the background.
      */
     public static int getTetheringSupport(Context context) {
+        if (context == null) return TETHER_UNKNOWN;
+        Context app = context.getApplicationContext();
+        if (app == null) return TETHER_UNKNOWN;
+        return TETHER_SUPPORT.current(() -> queryTetheringSupport(app));
+    }
+
+    /** The hidden API can block waiting for a system service. Never call it on a UI thread. */
+    private static int queryTetheringSupport(Context context) {
         try {
             ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
             Object result = ConnectivityManager.class.getMethod("getTetherableUsbRegexs").invoke(cm);
             if (result instanceof String[]) {
                 return ((String[]) result).length > 0 ? TETHER_SUPPORTED : TETHER_UNSUPPORTED;
             }
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
         }
         return TETHER_UNKNOWN;
     }

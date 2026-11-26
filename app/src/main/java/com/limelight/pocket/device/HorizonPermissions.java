@@ -1,13 +1,17 @@
 package com.limelight.pocket.device;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 import com.limelight.R;
 import com.limelight.pocket.PocketMic;
@@ -24,7 +28,8 @@ public final class HorizonPermissions {
         ROM_FILES(R.string.horizon_perm_files, R.string.horizon_perm_files_desc),
         NOTIFICATIONS(R.string.horizon_perm_notifications, R.string.horizon_perm_notifications_desc),
         QUIET_MODE(R.string.horizon_perm_quiet, R.string.horizon_perm_quiet_desc),
-        MICROPHONE(R.string.horizon_perm_mic, R.string.horizon_perm_mic_desc);
+        MICROPHONE(R.string.horizon_perm_mic, R.string.horizon_perm_mic_desc),
+        BLUETOOTH_DETAILS(R.string.horizon_perm_bluetooth, R.string.horizon_perm_bluetooth_desc);
 
         public final int title, description;
         Capability(int title, int description) {
@@ -58,6 +63,11 @@ public final class HorizonPermissions {
                 case MICROPHONE:
                     granted = PocketMic.hasPermission(context);
                     break;
+                case BLUETOOTH_DETAILS:
+                    String permission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                            ? Manifest.permission.BLUETOOTH_CONNECT : Manifest.permission.BLUETOOTH;
+                    granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED;
+                    break;
                 default:
                     return R.string.horizon_perm_unavailable;
             }
@@ -78,6 +88,7 @@ public final class HorizonPermissions {
                 return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                         ? new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS) : null;
             case MICROPHONE:
+            case BLUETOOTH_DETAILS:
                 return new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ownPackage);
             default: return null; // existing storage and notification helpers own their entry points
         }

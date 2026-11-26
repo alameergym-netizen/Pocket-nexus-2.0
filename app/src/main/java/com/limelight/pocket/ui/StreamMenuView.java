@@ -52,6 +52,7 @@ public class StreamMenuView extends FrameLayout {
         final boolean confirm;
         final boolean keepOpen;
         boolean armed;
+        boolean stepButtons;
 
         private Item(String title, String value, Runnable action, ValueStepper stepper,
                      boolean header, boolean submenu, boolean confirm, boolean keepOpen) {
@@ -104,6 +105,12 @@ public class StreamMenuView extends FrameLayout {
             return new Item(title, null, null, null, true, false, false, true);
         }
 
+        /** Expose both step directions as separately labelled touch targets. */
+        public Item withStepButtons() {
+            stepButtons = stepper != null;
+            return this;
+        }
+
         /** A dim note shown at the end of the row (e.g. "game keeps running"). */
         public Item withValue(String value) {
             this.value = value;
@@ -145,6 +152,7 @@ public class StreamMenuView extends FrameLayout {
     private static final class RowViews {
         TextView title;
         TextView value;
+        TextView decrease, increase;
         ImageView icon;
         /** Lit (on the white pill: dark words) or not; -1 before its first colour. */
         int lit = -1;
@@ -770,11 +778,32 @@ public class StreamMenuView extends FrameLayout {
 
         views.value = text(12.5f, TEXT_SOFT, true);
         views.value.setSingleLine(true);
-        views.value.setPadding(dp(10), 0, 0, 0);
+        if (item.stepButtons) {
+            views.decrease = stepButton(item, index, -1);
+            views.increase = stepButton(item, index, 1);
+            row.addView(views.decrease, new LinearLayout.LayoutParams(dp(44), dp(38)));
+        } else {
+            views.value.setPadding(dp(10), 0, 0, 0);
+        }
         row.addView(views.value);
+        if (views.increase != null) row.addView(views.increase, new LinearLayout.LayoutParams(dp(44), dp(38)));
         row.setTag(views);
         refreshRowValue(item, row, false);
         return row;
+    }
+
+    private TextView stepButton(Item item, int index, int direction) {
+        TextView button = text(16f, 0xFFFFFFFF, true);
+        button.setText(direction < 0 ? "−" : "+");
+        button.setGravity(Gravity.CENTER);
+        button.setContentDescription(getContext().getString(direction < 0 ? com.limelight.R.string.horizon_step_decrease
+                : com.limelight.R.string.horizon_step_increase, item.title));
+        button.setOnClickListener(v -> {
+            page().selected = index;
+            stepValue(direction);
+        });
+        button.setFocusable(false);
+        return button;
     }
 
     private View buildTile(Item item, int index) {
@@ -820,7 +849,7 @@ public class StreamMenuView extends FrameLayout {
         if (item.armed) {
             text = confirmLabel;
         }
-        else if (item.stepper != null) {
+        else if (item.stepper != null && !item.stepButtons) {
             text = "‹  " + (item.value != null ? item.value : "") + "  ›";
         }
         else if (item.submenu) {
@@ -932,7 +961,7 @@ public class StreamMenuView extends FrameLayout {
         if (v.lit == want || v.lit < 0 || !animate || !animated()) {
             v.lit = want;
             v.title.setTextColor(title);
-            v.value.setTextColor(value);
+            tintValues(v, value);
             if (v.icon != null) {
                 v.icon.setColorFilter(icon, PorterDuff.Mode.SRC_IN);
             }
@@ -950,12 +979,20 @@ public class StreamMenuView extends FrameLayout {
         v.fade.addUpdateListener(a -> {
             float f = a.getAnimatedFraction();
             v.title.setTextColor((int) argb.evaluate(f, t0, title));
-            v.value.setTextColor((int) argb.evaluate(f, v0, value));
+            tintValues(v, (int) argb.evaluate(f, v0, value));
             if (v.icon != null) {
                 v.icon.setColorFilter((int) argb.evaluate(f, i0, icon), PorterDuff.Mode.SRC_IN);
             }
         });
         v.fade.start();
+    }
+
+    private static void tintValues(RowViews views, int color) {
+        views.value.setTextColor(color);
+        if (views.decrease != null) {
+            views.decrease.setTextColor(color);
+            views.increase.setTextColor(color);
+        }
     }
 
     private static int firstSelectable(Page page) {

@@ -21,6 +21,9 @@ public final class HorizonBridge {
 
     /** The hidden platform API may be blocked. Probe only; never launch or send commands. */
     private static void probe(ConsoleActivity a) {
+        List<StreamMenuView.Item> pending = Collections.singletonList(StreamMenuView.Item.note(
+                a.getString(R.string.horizon_bridge_measuring)));
+        a.showConsolePanel(a.getString(R.string.horizon_pserver_probe), null, null, pending);
         new Thread(() -> {
             int label = R.string.horizon_pserver_restricted;
             try {
@@ -40,7 +43,7 @@ public final class HorizonBridge {
                 List<StreamMenuView.Item> rows = new ArrayList<>();
                 rows.add(StreamMenuView.Item.info("PServerBinder", a.getString(result)));
                 rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_pserver_probe_limit)));
-                a.showConsolePanel(a.getString(R.string.horizon_pserver_probe), null, null, rows);
+                a.replaceConsolePage(pending, rows);
             });
         }, "HorizonPServerProbe").start();
     }
@@ -51,6 +54,9 @@ public final class HorizonBridge {
     }
 
     private static void preview(ConsoleActivity a) {
+        List<StreamMenuView.Item> pending = Collections.singletonList(StreamMenuView.Item.note(
+                a.getString(R.string.horizon_bridge_measuring)));
+        a.showConsolePanel(a.getString(R.string.horizon_cpu_preview), null, null, pending);
         new Thread(() -> {
             List<StreamMenuView.Item> rows = new ArrayList<>();
             rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_cpu_preview_note)));
@@ -78,7 +84,7 @@ public final class HorizonBridge {
             if (count == 0) { rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_bridge_unknown))); }
             a.runOnUiThread(() -> {
                 if (!a.isFinishing() && !a.isDestroyed()) {
-                    a.showConsolePanel(a.getString(R.string.horizon_cpu_preview),null,null,rows);
+                    a.replaceConsolePage(pending, rows);
                 }
             });
         }, "HorizonCpuPreview").start();
@@ -90,6 +96,9 @@ public final class HorizonBridge {
     }
 
     private static void previewGpu(ConsoleActivity a) {
+        List<StreamMenuView.Item> pending = Collections.singletonList(StreamMenuView.Item.note(
+                a.getString(R.string.horizon_bridge_measuring)));
+        a.showConsolePanel(a.getString(R.string.horizon_gpu_preview), null, null, pending);
         new Thread(() -> {
             List<StreamMenuView.Item> rows = new ArrayList<>();
             rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_gpu_preview_note)));
@@ -106,7 +115,7 @@ public final class HorizonBridge {
             }
             a.runOnUiThread(() -> {
                 if (!a.isFinishing() && !a.isDestroyed()) {
-                    a.showConsolePanel(a.getString(R.string.horizon_gpu_preview),null,null,rows);
+                    a.replaceConsolePage(pending, rows);
                 }
             });
         }, "HorizonGpuPreview").start();
