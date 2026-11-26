@@ -79,6 +79,14 @@ def verify_host_offers():
             left, top, right, bottom = bounds(card)
             x, y = str((left + right) // 2), str((top + bottom) // 2)
             controls.adb("shell", "input", "swipe", x, y, x, y, "850")
+            controls.capture("pc-options-after-hold")
+            try:
+                caught = controls.adb("shell", "run-as", controls.PKG, "cat", "files/pocket_last_crash.txt")
+            except subprocess.CalledProcessError:
+                caught = b""
+            if caught:
+                (controls.RESULTS / "pc-options-caught.log").write_bytes(caught)
+                raise AssertionError("PC options reported a caught exception: " + caught.decode(errors="replace")[:1400])
             options = controls.wait_for("PC options", lambda t: any(
                 n.get("class") == "android.widget.ScrollView" and controls.has(n, "Connection test")
                 for n in t.iter("node")) or controls.has(t, "View Details"))
