@@ -122,6 +122,13 @@ jobs:
             upstream: false
             evidence: |-
               library-ui-results/
+          - suite: library-readiness
+            script: |-
+              python3 -u .github/tests/library_readiness_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              library-readiness-ui-results/
           - suite: media-connect
             script: |-
               python3 -u .github/tests/media_connect_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
