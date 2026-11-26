@@ -245,6 +245,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             releaseControllerNumber(context);
             context.destroy();
             inputDeviceContexts.remove(deviceId);
+            if (lastActiveContext == context) lastActiveContext = null;
         }
     }
 
@@ -269,6 +270,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         InputDeviceContext newContext = createInputDeviceContextForDevice(device);
         newContext.migrateContext(existingContext);
         inputDeviceContexts.put(deviceId, newContext);
+        if (lastActiveContext == existingContext) lastActiveContext = newContext;
     }
 
     public void stop() {
@@ -1054,15 +1056,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         return context;
     }
 
-    private byte maxByMagnitude(byte a, byte b) {
-        int absA = Math.abs(a);
-        int absB = Math.abs(b);
-        if (absA > absB) {
-            return a;
-        }
-        else {
-            return b;
-        }
+    // Trigger values are unsigned on the wire, unlike the signed stick axes.
+    private byte maxTrigger(byte a, byte b) {
+        return (a & 0xff) > (b & 0xff) ? a : b;
     }
 
     private short maxByMagnitude(short a, short b) {
@@ -1236,13 +1232,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             if (context.assignedControllerNumber &&
                     context.controllerNumber == controllerNumber &&
                     context.mouseEmulationActive == originalContext.mouseEmulationActive) {
-                inputMap |= context.inputMap;
-                leftTrigger |= maxByMagnitude(leftTrigger, context.leftTrigger);
-                rightTrigger |= maxByMagnitude(rightTrigger, context.rightTrigger);
-                leftStickX |= maxByMagnitude(leftStickX, context.leftStickX);
-                leftStickY |= maxByMagnitude(leftStickY, context.leftStickY);
-                rightStickX |= maxByMagnitude(rightStickX, context.rightStickX);
-                rightStickY |= maxByMagnitude(rightStickY, context.rightStickY);
+                inputMap |= context.inputMap | context.emulatedInputMap;
+                leftTrigger = maxTrigger(leftTrigger, context.leftTrigger);
+                rightTrigger = maxTrigger(rightTrigger, context.rightTrigger);
+                leftStickX = maxByMagnitude(leftStickX, context.leftStickX);
+                leftStickY = maxByMagnitude(leftStickY, context.leftStickY);
+                rightStickX = maxByMagnitude(rightStickX, context.rightStickX);
+                rightStickY = maxByMagnitude(rightStickY, context.rightStickY);
             }
         }
         for (int i = 0; i < usbDeviceContexts.size(); i++) {
@@ -1250,23 +1246,23 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             if (context.assignedControllerNumber &&
                     context.controllerNumber == controllerNumber &&
                     context.mouseEmulationActive == originalContext.mouseEmulationActive) {
-                inputMap |= context.inputMap;
-                leftTrigger |= maxByMagnitude(leftTrigger, context.leftTrigger);
-                rightTrigger |= maxByMagnitude(rightTrigger, context.rightTrigger);
-                leftStickX |= maxByMagnitude(leftStickX, context.leftStickX);
-                leftStickY |= maxByMagnitude(leftStickY, context.leftStickY);
-                rightStickX |= maxByMagnitude(rightStickX, context.rightStickX);
-                rightStickY |= maxByMagnitude(rightStickY, context.rightStickY);
+                inputMap |= context.inputMap | context.emulatedInputMap;
+                leftTrigger = maxTrigger(leftTrigger, context.leftTrigger);
+                rightTrigger = maxTrigger(rightTrigger, context.rightTrigger);
+                leftStickX = maxByMagnitude(leftStickX, context.leftStickX);
+                leftStickY = maxByMagnitude(leftStickY, context.leftStickY);
+                rightStickX = maxByMagnitude(rightStickX, context.rightStickX);
+                rightStickY = maxByMagnitude(rightStickY, context.rightStickY);
             }
         }
         if (defaultContext.controllerNumber == controllerNumber) {
-            inputMap |= defaultContext.inputMap;
-            leftTrigger |= maxByMagnitude(leftTrigger, defaultContext.leftTrigger);
-            rightTrigger |= maxByMagnitude(rightTrigger, defaultContext.rightTrigger);
-            leftStickX |= maxByMagnitude(leftStickX, defaultContext.leftStickX);
-            leftStickY |= maxByMagnitude(leftStickY, defaultContext.leftStickY);
-            rightStickX |= maxByMagnitude(rightStickX, defaultContext.rightStickX);
-            rightStickY |= maxByMagnitude(rightStickY, defaultContext.rightStickY);
+            inputMap |= defaultContext.inputMap | defaultContext.emulatedInputMap;
+            leftTrigger = maxTrigger(leftTrigger, defaultContext.leftTrigger);
+            rightTrigger = maxTrigger(rightTrigger, defaultContext.rightTrigger);
+            leftStickX = maxByMagnitude(leftStickX, defaultContext.leftStickX);
+            leftStickY = maxByMagnitude(leftStickY, defaultContext.leftStickY);
+            rightStickX = maxByMagnitude(rightStickX, defaultContext.rightStickX);
+            rightStickY = maxByMagnitude(rightStickY, defaultContext.rightStickY);
         }
 
         if (originalContext.mouseEmulationActive) {
@@ -2998,7 +2994,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
     }
 
     private void drainPacer(final int flag, final FlagPacer pacer) {
-        while (!pacer.pending.isEmpty()) {
+        while (!stopped && !pacer.pending.isEmpty()) {
             long now = android.os.SystemClock.uptimeMillis();
             long wait = pacer.lastEdgeMs == 0 ? 0
                     : pacer.lastEdgeMs + (pacer.applied ? POCKET_MIN_PRESS_MS : POCKET_MIN_GAP_MS) - now;
@@ -3028,26 +3024,23 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         if (last != null && inputDeviceContexts.get(last.id) == last) {
             target = last;
         }
-        if (!down) {
-            // Release it wherever it is held (the active controller may have changed while it
-            // was down), so nothing stays stuck on the PC
+        if (down) {
+            target.emulatedInputMap |= flag;
+            sendControllerInputPacket(target);
+        } else {
+            // Input focus may move during a paced press. Release only the source that asserted it.
             for (int i = 0; i < inputDeviceContexts.size(); i++) {
-                GenericControllerContext c = inputDeviceContexts.valueAt(i);
-                if (c != target && (c.inputMap & flag) != 0) {
-                    c.inputMap &= ~flag;
-                    sendControllerInputPacket(c);
-                }
+                releaseEmulatedFlag(inputDeviceContexts.valueAt(i), flag);
             }
-            if (target != defaultContext && (defaultContext.inputMap & flag) != 0) {
-                defaultContext.inputMap &= ~flag;
-                sendControllerInputPacket(defaultContext);
-            }
-            target.inputMap &= ~flag;
+            releaseEmulatedFlag(defaultContext, flag);
         }
-        else {
-            target.inputMap |= flag;
+    }
+
+    private void releaseEmulatedFlag(GenericControllerContext context, int flag) {
+        if ((context.emulatedInputMap & flag) != 0) {
+            context.emulatedInputMap &= ~flag;
+            sendControllerInputPacket(context);
         }
-        sendControllerInputPacket(target);
     }
 
     /** Artemis Pocket: tap a controller button (down, then up after the minimum press time). */
@@ -3061,18 +3054,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         if (stopped) {
             return;
         }
-        for (int i = 0; i < inputDeviceContexts.size(); i++) {
-            GenericControllerContext c = inputDeviceContexts.valueAt(i);
-            c.inputMap = 0;
-            c.leftTrigger = 0;
-            c.rightTrigger = 0;
-            c.leftStickX = c.leftStickY = 0;
-            c.rightStickX = c.rightStickY = 0;
-            if (c.assignedControllerNumber) {
-                sendControllerInputPacket(c);
-            }
-        }
-        defaultContext.inputMap = 0;
+        // Packets combine all sources on a virtual pad. Clear every source before sending any packet.
+        defaultContext.clearInput();
+        for (int i = 0; i < inputDeviceContexts.size(); i++) inputDeviceContexts.valueAt(i).clearInput();
+        for (int i = 0; i < usbDeviceContexts.size(); i++) usbDeviceContexts.valueAt(i).clearInput();
+        sendReleasedInputs(inputDeviceContexts);
+        sendReleasedInputs(usbDeviceContexts);
         sendControllerInputPacket(defaultContext);
         // Forget queued emulated presses too, so nothing gets pressed again after this
         for (int i = 0; i < pocketPacers.size(); i++) {
@@ -3082,6 +3069,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                 pacer.applied = false;
                 pacer.lastEdgeMs = android.os.SystemClock.uptimeMillis();
             }
+        }
+    }
+
+    private void sendReleasedInputs(SparseArray<? extends GenericControllerContext> devices) {
+        for (int i = 0; i < devices.size(); i++) {
+            GenericControllerContext context = devices.valueAt(i);
+            if (context.assignedControllerNumber) sendControllerInputPacket(context);
         }
     }
 
@@ -3203,6 +3197,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         public short controllerNumber;
 
         public int inputMap = 0;
+        int emulatedInputMap;
+
+        void clearInput() {
+            inputMap = emulatedInputMap = 0;
+            leftTrigger = rightTrigger = 0;
+            leftStickX = leftStickY = rightStickX = rightStickY = 0;
+        }
+
         public byte leftTrigger = 0x00;
         public byte rightTrigger = 0x00;
         public short rightStickX = 0x0000;
@@ -3547,6 +3549,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             this.assignedControllerNumber = oldContext.assignedControllerNumber;
             this.reservedControllerNumber = oldContext.reservedControllerNumber;
             this.controllerNumber = oldContext.controllerNumber;
+            this.emulatedInputMap = oldContext.emulatedInputMap;
 
             // We may have set this device to use the built-in sensor manager. If so, do that again.
             if (oldContext.sensorManager == deviceSensorManager) {
