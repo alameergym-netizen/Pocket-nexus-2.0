@@ -46,4 +46,13 @@ public class HorizonLibraryReadinessTest {
         assertNull(HorizonLibraryReadiness.missingApp(Arrays.asList(Ready.APP_MISSING), Arrays.asList("")));
         assertNull(HorizonLibraryReadiness.missingApp(Arrays.asList(Ready.APP_MISSING), null));
     }
+
+    @Test public void theAppsTheLibraryWaitsForAreCountedMostFirst() {
+        java.util.LinkedHashMap<String, Integer> w = HorizonLibraryReadiness.waiting(Arrays.asList(
+                "RetroArch", "DuckStation", null, "RetroArch", " ", "Dolphin", "RetroArch", "DuckStation"));
+        assertEquals(Arrays.asList("RetroArch", "DuckStation", "Dolphin"), new java.util.ArrayList<>(w.keySet()));
+        assertEquals(Integer.valueOf(3), w.get("RetroArch"));
+        assertEquals(Integer.valueOf(2), w.get("DuckStation"));
+        assertTrue(HorizonLibraryReadiness.waiting(null).isEmpty());
+    }
 }

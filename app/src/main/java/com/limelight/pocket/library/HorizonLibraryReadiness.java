@@ -61,4 +61,24 @@ public final class HorizonLibraryReadiness {
         }
         return one;
     }
+
+    /**
+     * U05: which apps the Library is waiting for, and how many games wait for each (most first,
+     * then by name). {@code missingApps}: each flagged game's one missing app (nulls skipped).
+     */
+    public static java.util.LinkedHashMap<String, Integer> waiting(List<String> missingApps) {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        if (missingApps != null) {
+            for (String app : missingApps) {
+                if (app == null || app.trim().isEmpty()) continue;
+                counts.merge(app.trim(), 1, Integer::sum);
+            }
+        }
+        List<java.util.Map.Entry<String, Integer>> order = new java.util.ArrayList<>(counts.entrySet());
+        order.sort((a, b) -> a.getValue().equals(b.getValue()) ? a.getKey().compareToIgnoreCase(b.getKey())
+                : b.getValue() - a.getValue());
+        java.util.LinkedHashMap<String, Integer> out = new java.util.LinkedHashMap<>();
+        for (java.util.Map.Entry<String, Integer> e : order) out.put(e.getKey(), e.getValue());
+        return out;
+    }
 }
