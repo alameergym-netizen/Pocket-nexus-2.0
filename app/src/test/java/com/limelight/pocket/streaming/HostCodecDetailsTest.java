@@ -1,4 +1,8 @@
-package com.limelight.nvstream.http;
+package com.limelight.pocket.streaming;
+
+import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.nvstream.http.PairingManager;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,31 +27,39 @@ public class HostCodecDetailsTest {
         return http.getComputerDetails(report);
     }
 
+    private String codecLine(ComputerDetails details) {
+        String prefix = "Host-advertised video codecs: ";
+        for (String line : details.toString().split("\n")) {
+            if (line.startsWith(prefix)) return line.substring(prefix.length());
+        }
+        throw new AssertionError("Missing advertised codec line in PC Details");
+    }
+
     @Test public void detailsIdentifyMixedAndForcedHostOffersWithoutClaimingALocalDecoder() throws Exception {
         ComputerDetails mixed = parse(Long.toString(0x07800000L | 0x00010000 | 0x00000100 | 1));
         assertTrue(mixed.toString().contains("Host-advertised video codecs: H.264, HEVC, AV1, PyroWave (no Nexus decoder)"));
-        assertEquals("PyroWave (no Nexus decoder)", parse(Long.toString(0x07800000)).advertisedCodecs());
-        assertEquals("H.264, HEVC, AV1", parse(Long.toString(0x00040000 | 0x00100000 | 0x00400000)).advertisedCodecs());
+        assertEquals("PyroWave (no Nexus decoder)", codecLine(parse(Long.toString(0x07800000))));
+        assertEquals("H.264, HEVC, AV1", codecLine(parse(Long.toString(0x00040000 | 0x00100000 | 0x00400000))));
     }
 
     @Test public void incompleteOrUnknownReportsPreserveReachabilityAndPairing() throws Exception {
         for (String mask : new String[]{null, "0", "-1", "garbled", "4294967296"}) {
             ComputerDetails details = parse(mask);
-            assertEquals("None reported", details.advertisedCodecs());
+            assertEquals("None reported", codecLine(details));
             assertEquals(ComputerDetails.State.ONLINE, details.state);
             assertEquals(PairingManager.PairState.PAIRED, details.pairState);
         }
-        assertEquals("H.264, Other flags 0x80000000", parse("2147483649").advertisedCodecs());
+        assertEquals("H.264, Other flags 0x80000000", codecLine(parse("2147483649")));
     }
 
     @Test public void offlineAndNewPollsCannotPresentAnOldOfferAsCurrent() throws Exception {
         ComputerDetails copy = new ComputerDetails(parse("8388608"));
-        assertTrue(copy.advertisedCodecs().contains("PyroWave"));
+        assertTrue(codecLine(copy).contains("PyroWave"));
         copy.state = ComputerDetails.State.OFFLINE;
-        assertFalse(copy.advertisedCodecs().contains("PyroWave"));
+        assertFalse(codecLine(copy).contains("PyroWave"));
         copy.update(parse("1"));
-        assertEquals("H.264", copy.advertisedCodecs());
+        assertEquals("H.264", codecLine(copy));
         copy.update(parse(null));
-        assertEquals("None reported", copy.advertisedCodecs());
+        assertEquals("None reported", codecLine(copy));
     }
 }
