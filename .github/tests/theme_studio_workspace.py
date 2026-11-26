@@ -296,6 +296,30 @@ def main(apk):
     assert WHITE_ACCENT in prefs(), "pasting applied a look without Apply"
     print("PASS: copy and paste preview a look without applying it", flush=True)
 
+    # T09: the Look tab's Typeface: the next option switches to the device's font, is kept, and
+    # Settings rebuilds with it; two more steps come back to Inter
+    nxt = "Next option for Typeface"
+    for _ in range(12):
+        tree = snap()
+        if has(tree, nxt):
+            break
+        adb("shell", "input", "swipe", "540", "900", "540", "420", "250")
+        time.sleep(0.6)
+    tap_label(wait_for("the Typeface choice", lambda t: has(t, nxt), timeout=10), nxt)
+    wait_prefs("the device font chosen", lambda p: 'name="pocket_typeface">system<' in p)
+    wait_for("Settings shows the device font", lambda t: has(t, "Device font"), timeout=15)
+    capture("12b-typeface-device-font")
+    for expected in ("condensed", "inter"):
+        for _ in range(12):
+            tree = snap()
+            if has(tree, nxt):
+                break
+            adb("shell", "input", "swipe", "540", "900", "540", "420", "250")
+            time.sleep(0.6)
+        tap_label(wait_for("the Typeface choice again", lambda t: has(t, nxt), timeout=10), nxt)
+        wait_prefs("typeface " + expected, lambda p, e=expected: 'name="pocket_typeface">' + e + '<' in p)
+    print("PASS: the Look tab switches the typeface, keeps it and returns to Inter", flush=True)
+
     # Compact handheld with larger text: list, preview and both actions stay reachable
     setup_device(480, "1.3")
     open_studio()

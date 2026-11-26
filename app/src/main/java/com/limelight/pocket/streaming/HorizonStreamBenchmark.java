@@ -1,11 +1,16 @@
 package com.limelight.pocket.streaming;
 
+import java.util.Arrays;
+
 /** On-demand client timing capture with fixed storage and a single owning decoder. */
 public final class HorizonStreamBenchmark {
     private final Histogram decode = new Histogram();
     private final Histogram output = new Histogram();
     private static final int MAX_SEQUENCE_ADVANCE = 16_384;
     private static final int MAX_REORDERED_FRAMES = 240;
+    // A power-of-two ring keeps adjacent frame numbers adjacent across the 32-bit wrap.
+    private static final int GAP_SLOTS = Integer.highestOneBit(MAX_REORDERED_FRAMES) << 1;
+    private final boolean[] recentGaps = new boolean[GAP_SLOTS];
     private final double longOutputGapNs;
     private long firstOutputNs, lastOutputNs;
     private int longOutputGaps;
@@ -38,10 +43,27 @@ public final class HorizonStreamBenchmark {
         if (receivedFrames != 0) {
             // Java int subtraction preserves adjacent values across the 32-bit sequence wrap.
             int advance = frameNumber - lastFrameNumber;
-            if (advance <= 0 && advance >= -MAX_REORDERED_FRAMES) return;
-            if (advance < 0 || advance > MAX_SEQUENCE_ADVANCE) sequenceBreaks++;
-            else missingFrames += advance - 1;
+            if (advance <= 0 && advance >= -MAX_REORDERED_FRAMES) {
+                int slot = frameNumber & (GAP_SLOTS - 1);
+                if (recentGaps[slot]) {
+                    recentGaps[slot] = false;
+                    missingFrames--;
+                    receivedFrames++;
+                }
+                return;
+            }
+            if (advance < 0 || advance > MAX_SEQUENCE_ADVANCE) {
+                sequenceBreaks++;
+                Arrays.fill(recentGaps, false);
+            } else {
+                missingFrames += advance - 1;
+                int tracked = Math.min(advance - 1, MAX_REORDERED_FRAMES);
+                for (int offset = 1; offset <= tracked; offset++) {
+                    recentGaps[(frameNumber - offset) & (GAP_SLOTS - 1)] = true;
+                }
+            }
         }
+        recentGaps[frameNumber & (GAP_SLOTS - 1)] = false;
         receivedFrames++;
         lastFrameNumber = frameNumber;
     }

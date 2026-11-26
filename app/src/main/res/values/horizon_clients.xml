@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <item name="horizon_clients_needed" type="id"/>
+    <!-- U05: the apps the Library's games wait for, e.g. "Your Library is waiting for RetroArch (3 games)" -->
+    <string name="horizon_clients_needed">Your Library is waiting for %1$s</string>
+    <string name="horizon_clients_needed_item">%1$s (%2$d)</string>
+    <plurals name="horizon_clients_state_missing_needed">
+        <item quantity="one">Not installed · %d Library game waits for it</item>
+        <item quantity="other">Not installed · %d Library games wait for it</item>
+    </plurals>
     <item name="horizon_clients_capabilities" type="id"/>
     <item name="horizon_clients_fallback" type="id"/>
     <string name="horizon_clients_title">Clients and sources</string>

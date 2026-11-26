@@ -20,13 +20,55 @@ public final class PocketFonts {
     private static Typeface semibold;
     private static Typeface bold;
     private static Typeface display;
+    /** Bumped whenever the typeface changes, so open screens can rebuild with it. */
+    private static int generation;
+
+    /** T09: the interface typeface (Look tab): Inter, the device's own font, or its condensed cut. */
+    public static final String KEY = "pocket_typeface";
+    public static final String INTER = "inter";
+    public static final String SYSTEM = "system";
+    public static final String CONDENSED = "condensed";
+    public static final String[] TYPEFACES = {INTER, SYSTEM, CONDENSED};
+
+    /** The chosen typeface (Inter when unset or unknown). */
+    public static String chosen(Context context) {
+        String v = com.limelight.pocket.PocketPrefs.prefs(context).getString(KEY, INTER);
+        for (String t : TYPEFACES) if (t.equals(v)) return t;
+        return INTER;
+    }
+
+    /** Switches to a typeface: saved, loaded, and every screen opened from now uses it. */
+    public static synchronized void choose(Context context, String typeface) {
+        com.limelight.pocket.PocketPrefs.prefs(context).edit().putString(KEY, typeface).apply();
+        regular = null;
+        init(context, typeface);
+        generation++;
+    }
+
+    public static synchronized int generation() {
+        return generation;
+    }
 
     /** Loads them once (the application calls this; anything else just gets the fallbacks). */
     public static synchronized void init(Context context) {
         if (regular != null) {
             return;
         }
+        init(context, chosen(context));
+    }
+
+    private static void init(Context context, String typeface) {
         Context c = context.getApplicationContext() != null ? context.getApplicationContext() : context;
+        if (!INTER.equals(typeface)) {
+            // The device's own font (it covers every script the device does), or its condensed cut
+            String family = CONDENSED.equals(typeface) ? "sans-serif-condensed" : "sans-serif";
+            regular = Typeface.create(family, Typeface.NORMAL);
+            medium = CONDENSED.equals(typeface) ? regular : Typeface.create("sans-serif-medium", Typeface.NORMAL);
+            semibold = Typeface.create(CONDENSED.equals(typeface) ? family : "sans-serif-medium", Typeface.BOLD);
+            bold = Typeface.create(family, Typeface.BOLD);
+            display = bold;
+            return;
+        }
         regular = load(c, R.font.inter_regular, Typeface.create("sans-serif", Typeface.NORMAL));
         medium = load(c, R.font.inter_medium, Typeface.create("sans-serif-medium", Typeface.NORMAL));
         semibold = load(c, R.font.inter_semibold, Typeface.create("sans-serif-medium", Typeface.BOLD));

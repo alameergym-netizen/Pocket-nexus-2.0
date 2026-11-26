@@ -190,12 +190,50 @@ public class LibraryActivity extends ConsoleActivity {
     protected void onResume() {
         super.onResume();
         if (streamDeck != null) refreshStreamDeck.run();
+        main.removeCallbacks(recheckRunning);
+        main.post(recheckRunning);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         main.removeCallbacks(refreshStreamDeck);
+        main.removeCallbacks(recheckRunning);
+    }
+
+    /** S03: the games a PC reported running, as last bound (keys), to rebind only what changed. */
+    private final java.util.Set<String> runningKeys = new java.util.HashSet<>();
+
+    /** S03: a "Running" badge appears with a fresh report and goes when the report is stale. */
+    private final Runnable recheckRunning = new Runnable() {
+        @Override
+        public void run() {
+            if (isFinishing() || isDestroyed()) return;
+            for (int i = 0; i < shown.size(); i++) {
+                UniversalLibrary.Game g = shown.get(i);
+                if (runningKeys.contains(g.key) != (runningOn(g) != null)) {
+                    cards.notifyItemChanged(i);
+                }
+            }
+            main.postDelayed(this, 5_000);
+        }
+    };
+
+    /** S03: the PC observed running this game right now, or null (never guessed from history). */
+    private static String runningOn(UniversalLibrary.Game g) {
+        List<String> pcs = new ArrayList<>();
+        List<Integer> apps = new ArrayList<>();
+        for (UniversalLibrary.Way w : g.ways) {
+            if (HomeItem.PC.equals(w.item.kind)) {
+                pcs.add(w.item.a);
+                apps.add(w.item.n);
+            }
+        }
+        if (pcs.isEmpty()) return null;
+        int[] ids = new int[apps.size()];
+        for (int i = 0; i < ids.length; i++) ids[i] = apps.get(i);
+        return HorizonLibraryActive.runningOn(pcs.toArray(new String[0]), ids,
+                com.limelight.pocket.ui.HorizonStreamCards::observed, android.os.SystemClock.elapsedRealtime());
     }
 
     /** The saved PCs with what Home last saw of them (the Library doesn't poll), and the network. */
@@ -1102,11 +1140,14 @@ public class LibraryActivity extends ConsoleActivity {
             final View dot;
             /** S03: the game can't start as things are (its app isn't installed...). */
             final TextView needs;
+            /** S03: a PC reported this game running (fresh). */
+            final TextView live;
             String key;
 
             Holder(FrameLayout frame, FrameLayout card, ImageView cover, TextView name, TextView badge, View dot,
-                   TextView needs) {
+                   TextView needs, TextView live) {
                 super(frame);
+                this.live = live;
                 this.card = card;
                 this.cover = cover;
                 this.name = name;
@@ -1191,8 +1232,24 @@ public class LibraryActivity extends ConsoleActivity {
             if (titanium) nlp.setMarginStart(dp(57));
             needs.setVisibility(View.GONE);
             card.addView(needs, nlp);
+            // S03: same place as the needs chip (a running game streams, so it never needs an app)
+            TextView live = text(8.5f, titanium ? Typeface.MONOSPACE : PocketFonts.bold(), 0xFF04150B);
+            live.setId(R.id.horizon_library_running);
+            live.setText(R.string.horizon_library_running_chip);
+            live.setLetterSpacing(0.04f);
+            live.setPadding(dp(6), dp(2), dp(6), dp(2));
+            live.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            GradientDrawable lb = new GradientDrawable();
+            lb.setCornerRadius(legacy ? 0 : dp(6));
+            lb.setColor(0xF24ADE80);
+            live.setBackground(lb);
+            FrameLayout.LayoutParams llp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+            llp.setMargins(dp(6), dp(6), dp(20), 0);
+            if (titanium) llp.setMarginStart(dp(57));
+            live.setVisibility(View.GONE);
+            card.addView(live, llp);
             frame.addView(card, new FrameLayout.LayoutParams(-1, -2));
-            final Holder h = new Holder(frame, card, cover, name, badge, dot, needs);
+            final Holder h = new Holder(frame, card, cover, name, badge, dot, needs, live);
             FocusGlow.apply(card, radius, false, pureOled || titanium || legacy ? 1f : 1.08f, (v, has) -> {
                 if (has) {
                     int p = h.getBindingAdapterPosition();
@@ -1249,7 +1306,11 @@ public class LibraryActivity extends ConsoleActivity {
             if (g.favorite) b.insert(0, "♥ ");
             h.badge.setText(b);
             HorizonLibraryReadiness.Ready ready = g.ready();
-            boolean flagged = HorizonLibraryReadiness.flagged(ready);
+            String runningPc = runningOn(g);
+            if (runningPc != null) runningKeys.add(g.key);
+            else runningKeys.remove(g.key);
+            h.live.setVisibility(runningPc != null ? View.VISIBLE : View.GONE);
+            boolean flagged = runningPc == null && HorizonLibraryReadiness.flagged(ready);
             // The card keeps its title as its name; a screen reader hears what it waits for as
             // its state (Android 11+), and everyone sees the chip
             if (flagged) {
@@ -1261,7 +1322,8 @@ public class LibraryActivity extends ConsoleActivity {
                 h.needs.setVisibility(View.GONE);
             }
             if (Build.VERSION.SDK_INT >= 30) {
-                String state = flagged ? readinessText(g) : null;
+                String state = runningPc != null ? getString(R.string.horizon_library_running_on, runningPc)
+                        : flagged ? readinessText(g) : null;
                 if (g.favorite) {
                     String fav = getString(R.string.horizon_library_favorite);
                     state = state == null ? fav : fav + ", " + state;

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- T09: the interface typeface (Look tab). -->
+<resources>
+    <string name="horizon_typeface">Typeface</string>
+    <string name="horizon_typeface_sub">Inter, or your device\'s own font (it covers more languages)</string>
+    <string name="horizon_typeface_inter">Inter</string>
+    <string name="horizon_typeface_system">Device font</string>
+    <string name="horizon_typeface_condensed">Condensed</string>
+</resources>

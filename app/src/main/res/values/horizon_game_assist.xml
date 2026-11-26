@@ -20,7 +20,7 @@
     <string name="horizon_assist_messages_pc">Open your messaging app on the PC. This stream provider does not share message access.</string>
     <string name="horizon_assist_connect_first">Connect to the PC stream to use this action.</string>
     <string name="horizon_stream_benchmark">Stream benchmark</string>
-    <string name="horizon_benchmark_note">Play for up to 60 seconds after starting. Results cover MediaCodec input-to-output timing and gaps between client output submissions. Display and controller latency require separate measurements.</string>
+    <string name="horizon_benchmark_note">Capture up to 60 seconds of decoder timing and output submission gaps. Late arrivals within 240 frames count as received. Display and controller latency require separate measurements.</string>
     <string name="horizon_benchmark_start">Start 60-second benchmark</string>
     <string name="horizon_benchmark_stop">Stop and show measured results</string>
     <string name="horizon_benchmark_share">Share benchmark report</string>
