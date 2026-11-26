@@ -54,6 +54,9 @@ public class ClientsActivity extends ConsoleActivity {
     /** U05: apps the Library's games wait for (name → games), from its readiness check. */
     private final Map<String, Integer> waiting = new java.util.LinkedHashMap<>();
     private TextView needed;
+    /** On a compact screen the waiting line takes the intro's place, so the list keeps its rows. */
+    private TextView intro;
+    private boolean compact;
     /** Where the focus goes once the window has it (after any touch-mode change on arrival). */
     private View initialFocus;
     private boolean scanned;
@@ -211,7 +214,8 @@ public class ClientsActivity extends ConsoleActivity {
         TextView title = text(getString(R.string.horizon_clients_title), 19, 0xFFFFFFFF, true);
         ViewCompat.setAccessibilityHeading(title, true);
         column.addView(title);
-        TextView intro = text(getString(R.string.horizon_clients_intro), 11, 0xA3FFFFFF, false);
+        compact = heightDp < 420;
+        intro = text(getString(R.string.horizon_clients_intro), 11, 0xA3FFFFFF, false);
         intro.setPadding(0, dp(2), 0, dp(heightDp < 420 ? 6 : 10));
         intro.setMaxLines(heightDp < 420 ? 1 : 3);
         intro.setEllipsize(TextUtils.TruncateAt.END);
@@ -219,7 +223,7 @@ public class ClientsActivity extends ConsoleActivity {
         needed = text("", 11, 0xFFF5B841, true);
         needed.setId(R.id.horizon_clients_needed);
         needed.setPadding(0, 0, 0, dp(6));
-        needed.setMaxLines(2);
+        needed.setMaxLines(compact ? 1 : 2);
         needed.setEllipsize(TextUtils.TruncateAt.END);
         needed.setVisibility(View.GONE);
         column.addView(needed);
@@ -440,8 +444,10 @@ public class ClientsActivity extends ConsoleActivity {
         if (needed == null) return;
         if (waiting.isEmpty()) {
             needed.setVisibility(View.GONE);
+            if (intro != null) intro.setVisibility(View.VISIBLE);
             return;
         }
+        if (compact && intro != null) intro.setVisibility(View.GONE);
         java.util.List<String> parts = new java.util.ArrayList<>();
         for (Map.Entry<String, Integer> e : waiting.entrySet()) {
             parts.add(getString(R.string.horizon_clients_needed_item, e.getKey(), e.getValue()));
