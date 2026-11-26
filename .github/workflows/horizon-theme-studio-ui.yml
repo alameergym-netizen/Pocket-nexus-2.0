@@ -10,6 +10,8 @@ on:
       - 'app/src/main/java/com/limelight/pocket/ui/PocketTheme.java'
       - 'app/src/main/res/values/horizon_theme_studio.xml'
       - 'app/src/main/res/values/horizon_themes.xml'
+      - 'app/src/main/java/com/limelight/pocket/ui/PocketFonts.java'
+      - 'app/src/main/res/values/horizon_typeface.xml'
       - '.github/tests/theme_studio_workspace.py'
       - '.github/workflows/horizon-theme-studio-ui.yml'
 permissions:

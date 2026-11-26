@@ -1,11 +1,13 @@
 # List game snapshots or verify the exact selected copy from a local Nexus vault.
+[CmdletBinding(DefaultParameterSetName = 'ByGame')]
 param(
     [Parameter(Mandatory = $true)][string]$VaultDirectory,
-    [Parameter(Mandatory = $true)][string]$Game,
-    [string]$VerifySnapshot,
-    [string]$Ludusavi,
-    [string]$ConfigDirectory,
-    [string]$RecoveryDirectory
+    [Parameter(Mandatory = $true, ParameterSetName = 'ByGame')][string]$Game,
+    [Parameter(ParameterSetName = 'ByGame')][string]$VerifySnapshot,
+    [Parameter(ParameterSetName = 'ByGame')][string]$Ludusavi,
+    [Parameter(ParameterSetName = 'ByGame')][string]$ConfigDirectory,
+    [Parameter(ParameterSetName = 'ByGame')][string]$RecoveryDirectory,
+    [Parameter(Mandatory = $true, ParameterSetName = 'AllGames')][switch]$AllGames
 )
 $ErrorActionPreference = 'Stop'
 $snapshotPattern = '^NexusSave-([0-9]{8}T[0-9]{6}Z)-[0-9a-f]{12}$'
@@ -120,7 +122,10 @@ function Read-NexusSnapshot($Directory, [bool]$Verify) {
     $receipt = Get-OrdinaryItem (Join-Path $Directory.FullName 'NEXUS-SAVE-SHA256.json') $false
     if ($receipt.Length -gt 64KB) { throw 'The save receipt is too large.' }
     $metadata = Get-Content -LiteralPath $receipt.FullName -Raw | ConvertFrom-Json
-    if ($metadata.format -ne 1 -or $metadata.game -cne $Game -or $metadata.files -isnot [pscustomobject]) {
+    if ($metadata.format -ne 1 -or $metadata.game -isnot [string] -or
+            [string]::IsNullOrWhiteSpace($metadata.game) -or $metadata.game.Length -gt 256 -or
+            $metadata.game -match '[\p{Cc}]' -or (-not $AllGames -and $metadata.game -cne $Game) -or
+            $metadata.files -isnot [pscustomobject]) {
         throw 'The selected snapshot does not have a matching Save Vault receipt.'
     }
     $digests = @($metadata.files.PSObject.Properties)
@@ -161,7 +166,7 @@ function Read-NexusSnapshot($Directory, [bool]$Verify) {
     }
     return [pscustomobject]@{
         Snapshot = $Directory.Name
-        Game = $Game
+        Game = $metadata.game
         CreatedUtc = $timestamp
         Verified = $Verify
         Checksums = @($digests | ForEach-Object { $_.Name.Split('/')[1] + '  ' + $_.Value })

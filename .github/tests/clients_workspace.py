@@ -146,8 +146,14 @@ def main(apk, upstream_apk):
     seed_dir = "/sdcard/Android/data/" + PKG + "/files/preview"
     adb("shell", "mkdir", "-p", seed_dir)
     seed = RESULTS / "seed.txt"
+    # U05: one ROM in the app's own storage whose emulator (RetroArch) isn't installed
+    roms = "/sdcard/Android/data/" + PKG + "/files/roms"
+    adb("shell", "mkdir", "-p", roms + "/psx")
+    adb("shell", "touch", roms + "/psx/AuroraRun.cue")
     seed.write_text("pref\tbool\tpocket_onboarding_pending\tfalse\n"
-                    "pref\tbool\tpocket_first_run_done_v1\ttrue\n", encoding="utf-8")
+                    "pref\tbool\tpocket_first_run_done_v1\ttrue\n"
+                    "pref\tstring\tpocket_retro_root\t" + roms + "\n"
+                    "pin\tretro\tAurora Run\tpsx\tAuroraRun.cue\t" + roms + "\t0\n", encoding="utf-8")
     adb("push", str(seed), seed_dir + "/seed.txt")
     launch()
     deadline = time.monotonic() + 45
@@ -170,6 +176,8 @@ def main(apk, upstream_apk):
                         " · Quick Resume"))
     wait_for("installed apps are checked, and a missing official app is not offered",
              lambda t: contains(t, "Xbox app, Not installed"))
+    wait_for("the Library's waiting apps are named beside the title",
+             lambda t: has(t, "Your Library is waiting for RetroArch (1)"))
     capture("01-wide-pc-streaming")
 
     move_focus_to("Starwire", "DPAD_DOWN")
@@ -198,6 +206,12 @@ def main(apk, upstream_apk):
     wait_for("official remote play stays with the provider", lambda t: has(t, "Official site")
              and has(t, "The service manages sign-in, queues and play. Pocket Nexus only knows that it opened the service."))
     capture("05-official-web")
+    move_focus_to("RetroArch", "DPAD_DOWN")
+    wait_for("a missing client says how many Library games wait for it",
+             lambda t: contains(t, "RetroArch, Not installed · 1 Library game waits for it")
+             and has(t, "Open official page"))
+    capture("05b-waited-for-client")
+    print("PASS: the setup view names the app a Library game waits for", flush=True)
     key("BUTTON_B")
     wait_for("B returns to the same Settings row", lambda t: not clients(t) and focused(t, TITLE))
     print("PASS: modes, sessions and missing apps are labelled honestly", flush=True)

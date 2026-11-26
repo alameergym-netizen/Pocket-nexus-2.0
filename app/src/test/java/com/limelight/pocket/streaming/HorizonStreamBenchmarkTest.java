@@ -53,12 +53,40 @@ public class HorizonStreamBenchmarkTest {
 
     @Test public void countsOnlyGapsBetweenUniqueFramesAndSurvivesSequenceWrap() {
         HorizonStreamBenchmark benchmark = new HorizonStreamBenchmark(60);
-        for (int number : new int[]{-2, -1, -1, 0, 3, 2, 4}) benchmark.recordIncomingFrame(number);
+        for (int number : new int[]{-2, -1, -1, 0, 3, 2, 2, 4}) benchmark.recordIncomingFrame(number);
         HorizonStreamBenchmark.Result result = benchmark.finish();
-        assertEquals(5, result.receivedFrames);
-        assertEquals(2, result.missingFrames);
+        assertEquals(6, result.receivedFrames);
+        assertEquals(1, result.missingFrames);
         assertEquals(0, result.sequenceBreaks);
-        assertEquals(200 / 7.0, result.observedLossPercent(), 0.0001);
+        assertEquals(100 / 7.0, result.observedLossPercent(), 0.0001);
+    }
+
+    @Test public void resolvesAHoleAcrossSignedWrapWithoutCountingDuplicatesOrPreCaptureFrames() {
+        HorizonStreamBenchmark benchmark = new HorizonStreamBenchmark(120);
+        for (int frame : new int[]{Integer.MAX_VALUE - 1, Integer.MIN_VALUE + 1, Integer.MIN_VALUE,
+                Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE - 2}) {
+            benchmark.recordIncomingFrame(frame);
+        }
+        HorizonStreamBenchmark.Result result = benchmark.finish();
+        assertEquals(4, result.receivedFrames);
+        assertEquals(0, result.missingFrames);
+        assertEquals(0, result.sequenceBreaks);
+        assertEquals(0, result.observedLossPercent(), 0.0001);
+    }
+
+    @Test public void fillsOldestTrackedGapAndDiscardsItsHistoryOnDiscontinuity() {
+        HorizonStreamBenchmark benchmark = new HorizonStreamBenchmark(60);
+        benchmark.recordIncomingFrame(9);
+        benchmark.recordIncomingFrame(250);
+        benchmark.recordIncomingFrame(10);
+        benchmark.recordIncomingFrame(10);
+        int reset = 250 + (1 << 20);
+        benchmark.recordIncomingFrame(reset);
+        benchmark.recordIncomingFrame(reset - 2);
+        HorizonStreamBenchmark.Result result = benchmark.finish();
+        assertEquals(4, result.receivedFrames);
+        assertEquals(239, result.missingFrames);
+        assertEquals(1, result.sequenceBreaks);
     }
 
     @Test public void abruptSequenceJumpsDoNotBecomeMillionsOfDroppedFrames() {
