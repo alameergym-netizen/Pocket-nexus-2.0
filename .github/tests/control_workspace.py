@@ -163,6 +163,29 @@ def main(apk):
     key("BUTTON_B")
     wait_for("B returns to Control without closing it", lambda t: control(t) and not has(t, "ANC levels"))
     print("PASS: native Headphones page, collapsed levels, and B ownership", flush=True)
+
+    # The same page with the controller: focus opens on a mode, the D-pad walks the row, then down
+    tap_label(snap(), "Headphones Center")
+    wait_for("focus opens on the first mode", lambda t: focused(t, "Awareness"))
+    key("DPAD_RIGHT")
+    wait_for("Off focus", lambda t: focused(t, "Off"))
+    key("DPAD_RIGHT")
+    wait_for("ANC focus", lambda t: focused(t, "ANC"))
+    key("DPAD_DOWN")
+    wait_for("ANC levels focus", lambda t: focused(t, "ANC levels"))
+    key("BUTTON_A")
+    buds = wait_for("A opens the levels with focus on one", lambda t: has(t, "Deep") and focused(t, "Adaptive"))
+    honest = ("Allow Nearby devices to read your earbuds", "Turn on Bluetooth to find your earbuds",
+              "Pair your earbuds in Bluetooth first", "Looking through paired devices…",
+              "No answer · take the earbuds out of the case", "Choose your earbuds from the paired devices")
+    assert any(has(buds, s) for s in honest), "the emulator has no earbuds: an honest state is shown"
+    marked = [m for m in ("Awareness", "Off", "ANC", "Adaptive", "Light", "Balanced", "Deep")
+              if any(n.get("selected") == "true" and has(n, m) for n in buds.iter("node"))]
+    assert not marked, "marked active without any readback: %s" % marked
+    capture("13-headphones-controller")
+    key("BUTTON_B")
+    wait_for("B leaves the page and keeps Control", lambda t: control(t) and not has(t, "ANC levels"))
+    print("PASS: Headphones page by controller: focus order, levels, honest state, nothing marked active", flush=True)
     key("BUTTON_B")
     wait_for("B closes Control", lambda t: not control(t))
     print("PASS: wide workspace actions, controller slider entry and exit, B closure", flush=True)

@@ -35,7 +35,8 @@
     <string name="horizon_hp_anc_earbud">Level set on earbuds</string>
     <string name="horizon_hp_levels">ANC levels · %1$s</string>
     <string name="horizon_hp_levels_open">ANC levels · %1$s  ▴</string>
-    <string name="horizon_hp_levels_cd">ANC levels, current %1$s</string>
+    <string name="horizon_hp_levels_name">ANC levels</string>
+    <string name="horizon_hp_levels_state">%1$s, %2$s</string>
     <string name="horizon_hp_expanded">expanded</string>
     <string name="horizon_hp_collapsed">collapsed</string>
     <string name="horizon_hp_level_adaptive">Adaptive</string>
@@ -51,12 +52,14 @@
 
     <string name="horizon_hp_allow">Allow Nearby devices</string>
     <string name="horizon_hp_refresh">Refresh</string>
+    <string name="horizon_hp_cancel">Cancel</string>
     <string name="horizon_hp_choose">Device</string>
     <string name="horizon_hp_bluetooth">Bluetooth</string>
 
     <string name="horizon_hp_phase_detecting">Looking through paired devices…</string>
     <string name="horizon_hp_phase_unsupported">Needs Android 12 or newer to read earbuds</string>
     <string name="horizon_hp_phase_permission">Allow Nearby devices to read your earbuds</string>
+    <string name="horizon_hp_phase_bluetooth_off">Turn on Bluetooth to find your earbuds</string>
     <string name="horizon_hp_phase_not_paired">Pair your earbuds in Bluetooth first</string>
     <string name="horizon_hp_phase_choose">Choose your earbuds from the paired devices</string>
     <string name="horizon_hp_phase_reading">Reading the earbuds…</string>
@@ -70,4 +73,16 @@
     <string name="horizon_hp_fresh_now">Updated just now · refreshes on its own</string>
     <string name="horizon_hp_fresh_ago">Updated %1$s ago · refreshes on its own</string>
     <string name="horizon_hp_fresh_paused">Refreshing resumes when you return</string>
+
+    <!-- Home's battery chip -->
+    <string name="horizon_hp_home_chip">Buds %1$d%%</string>
+    <string name="horizon_hp_home_cd">FreeBuds 7i: %1$s</string>
+    <string name="horizon_hp_home_levels">left %1$s, right %2$s, case %3$s</string>
+    <string name="horizon_hp_home_open">Open Headphones Center</string>
+
+    <!-- Choosing among paired devices -->
+    <string name="horizon_hp_choose_title">Paired devices</string>
+    <string name="horizon_hp_device_audio">Audio connected</string>
+    <string name="horizon_hp_device_paired">Paired</string>
+    <string name="horizon_hp_device_search">Search again</string>
 </resources>

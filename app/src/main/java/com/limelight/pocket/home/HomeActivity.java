@@ -290,6 +290,10 @@ public class HomeActivity extends ConsoleActivity {
         if (android.os.Build.VERSION.SDK_INT >= 31) {
             headphonesChip=new com.limelight.pocket.device.headphones.HeadphonesHomeChip(this,
                     () -> resumed && !isBooting() && (ambient==null || !ambient.showing()));
+            // Down from the chip, or the chip going away while focused, returns to the hero
+            headphonesChip.setExit(() -> {
+                if (play != null && play.isShown()) play.requestFocus();
+            });
         }
         row = findViewById(R.id.homeRow);
         source = findViewById(R.id.homeSource);
@@ -2154,7 +2158,10 @@ public class HomeActivity extends ConsoleActivity {
             }
             if (keyCode == (portalRow ? KeyEvent.KEYCODE_DPAD_DOWN : KeyEvent.KEYCODE_DPAD_UP)
                     && event.getAction() == KeyEvent.ACTION_DOWN) {
-                return true; // nothing on the other side but the tabs (L1 / R1) or the hints
+                // Up from the hero reaches the headphones battery chip when it shows; otherwise
+                // nothing is on the other side but the tabs (L1 / R1) or the hints
+                if (!portalRow && headphonesChip != null) headphonesChip.focus();
+                return true;
             }
             if (keyCode == (workspace && row.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT) && v == play && event.getAction() == KeyEvent.ACTION_DOWN
                     && layout != null && layout.arrange != com.limelight.pocket.ui.Layouts.SHELF) {

@@ -143,7 +143,6 @@ public final class HeadphonesCenterView extends LinearLayout {
         noise.setBackground(panel());
         TextView heading = text(12, MUTED, true);
         heading.setText(R.string.horizon_hp_noise);
-        heading.setAllCaps(true);
         heading.setLetterSpacing(0.08f);
         ViewCompat.setAccessibilityHeading(heading, true);
         noise.addView(heading);
@@ -263,6 +262,8 @@ public final class HeadphonesCenterView extends LinearLayout {
             Mode m = MODES[i];
             boolean on = state.active(m);
             boolean pending = state.pending == m;
+            // The page opens on the active mode (else on the first)
+            if (android.os.Build.VERSION.SDK_INT >= 26) modes[i].setFocusedByDefault(on || (i == 0 && !anyActive()));
             mark(modes[i], modeName(m), on, pending, can || on || pending,
                     m == Mode.ANC && on && state.level == null ? c.getString(R.string.horizon_hp_anc_earbud) : null);
         }
@@ -271,9 +272,10 @@ public final class HeadphonesCenterView extends LinearLayout {
                 : state.active(Mode.ANC) ? c.getString(R.string.horizon_hp_anc_earbud) : "—";
         levelsToggle.setText(c.getString(levelsOpen ? R.string.horizon_hp_levels_open : R.string.horizon_hp_levels,
                 levelValue));
-        levelsToggle.setContentDescription(c.getString(R.string.horizon_hp_levels_cd, levelValue));
-        ViewCompat.setStateDescription(levelsToggle, c.getString(levelsOpen
-                ? R.string.horizon_hp_expanded : R.string.horizon_hp_collapsed));
+        // Named plainly; its value and whether it is open are its state
+        levelsToggle.setContentDescription(c.getString(R.string.horizon_hp_levels_name));
+        ViewCompat.setStateDescription(levelsToggle, c.getString(R.string.horizon_hp_levels_state, levelValue,
+                c.getString(levelsOpen ? R.string.horizon_hp_expanded : R.string.horizon_hp_collapsed)));
         levelStrip.setVisibility(levelsOpen ? VISIBLE : GONE);
         for (int i = 0; i < LEVELS.length; i++) {
             Level l = LEVELS[i];
@@ -285,8 +287,10 @@ public final class HeadphonesCenterView extends LinearLayout {
         allow.setVisibility(state.phase == Phase.PERMISSION ? VISIBLE : GONE);
         refresh.setVisibility(state.phase == Phase.PERMISSION || state.phase == Phase.UNSUPPORTED ? GONE : VISIBLE);
         choose.setVisibility(state.phase == Phase.PERMISSION || state.phase == Phase.UNSUPPORTED ? GONE : VISIBLE);
-        refresh.setEnabled(state.phase != Phase.READING && state.phase != Phase.APPLYING
-                && state.phase != Phase.DETECTING);
+        // While the earbuds are being read or written, the same button cancels
+        boolean busy = state.phase == Phase.READING || state.phase == Phase.APPLYING;
+        refresh.setText(busy ? R.string.horizon_hp_cancel : R.string.horizon_hp_refresh);
+        refresh.setEnabled(state.phase != Phase.DETECTING);
         refresh.setAlpha(refresh.isEnabled() ? 1f : 0.45f);
         showFreshness();
     }
@@ -326,6 +330,13 @@ public final class HeadphonesCenterView extends LinearLayout {
         super.onDetachedFromWindow();
     }
 
+    private boolean anyActive() {
+        for (Mode m : MODES) {
+            if (state.active(m)) return true;
+        }
+        return false;
+    }
+
     /** Opening the levels puts focus on the active one (else the first), so A then picks. */
     private void focusLevel() {
         for (int i = 0; i < LEVELS.length; i++) {
@@ -342,6 +353,7 @@ public final class HeadphonesCenterView extends LinearLayout {
         switch (state.phase) {
             case UNSUPPORTED: return c.getString(R.string.horizon_hp_phase_unsupported);
             case PERMISSION: return c.getString(R.string.horizon_hp_phase_permission);
+            case BLUETOOTH_OFF: return c.getString(R.string.horizon_hp_phase_bluetooth_off);
             case NOT_PAIRED: return c.getString(R.string.horizon_hp_phase_not_paired);
             case CHOOSE: return c.getString(R.string.horizon_hp_phase_choose);
             case READING: return c.getString(R.string.horizon_hp_phase_reading);
@@ -363,6 +375,7 @@ public final class HeadphonesCenterView extends LinearLayout {
             case APPLYING:
                 return accent;
             case PERMISSION:
+            case BLUETOOTH_OFF:
             case NOT_PAIRED:
             case UNVERIFIED:
             case UNREACHABLE:
@@ -505,7 +518,7 @@ public final class HeadphonesCenterView extends LinearLayout {
             setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
             name = text(11, MUTED, true);
             name.setText(label);
-            name.setAllCaps(true);
+            name.setLetterSpacing(0.06f);
             name.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
             addView(name);
             value = text(20, WHITE, true);

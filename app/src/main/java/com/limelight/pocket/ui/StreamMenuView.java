@@ -136,6 +136,8 @@ public class StreamMenuView extends FrameLayout {
         final String title;
         final List<Item> items;
         final int columns;
+        /** A page drawn by its own view (focus moves through it) instead of rows. */
+        final View content;
         int selected;
 
         Page(String title, List<Item> items) {
@@ -146,6 +148,14 @@ public class StreamMenuView extends FrameLayout {
             this.title = title;
             this.items = items;
             this.columns = columns;
+            this.content = null;
+        }
+
+        Page(String title, View content) {
+            this.title = title;
+            this.items = new ArrayList<>();
+            this.columns = 1;
+            this.content = content;
         }
     }
 
@@ -639,6 +649,101 @@ public class StreamMenuView extends FrameLayout {
         }
     }
 
+    // ---- View pages ------------------------------------------------------------------------
+    // A page can be a whole view (the Headphones Center) rather than rows. The D-pad and the
+    // stick move Android focus through it, A clicks the focused control, B comes back as on any
+    // page; touch works as usual. The card widens for it, and narrows again on leaving it.
+
+    /** Shows the menu with a view as its first page. */
+    public void showView(String title, String subtitle, View content, ConsoleActivity.Hint... hintItems) {
+        showPage(title, subtitle, null, new Page(null, content), hintItems);
+    }
+
+    /** Opens a view as a sub page. B comes back. */
+    public void pushView(String title, View content) {
+        stack.add(new Page(title, content));
+        render(1);
+    }
+
+    /** True while this view is the visible page. */
+    public boolean isCurrentView(View content) {
+        return showing && !stack.isEmpty() && content != null && page().content == content;
+    }
+
+    /** True while this view is anywhere in the open menu's pages (another page may be on top). */
+    public boolean holdsView(View content) {
+        if (!showing || content == null) return false;
+        for (Page p : stack) {
+            if (p.content == content) return true;
+        }
+        return false;
+    }
+
+    /** Goes back one page (a chooser closing itself after a pick). */
+    public boolean popPage() {
+        return showing && pop();
+    }
+
+    /** The width a view page gets: room for two panes on a handheld, within the screen. */
+    private int viewPageWidthPx() {
+        int screen = getResources().getConfiguration().screenWidthDp;
+        return dp(Math.max(300, Math.min(660, screen - 24)));
+    }
+
+    private int savedCardWidth = Integer.MIN_VALUE;
+
+    private void fitCard(Page page) {
+        LayoutParams lp = (LayoutParams) card.getLayoutParams();
+        if (page.content != null) {
+            if (savedCardWidth == Integer.MIN_VALUE) savedCardWidth = lp.width;
+            lp.width = viewPageWidthPx();
+            card.setLayoutParams(lp);
+        } else if (savedCardWidth != Integer.MIN_VALUE) {
+            lp.width = savedCardWidth;
+            savedCardWidth = Integer.MIN_VALUE;
+            card.setLayoutParams(lp);
+        }
+    }
+
+    /** The view page's default control (or its first) takes focus. */
+    private static void focusInto(View content) {
+        if (content.findFocus() != null) return;
+        // Opened by touch: leave touch mode so the page shows where the controller is, as a
+        // console does (a tap still works on any control)
+        if (content.isInTouchMode()) content.requestFocusFromTouch();
+        if (android.os.Build.VERSION.SDK_INT >= 26 && content.restoreDefaultFocus()) return;
+        if (content.findFocus() == null) content.requestFocus();
+    }
+
+    private static boolean inside(View parent, View v) {
+        for (View at = v; at != null; at = at.getParent() instanceof View ? (View) at.getParent() : null) {
+            if (at == parent) return true;
+        }
+        return false;
+    }
+
+    /** Moves focus inside a view page; never out of it. */
+    private void contentMove(int focusDirection) {
+        View content = page().content;
+        View focused = content.findFocus();
+        if (focused == null) {
+            focusInto(content);
+            return;
+        }
+        View next = focused.focusSearch(focusDirection);
+        if (next != null && next != focused && inside(content, next) && next.requestFocus(focusDirection)) {
+            PocketSounds.play(getContext(), PocketSounds.NAV);
+        }
+    }
+
+    private void contentActivate() {
+        View focused = page().content.findFocus();
+        if (focused != null && focused.isClickable()) {
+            PocketSounds.play(getContext(), PocketSounds.SELECT);
+            focused.performClick();
+        }
+    }
+
     /** Opens a sub page (Shortcuts, PC commands, ...). B comes back. */
     public void push(String title, List<Item> items) {
         stack.add(new Page(title, items));
@@ -696,6 +801,24 @@ public class StreamMenuView extends FrameLayout {
     /** direction: 1 = page pushed (slides in from the right), -1 = popped, 0 = fresh. */
     private void render(int direction) {
         Page page = page();
+        fitCard(page);
+        if (page.content != null) {
+            pageTitleView.setText(page.title != null ? "‹  " + page.title : "");
+            pageTitleView.setVisibility(page.title != null ? VISIBLE : GONE);
+            list.removeAllViews();
+            rowViews.clear();
+            if (page.content.getParent() instanceof ViewGroup) {
+                ((ViewGroup) page.content.getParent()).removeView(page.content);
+            }
+            list.addView(page.content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            pill.setVisibility(INVISIBLE);
+            scroll.scrollTo(0, 0);
+            list.post(() -> {
+                if (showing && page() == page) focusInto(page.content);
+            });
+            return;
+        }
         // A popped page keeps its row; a new page starts at the top
         if (direction >= 0 || page.selected < 0 || page.selected >= page.items.size()
                 || page.items.get(page.selected).header) {
@@ -1033,6 +1156,10 @@ public class StreamMenuView extends FrameLayout {
 
     private void move(int direction) {
         Page page = page();
+        if (page.content != null) {
+            contentMove(direction > 0 ? View.FOCUS_DOWN : View.FOCUS_UP);
+            return;
+        }
         if (page.columns > 1) {
             moveTile(0, direction);
             return;
@@ -1069,11 +1196,17 @@ public class StreamMenuView extends FrameLayout {
     }
 
     private void horizontal(int direction) {
+        if (page().content != null) {
+            boolean rtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
+            contentMove((direction > 0) != rtl ? View.FOCUS_RIGHT : View.FOCUS_LEFT);
+            return;
+        }
         if (page().columns > 1) moveTile(direction, 0);
         else stepValue(direction);
     }
 
     private void jumpSection(int direction) {
+        if (page().content != null) return;
         Page page = page();
         int n = page.items.size();
         int i = page.selected;
@@ -1129,6 +1262,10 @@ public class StreamMenuView extends FrameLayout {
 
     private void activate() {
         Page page = page();
+        if (page.content != null) {
+            contentActivate();
+            return;
+        }
         if (page.selected < 0) {
             return;
         }

@@ -13,8 +13,11 @@ final class HeadphonesHomeStatus {
         if(right!=null) return right;
         return overall;
     }
-    static String description(HeadphonesReadback.Battery b) {
-        return "left "+percent(b.left)+", right "+percent(b.right)+", case "+percent(b.caseLevel);
+    static String description(android.content.Context c,HeadphonesReadback.Battery b) {
+        return c.getString(com.limelight.R.string.horizon_hp_home_levels,percent(c,b.left),percent(c,b.right),percent(c,b.caseLevel));
     }
-    private static String percent(Integer v) { return v==null?"not reported":v+" percent"; }
+    private static String percent(android.content.Context c,Integer v) {
+        return v==null?c.getString(com.limelight.R.string.horizon_hp_battery_unknown)
+                :c.getString(com.limelight.R.string.horizon_hp_battery,v);
+    }
 }

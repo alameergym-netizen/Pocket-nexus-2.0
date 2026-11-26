@@ -149,7 +149,8 @@ public class HeadphonesCenterViewTest {
         v(R.id.horizon_hp_levels).performClick();
         assertTrue(view.levelsOpen());
         assertTrue("opening the levels focuses the active one", v(R.id.horizon_hp_level_balanced).isFocused());
-        assertEquals(activity.getString(R.string.horizon_hp_expanded), state(v(R.id.horizon_hp_levels)));
+        assertEquals("Balanced, " + activity.getString(R.string.horizon_hp_expanded), state(v(R.id.horizon_hp_levels)));
+        assertEquals("ANC levels", v(R.id.horizon_hp_levels).getContentDescription());
     }
 
     @Test

@@ -24,6 +24,8 @@ public final class HeadphonesCenterModel {
         UNSUPPORTED,
         /** Nearby devices permission is missing. */
         PERMISSION,
+        /** Bluetooth is turned off. */
+        BLUETOOTH_OFF,
         /** No paired earbuds found. */
         NOT_PAIRED,
         /** Several paired devices, none recognised for sure: the user picks. */

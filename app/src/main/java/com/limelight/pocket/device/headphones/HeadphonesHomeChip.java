@@ -61,11 +61,35 @@ public final class HeadphonesHomeChip {
         chip.setSingleLine(true); chip.setIncludeFontPadding(false);
         chip.setGravity(android.view.Gravity.CENTER);
         chip.setPadding(dp(8),0,dp(8),0);
-        chip.setVisibility(View.GONE); chip.setFocusable(false);
-        GradientDrawable bg=new GradientDrawable();
-        bg.setCornerRadius(dp(14)); bg.setColor(0x30101016);
-        bg.setStroke(Math.max(1,dp(1)),(PocketTheme.accent(activity)&0xFFFFFF)|0x88000000);
+        chip.setVisibility(View.GONE);
+        // Reachable with the controller (Up from Home's hero buttons) as well as by touch: a
+        // dark scrim keeps the text readable over any art; focus fills it with the accent.
+        chip.setFocusable(true); chip.setClickable(true);
+        int accent=PocketTheme.accent(activity);
+        GradientDrawable idle=new GradientDrawable();
+        idle.setCornerRadius(dp(14)); idle.setColor(0x8C0B0D12);
+        idle.setStroke(Math.max(1,dp(1)),(accent&0xFFFFFF)|0x88000000);
+        GradientDrawable lit=new GradientDrawable();
+        lit.setCornerRadius(dp(14)); lit.setColor(accent);
+        lit.setStroke(Math.max(2,dp(2)),0xFFFFFFFF);
+        android.graphics.drawable.StateListDrawable bg=new android.graphics.drawable.StateListDrawable();
+        bg.addState(new int[]{android.R.attr.state_focused},lit);
+        bg.addState(new int[]{},idle);
         chip.setBackground(bg);
+        chip.setTextColor(new android.content.res.ColorStateList(new int[][]{{android.R.attr.state_focused},{}},
+                new int[]{0xFF000000,0xFFFFFFFF}));
+        androidx.core.view.ViewCompat.replaceAccessibilityAction(chip,
+                androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,
+                activity.getString(R.string.horizon_hp_home_open),null);
+        chip.setOnKeyListener((v,keyCode,event)->{
+            if(keyCode==android.view.KeyEvent.KEYCODE_DPAD_DOWN && exit!=null) {
+                if(event.getAction()==android.view.KeyEvent.ACTION_DOWN) exit.run();
+                return true;
+            }
+            // Nothing else up here: left, right and up stay on the chip
+            return keyCode==android.view.KeyEvent.KEYCODE_DPAD_UP || keyCode==android.view.KeyEvent.KEYCODE_DPAD_LEFT
+                    || keyCode==android.view.KeyEvent.KEYCODE_DPAD_RIGHT;
+        });
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,dp(26));
         lp.setMarginStart(dp(8));
         parent.addView(chip,parent.indexOfChild(battery),lp);
@@ -76,6 +100,19 @@ public final class HeadphonesHomeChip {
         });
     }
     private int dp(int v) { return Math.round(v*density); }
+    private Runnable exit;
+    /** Where focus goes when it leaves the chip (Down), or when the chip hides while focused. */
+    public void setExit(Runnable exit) { this.exit=exit; }
+    /** Takes focus when the chip is showing; false when there is nothing to focus. */
+    public boolean focus() {
+        return chip!=null && chip.getVisibility()==View.VISIBLE && chip.isShown() && chip.requestFocus();
+    }
+    private void hideChip() {
+        if(chip==null) return;
+        boolean had=chip.isFocused();
+        chip.setVisibility(View.GONE);
+        if(had && exit!=null) exit.run();
+    }
     private boolean canRead() {
         return running && chip!=null && chip.isAttachedToWindow() && !activity.isFinishing() && !activity.isDestroyed()
                 && activity.hasWindowFocus() && active.isActive() && !activity.isConsolePanelShowing()
@@ -110,7 +147,7 @@ public final class HeadphonesHomeChip {
         generation++;
         if(session!=null) session.cancel();
         session=null; nextRead=0;
-        if(chip!=null) chip.setVisibility(View.GONE);
+        hideChip();
     }
     private void discover() {
         inventoryPending=true;
@@ -123,7 +160,7 @@ public final class HeadphonesHomeChip {
                 inventoryPending=false;
                 if(ticket!=generation || !canRead() || !hasRoom()) return;
                 if(candidate==null) {
-                    chip.setVisibility(View.GONE); nextRead=SystemClock.elapsedRealtime()+PERIOD;
+                    hideChip(); nextRead=SystemClock.elapsedRealtime()+PERIOD;
                     return;
                 }
                 session=HeadphonesBluetooth.start(activity,candidate.device);
@@ -142,13 +179,13 @@ public final class HeadphonesHomeChip {
                     HeadphonesReadback.Battery b=r.battery;
                     Integer level=HeadphonesHomeStatus.level(b);
                     if(level!=null && (r.status==HeadphonesBluetooth.Status.OBSERVED || r.status==HeadphonesBluetooth.Status.PARTIAL)) {
-                        String shortText="Buds "+level+"%";
-                        chip.setText(shortText);
-                        chip.setContentDescription("FreeBuds 7i, "+HeadphonesHomeStatus.description(b)+". Open Headphones Center");
+                        chip.setText(activity.getString(R.string.horizon_hp_home_chip,level));
+                        chip.setContentDescription(activity.getString(R.string.horizon_hp_home_cd,
+                                HeadphonesHomeStatus.description(activity,b)));
                         chip.setVisibility(View.VISIBLE);
                         nextRead=SystemClock.elapsedRealtime()+PERIOD;
                     } else {
-                        chip.setVisibility(View.GONE);
+                        hideChip();
                         nextRead=SystemClock.elapsedRealtime()+FAILURE_BACKOFF;
                     }
                 }
