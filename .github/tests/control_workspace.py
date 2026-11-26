@@ -33,6 +33,21 @@ def has(tree, label):
 def focused(tree, label):
     return any(n.get("focused") == "true" and has(n, label) for n in tree.iter("node"))
 
+def focus_identity(tree):
+    """A focused settings row is a container; its own text/id can be empty.
+    Use its first labelled descendant (the row title), not its mutable value or position.
+    Anonymous nodes without a semantic label cannot prove a focus transition.
+    """
+    result = []
+    for node in tree.iter("node"):
+        if node.get("focused") != "true":
+            continue
+        label = next((n.get("text") or n.get("content-desc")
+                      for n in node.iter("node") if n.get("text") or n.get("content-desc")), None)
+        if label:
+            result.append((node.get("class"), node.get("resource-id"), label))
+    return result
+
 def wait_for(label, predicate):
     deadline = time.monotonic() + 65
     while time.monotonic() < deadline:
@@ -218,8 +233,7 @@ def main(apk):
             break
         if time.monotonic() >= traversal_deadline:
             raise AssertionError("Controller traversal exceeded its observation budget")
-        before = [(n.get("text"), n.get("content-desc"), n.get("resource-id"))
-                  for n in device.iter("node") if n.get("focused") == "true"]
+        before = focus_identity(device)
         print("System D-pad step %d from %r" % (step + 1, before), flush=True)
         key("DPAD_DOWN")  # Exactly one real input; only the observation may be repeated.
         time.sleep(0.2)
@@ -233,8 +247,7 @@ def main(apk):
                 xml = adb("exec-out", "cat", "/sdcard/control-ui.xml", timeout=5)
                 (RESULTS / "last-screen.xml").write_bytes(xml)
                 candidate = ET.fromstring(xml)
-                after = [(n.get("text"), n.get("content-desc"), n.get("resource-id"))
-                         for n in candidate.iter("node") if n.get("focused") == "true"]
+                after = focus_identity(candidate)
                 if after and (after != before or focused(candidate, "Retroid Bridge")):
                     observed = candidate
                     print("System D-pad step %d reached %r" % (step + 1, after), flush=True)
