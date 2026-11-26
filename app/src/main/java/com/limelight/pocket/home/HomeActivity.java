@@ -285,8 +285,10 @@ public class HomeActivity extends ConsoleActivity {
         setContentView(R.layout.activity_home);
         d = getResources().getDisplayMetrics().density;
         SectionBar.attach(this, SectionBar.HOME);
-        headphonesChip=new com.limelight.pocket.device.headphones.HeadphonesHomeChip(this,
-                () -> resumed && !isBooting() && (ambient==null || !ambient.showing()));
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            headphonesChip=new com.limelight.pocket.device.headphones.HeadphonesHomeChip(this,
+                    () -> resumed && !isBooting() && (ambient==null || !ambient.showing()));
+        }
         row = findViewById(R.id.homeRow);
         source = findViewById(R.id.homeSource);
         sourceRow = findViewById(R.id.homeSourceRow);

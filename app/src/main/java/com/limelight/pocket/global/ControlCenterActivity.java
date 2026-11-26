@@ -742,15 +742,23 @@ public class ControlCenterActivity extends Activity {
         if (headphonesMenu != null && headphonesMenu.isShowing()) return;
         final com.limelight.pocket.ui.StreamMenuView menu = new com.limelight.pocket.ui.StreamMenuView(this);
         headphonesMenu = menu;
+        // The Control workspace has its own elevation; child card elevation cannot
+        // lift this sibling above it. Own the modal layer explicitly.
+        final View underlying = panel;
+        final int previousAccessibility = underlying.getImportantForAccessibility();
+        underlying.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        menu.setElevation(underlying.getZ() + dp(2));
         menu.setPlacement(true, 336);
         menu.setConfirmLabel(getString(R.string.pocket_sm_confirm));
         menu.setListener(() -> {
             if (headphonesMenu != menu) return;
             headphonesMenu = null;
             root.removeView(menu);
-            returnFocus.requestFocusFromTouch();
+            underlying.setImportantForAccessibility(previousAccessibility);
+            if (returnFocus.isAttachedToWindow()) returnFocus.requestFocusFromTouch();
         });
         root.addView(menu, new FrameLayout.LayoutParams(-1, -1));
+        menu.bringToFront();
         com.limelight.pocket.device.headphones.HeadphonesPanel.openRoot(this, menu);
     }
 

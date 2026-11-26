@@ -20,13 +20,13 @@ import com.limelight.R;
 import com.limelight.pocket.ConsoleActivity;
 import com.limelight.pocket.ui.PocketFonts;
 import com.limelight.pocket.ui.PocketTheme;
-import java.util.function.BooleanSupplier;
 
 /** Home-only, best-effort read indicator. Never probes from the background or writes a setting. */
 public final class HeadphonesHomeChip {
     private static final long PERIOD=30000, FAILURE_BACKOFF=60000;
     private final ConsoleActivity activity;
-    private final BooleanSupplier active;
+    public interface Active { boolean isActive(); }
+    private final Active active;
     private final Handler main=new Handler(Looper.getMainLooper());
     private TextView chip;
     private HeadphonesBluetooth.Session session;
@@ -50,7 +50,7 @@ public final class HeadphonesHomeChip {
             }
         }
     }
-    public HeadphonesHomeChip(ConsoleActivity activity,BooleanSupplier active) {
+    public HeadphonesHomeChip(ConsoleActivity activity,Active active) {
         this.activity=activity; this.active=active; density=activity.getResources().getDisplayMetrics().density;
         View battery=activity.findViewById(R.id.pocketBattery);
         if(battery==null || !(battery.getParent() instanceof LinearLayout)) return;
@@ -78,7 +78,7 @@ public final class HeadphonesHomeChip {
     private int dp(int v) { return Math.round(v*density); }
     private boolean canRead() {
         return running && chip!=null && chip.isAttachedToWindow() && !activity.isFinishing() && !activity.isDestroyed()
-                && activity.hasWindowFocus() && active.getAsBoolean() && !activity.isConsolePanelShowing()
+                && activity.hasWindowFocus() && active.isActive() && !activity.isConsolePanelShowing()
                 && Build.VERSION.SDK_INT>=31 && activity.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 ==PackageManager.PERMISSION_GRANTED;
     }
