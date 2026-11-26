@@ -5,6 +5,7 @@ on:
     branches: [horizon-foundation]
     paths:
       - 'app/src/main/java/com/limelight/pocket/library/HorizonLibraryReadiness.java'
+      - 'app/src/main/java/com/limelight/pocket/library/HorizonFavorites.java'
       - 'app/src/main/java/com/limelight/pocket/library/UniversalLibrary.java'
       - 'app/src/main/java/com/limelight/pocket/library/LibraryActivity.java'
       - 'app/src/main/java/com/limelight/pocket/retro/RetroLauncher.java'
