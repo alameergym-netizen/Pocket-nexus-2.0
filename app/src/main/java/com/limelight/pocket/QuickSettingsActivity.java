@@ -1329,6 +1329,17 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> indexOf(focusValues, PocketPrefs.focusStyle(this)),
                 index -> prefs().edit().putString(PocketPrefs.KEY_FOCUS_STYLE, focusValues[index]).apply(), null);
 
+        // T09: the typeface. The device's own font suits scripts Inter doesn't cover (Arabic...)
+        final String[] typefaceLabels = {getString(R.string.horizon_typeface_inter),
+                getString(R.string.horizon_typeface_system), getString(R.string.horizon_typeface_condensed)};
+        addChoice(getString(R.string.horizon_typeface), getString(R.string.horizon_typeface_sub), typefaceLabels,
+                () -> indexOf(com.limelight.pocket.ui.PocketFonts.TYPEFACES, com.limelight.pocket.ui.PocketFonts.chosen(this)),
+                index -> {
+                    com.limelight.pocket.ui.PocketFonts.choose(this, com.limelight.pocket.ui.PocketFonts.TYPEFACES[index]);
+                    getIntent().putExtra("tab", currentTab);
+                    rowsContainer.postDelayed(this::recreate, 250);
+                }, null);
+
         final String[] accentLabels = {getString(R.string.pocket_accent_white), getString(R.string.pocket_accent_ice),
                 getString(R.string.pocket_accent_mint), getString(R.string.pocket_accent_lilac),
                 getString(R.string.pocket_accent_rose), getString(R.string.pocket_accent_amber),

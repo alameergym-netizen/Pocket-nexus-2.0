@@ -179,6 +179,8 @@ public class HomeActivity extends ConsoleActivity {
     private boolean horizonFamily;
     /** The look was Nexus Horizon when the layout was made (the cards may still not fit). */
     private boolean horizonTheme;
+    /** The typeface generation Home was built with (see PocketFonts.choose). */
+    private final int fontGeneration = com.limelight.pocket.ui.PocketFonts.generation();
     /** Nexus Atmosphere: the games on a glass tray, the hero on its own glass veil above it. */
     private boolean atmosphereTheme;
     private View atmosphereTray;
@@ -426,6 +428,11 @@ public class HomeActivity extends ConsoleActivity {
             }
         });
         resumed = true;
+        if (fontGeneration != com.limelight.pocket.ui.PocketFonts.generation()) {
+            // T09: the typeface changed: every text on Home is built with it again
+            recreate();
+            return;
+        }
         if (layout != null && (horizonDensity != com.limelight.pocket.ui.HorizonAppearance.density(this)
                 || horizonCorners != com.limelight.pocket.ui.HorizonAppearance.corners(this)
                 || pureOled != com.limelight.pocket.ui.PocketTheme.pureOled(this)
