@@ -1,0 +1,58 @@
+name: Nexus Headphones Lab APK
+on:
+  push:
+    branches: [integration/headphones-lab-rp6-20261126]
+    paths:
+      - 'headphones-lab/**'
+      - 'app/src/main/java/com/limelight/pocket/device/headphones/**'
+      - 'app/src/test/java/com/limelight/pocket/device/headphones/**'
+      - '.github/workflows/horizon-headphones-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: headphones-lab-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0"
+      - name: Test shared protocol and build separate APK
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon -p headphones-lab testDebugUnitTest assembleDebug
+      - name: Verify APK and record revision
+        shell: bash
+        run: |
+          mkdir -p lab-output
+          mapfile -t apks < <(find headphones-lab/build/outputs/apk/debug -name '*.apk')
+          test "${#apks[@]}" -eq 1
+          cp "${apks[0]}" lab-output/Nexus-Headphones-Lab.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs lab-output/Nexus-Headphones-Lab.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging lab-output/Nexus-Headphones-Lab.apk | grep -F "package: name='com.pocketnexus.headphones.lab'"
+          (cd lab-output && sha256sum Nexus-Headphones-Lab.apk > SHA256SUMS.txt)
+          git rev-parse HEAD > lab-output/REVISION.txt
+          cp headphones-lab/README.md lab-output/TEST-GUIDE.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nexus-Headphones-Lab
+          path: lab-output/
+          if-no-files-found: error
+          retention-days: 7
