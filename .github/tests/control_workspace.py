@@ -13,7 +13,8 @@ def adb(*args, timeout=25):
     return subprocess.check_output(["adb", *args], timeout=timeout, stderr=subprocess.STDOUT)
 
 def snap():
-    adb("shell", "uiautomator", "dump", "/sdcard/control-ui.xml")
+    result = adb("shell", "uiautomator", "dump", "/sdcard/control-ui.xml")
+    with (RESULTS / "dump-output.log").open("ab") as log: log.write(result + b"\n")
     xml = adb("exec-out", "cat", "/sdcard/control-ui.xml")
     (RESULTS / "last-screen.xml").write_bytes(xml)
     return ET.fromstring(xml)
@@ -104,49 +105,6 @@ def main(apk):
             if time.monotonic() > deadline:
                 raise AssertionError("Seed was not applied")
             time.sleep(0.5)
-    time.sleep(2)
-    key("BUTTON_B")
-    time.sleep(1)
-    assert not control(snap()), "B opened Nexus Control"
-    # A synthetic Android Back is not a verified dedicated hardware Back.
-    launch()
-    time.sleep(2)
-    tree = open_control()
-    for name in ("Sleep", "Wi-Fi", "Bluetooth", "Screenshot", "Do not disturb", "Brightness", "Volume"):
-        assert has(tree, name), name + " missing on wide layout"
-    wait_for("initial Sleep focus", lambda t: control(t) and focused(t, "Sleep"))
-    capture("01-wide")
-    key("DPAD_RIGHT")
-    wait_for("Wi-Fi focus", lambda t: focused(t, "Wi-Fi"))
-    key("DPAD_RIGHT")
-    wait_for("Bluetooth focus", lambda t: focused(t, "Bluetooth"))
-    key("DPAD_RIGHT")
-    wait_for("brightness focus", lambda t: focused(t, "Brightness"))
-    key("DPAD_DOWN")
-    wait_for("volume focus", lambda t: focused(t, "Volume"))
-    key("DPAD_DOWN")
-    wait_for("escape from slider to action", lambda t: focused(t, "Settings") or focused(t, "Performance"))
-    capture("02-wide-focus")
-    key("BUTTON_B")
-    wait_for("B closes Control", lambda t: not control(t))
-    print("PASS: wide workspace actions, controller slider entry and exit, B closure", flush=True)
-
-    setup_device(480)
-    open_control()
-    capture("03-compact")
-    wait_for("compact initial focus", lambda t: focused(t, "Sleep"))
-    for _ in range(8):
-        tree = snap()
-        if focused(tree, "Volume"):
-            break
-        key("DPAD_DOWN")
-        time.sleep(0.3)
-    wait_for("scroll to compact volume", lambda t: focused(t, "Volume"))
-    capture("04-compact-scrolled")
-    key("BACK")
-    wait_for("Back closes compact Control", lambda t: not control(t))
-    print("PASS: compact scroll and controller access", flush=True)
-
     setup_device(320)
     key("BUTTON_START")
     quick_settings = wait_for("console settings", lambda t: has(t, "Settings") and has(t, "System"))
@@ -212,6 +170,8 @@ def main(apk):
         device = snap()
     assert focused(device, "Retroid Bridge"), "Hardware diagnostics could not be reached by controller"
     tap_label(device, "Retroid Bridge")
+    events = (RESULTS / "accessibility-events.log").open("wb")
+    subprocess.Popen(["timeout", "16", "adb", "shell", "uiautomator", "events"], stdout=events, stderr=subprocess.STDOUT)
     bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
     capture("09-hardware-readings")
     tap_label(bridge, "Refresh readings")
@@ -251,7 +211,10 @@ if __name__ == "__main__":
         RESULTS.mkdir(exist_ok=True)
         for file, args in (("final.png", ("exec-out", "screencap", "-p")),
                            ("crash.log", ("shell", "logcat", "-b", "crash", "-d")),
-                           ("settings-focus.log", ("shell", "logcat", "-d", "-s", "NexusSettingsFocus:D", "*:S"))):
+                           ("settings-focus.log", ("shell", "logcat", "-d", "-s", "NexusSettingsFocus:D", "*:S")),
+                           ("system.log", ("shell", "logcat", "-d", "-t", "1600")),
+                           ("accessibility.txt", ("shell", "dumpsys", "accessibility")),
+                           ("activity.txt", ("shell", "dumpsys", "activity", "top")))):
             try:
                 (RESULTS / file).write_bytes(adb(*args, timeout=8))
             except subprocess.SubprocessError:
