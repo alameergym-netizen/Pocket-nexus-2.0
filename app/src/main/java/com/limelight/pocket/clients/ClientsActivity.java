@@ -58,6 +58,7 @@ public class ClientsActivity extends ConsoleActivity {
 
     private LinearLayout rows;
     private TextView detailName, detailState, detailMode, detailSession, detailResume, detailNote, detailPackage;
+    private TextView detailCan, detailFallback;
     private LinearLayout actions;
 
     public static void open(Context context) {
@@ -279,6 +280,10 @@ public class ClientsActivity extends ConsoleActivity {
         detailMode = paragraph(texts);
         detailSession = paragraph(texts);
         detailResume = paragraph(texts);
+        detailCan = paragraph(texts);
+        detailCan.setId(R.id.horizon_clients_capabilities);
+        detailFallback = paragraph(texts);
+        detailFallback.setId(R.id.horizon_clients_fallback);
         detailNote = paragraph(texts);
         detailPackage = text("", 10.5f, 0x8CFFFFFF, false);
         detailPackage.setPadding(0, dp(2), 0, 0);
@@ -441,6 +446,8 @@ public class ClientsActivity extends ConsoleActivity {
         boolean game = c.group != HorizonClientRegistry.Group.MEDIA && c.group != HorizonClientRegistry.Group.SOURCES;
         show(detailResume, runs && game ? getString(c.resume ? R.string.horizon_clients_resume_yes
                 : R.string.horizon_clients_resume_no) : null);
+        show(detailCan, capabilitiesText(c));
+        show(detailFallback, fallbackText(c));
         int note = note(c);
         show(detailNote, note != 0 ? getString(note) : null);
         String pkg = installed.get(c.id);
@@ -454,6 +461,41 @@ public class ClientsActivity extends ConsoleActivity {
             show(detailPackage, null);
         }
         buildActions(c, pkg);
+    }
+
+    /** X08: what Pocket Nexus does with it, in the registry's order. */
+    private String capabilitiesText(HorizonClientRegistry.Client c) {
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        for (HorizonClientRegistry.Capability cap : c.capabilities()) {
+            parts.add(getString(capabilityLabel(cap)));
+        }
+        return parts.isEmpty() ? getString(R.string.horizon_clients_can_nothing)
+                : getString(R.string.horizon_clients_can, TextUtils.join(" · ", parts));
+    }
+
+    private static int capabilityLabel(HorizonClientRegistry.Capability cap) {
+        switch (cap) {
+            case OPENS: return R.string.horizon_clients_can_opens;
+            case STARTS_GAMES: return R.string.horizon_clients_can_starts_games;
+            case CONDITIONAL_GAME_LINK: return R.string.horizon_clients_can_game_link;
+            case LIBRARY: return R.string.horizon_clients_can_library;
+            case SEES_SESSION: return R.string.horizon_clients_can_sees_session;
+            case RESUMES: return R.string.horizon_clients_can_resumes;
+            default: return R.string.horizon_clients_can_connects;
+        }
+    }
+
+    /**
+     * X08: describe a possible alternative, not a selected dispatch route. An absent
+     * installed-app client is identified as missing. Null: no named alternative.
+     */
+    private String fallbackText(HorizonClientRegistry.Client c) {
+        HorizonClientRegistry.Client f = c.fallback() != null ? HorizonClientRegistry.byId(c.fallback()) : null;
+        if (f == null) {
+            return null;
+        }
+        boolean missing = c.mode == HorizonClientRegistry.Mode.INSTALLED_APP && scanned && !installed.containsKey(c.id);
+        return getString(missing ? R.string.horizon_clients_fallback_using : R.string.horizon_clients_fallback, f.name);
     }
 
     private void buildActions(HorizonClientRegistry.Client c, String pkg) {
