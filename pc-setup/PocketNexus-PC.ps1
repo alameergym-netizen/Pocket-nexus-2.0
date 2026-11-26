@@ -711,7 +711,7 @@ public static class MicPlayer {
     $script:pcLibraryErrors = @()
     if (-not ("PcGames" -as [type])) {
         try {
-Add-Type -IgnoreWarnings -ErrorAction Stop -TypeDefinition @'
+$pcLibrarySource = @'
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -787,39 +787,18 @@ public static class PcGames {
     // Playnite publishes a local, explicitly exported snapshot. Keep it out of the legacy launch
     // cache. A missing or invalid snapshot never makes the existing providers unavailable.
     static List<Game> ReadPlayniteExport() {
-        List<Game> games = new List<Game>();
         try {
-            string path = Path.Combine(DataDir, "playnite-catalog.tsv");
-            using (FileStream file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
-                if (file.Length > 4 * 1024 * 1024) return null;
-                using (StreamReader input = new StreamReader(file, new UTF8Encoding(false, true), false)) {
-                    if (input.ReadLine() != "NEXUS-PLAYNITE 1") return null;
-                    HashSet<Guid> seen = new HashSet<Guid>();
-                    string row;
-                    while ((row = input.ReadLine()) != null) {
-                        if (row == "END " + games.Count.ToString(CultureInfo.InvariantCulture)) {
-                            return input.ReadLine() == null ? games : null;
-                        }
-                        if (games.Count >= 5000) return null;
-                        string[] fields = row.Split('\t');
-                        Guid id;
-                        if (fields.Length != 3 || !Guid.TryParseExact(fields[0], "D", out id)
-                                || id == Guid.Empty || !seen.Add(id)
-                                || (fields[1] != "0" && fields[1] != "1")
-                                || fields[2].Length > 200 || string.IsNullOrWhiteSpace(fields[2])) return null;
-                        foreach (char character in fields[2]) {
-                            if (char.IsControl(character)) return null;
-                        }
-                        games.Add(new Game {
-                            Source = "playnite", Id = id.ToString("D"), Name = fields[2],
-                            State = fields[1] == "1" ? "installed" : "notinstalled"
-                        });
-                    }
-                }
+            var snapshot = PocketNexus.NexusPlayniteCatalog.Read(Path.Combine(DataDir, "playnite-catalog.tsv"));
+            var games = new List<Game>();
+            foreach (var entry in snapshot.Entries) {
+                games.Add(new Game { Source = "playnite", Id = entry.Id.ToString("D"), Name = entry.Name,
+                    State = entry.Installed ? "installed" : "notinstalled" });
             }
+            return games;
         } catch (IOException) {
         } catch (UnauthorizedAccessException) {
         } catch (DecoderFallbackException) {
+        } catch (FormatException) {
         }
         return null;
     }
@@ -1809,6 +1788,7 @@ public static class PcGames {
     }
 }
 '@
+Add-Type -IgnoreWarnings -ErrorAction Stop -TypeDefinition ($pcLibrarySource + [IO.File]::ReadAllText((Join-Path $here "NexusPlayniteCatalog.cs")))
         } catch {
             $script:pcLibraryError = ("" + $_.Exception.Message) -replace "\s+", " "
             $script:pcLibraryErrors = @($Error | Select-Object -First 15 | ForEach-Object { "" + $_ })
@@ -2423,7 +2403,7 @@ function Show-HostDashboard {
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 42)))
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 30)))
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 64)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)))
     $heading = New-Object System.Windows.Forms.Label
     $heading.Text = "NEXUS HOST"
     $heading.Font = New-Object System.Drawing.Font("Segoe UI", 21, [System.Drawing.FontStyle]::Bold)
@@ -2447,7 +2427,8 @@ function Show-HostDashboard {
     $actions = New-Object System.Windows.Forms.FlowLayoutPanel
     $actions.Dock = "Fill"
     $actions.WrapContents = $true
-    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Save Vault", "Close")) {
+    $actions.AutoSize = $true
+    foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Playnite Library", "Audio output", "Save Vault", "Close")) {
         $button = New-Object System.Windows.Forms.Button
         $button.Text = $label
         $button.AutoSize = $true
@@ -2468,6 +2449,14 @@ function Show-HostDashboard {
             "GPU telemetry" { $button.add_Click({
                 try { Show-HostGpuTelemetry }
                 catch { [void][System.Windows.Forms.MessageBox]::Show("GPU telemetry could not open. Check the Nexus Host installation.", "Nexus Host") }
+            }) }
+            "Playnite Library" { $button.add_Click({
+                try { & (Join-Path $here "Show-NexusPlayniteLibrary.ps1") -Owner $script:hostDashboard -DataDirectory $DataDir }
+                catch { [void][System.Windows.Forms.MessageBox]::Show("Playnite Library could not open. Check the Nexus Host installation.", "Nexus Host") }
+            }) }
+            "Audio output" { $button.add_Click({
+                try { & (Join-Path $here "Show-NexusAudioOutput.ps1") -Owner $script:hostDashboard }
+                catch { [void][System.Windows.Forms.MessageBox]::Show("Audio output could not open. Check the Nexus Host installation.", "Nexus Host") }
             }) }
             "Save Vault" { $button.add_Click({
                 try { & (Join-Path $here "Show-NexusSaveVault.ps1") -Owner $script:hostDashboard }

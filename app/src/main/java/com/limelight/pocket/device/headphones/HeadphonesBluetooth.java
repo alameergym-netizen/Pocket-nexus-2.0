@@ -17,7 +17,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Opt-in SPP probe. No discovery, pairing, persistent service or settings writes. */
+/** Opt-in SPP probe and experimental explicit 7i noise change. No pairing or persistent service. */
 public final class HeadphonesBluetooth {
     private HeadphonesBluetooth() {}
     private static final UUID SPP=UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
@@ -25,7 +25,7 @@ public final class HeadphonesBluetooth {
     private static final ScheduledExecutorService DEADLINE=Executors.newSingleThreadScheduledExecutor();
     private static final AtomicReference<Session> ACTIVE=new AtomicReference<>();
     public enum Status { READING, BUSY, PERMISSION_REQUIRED, UNAVAILABLE, MODEL_UNCONFIRMED,
-                         OBSERVED, PARTIAL, TIMEOUT, CANCELLED }
+                         OBSERVED, PARTIAL, TIMEOUT, CANCELLED, WRITE_CONFIRMED, ALREADY_SELECTED, WRITE_UNCONFIRMED }
     public static final class Result {
         public final Status status;
         public final HeadphonesReadback.Battery battery;
@@ -37,6 +37,14 @@ public final class HeadphonesBluetooth {
     /** Caller explicitly chooses a bonded device and owns the returned handle.
      * Poll result() from the UI; cancel on dismissal. Do not persist readings. */
     public static Session start(Context context, BluetoothDevice selected) {
+        return startInternal(context,selected,null);
+    }
+    /** Experimental only: UI must require explicit confirmation and physical verification before general release. */
+    public static Session startNoiseChange(Context context, BluetoothDevice selected, HeadphonesNoiseControl.Selection selection) {
+        if(selection==null) { Session s=new Session(); s.finish(Status.UNAVAILABLE,null); return s; }
+        return startInternal(context,selected,selection);
+    }
+    private static Session startInternal(Context context,BluetoothDevice selected,HeadphonesNoiseControl.Selection selection) {
         Session s=new Session();
         if (context==null || selected==null) { s.finish(Status.UNAVAILABLE,null); return s; }
         Context app=context.getApplicationContext();
@@ -56,12 +64,25 @@ public final class HeadphonesBluetooth {
                 if (!s.bind(socket)) { close(socket); return; }
                 socket.connect();
                 if (s.result().status!=Status.READING) return;
+                if(selection!=null) {
+                    HeadphonesNoiseControl.Change change=HeadphonesNoiseControl.change(socket.getInputStream(),
+                            socket.getOutputStream(),selection,() -> s.result().status==Status.READING);
+                    Status status;
+                    switch(change.outcome) {
+                        case MODEL_UNCONFIRMED: status=Status.MODEL_UNCONFIRMED; break;
+                        case CONFIRMED: status=Status.WRITE_CONFIRMED; break;
+                        case ALREADY_SELECTED: status=Status.ALREADY_SELECTED; break;
+                        default: status=Status.WRITE_UNCONFIRMED;
+                    }
+                    s.finish(status,new HeadphonesProbe.Observation(false,null,change.observed));
+                    return;
+                }
                 HeadphonesProbe.Observation o=HeadphonesProbe.read(socket.getInputStream(),socket.getOutputStream());
                 Status status=!o.modelMatched?Status.MODEL_UNCONFIRMED:
                         o.battery!=null && o.noise!=null?Status.OBSERVED:Status.PARTIAL;
                 s.finish(status,o);
             } catch (SecurityException e) { s.finish(Status.PERMISSION_REQUIRED,null); }
-            catch (IOException | RuntimeException e) { s.finish(Status.UNAVAILABLE,null); }
+            catch (IOException | RuntimeException e) { s.finish(selection==null?Status.UNAVAILABLE:Status.WRITE_UNCONFIRMED,null); }
             finally {
                 deadline.cancel(false);
                 close(s.detach());

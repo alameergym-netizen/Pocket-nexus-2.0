@@ -25,8 +25,8 @@ final class HeadphonesProbe {
         HeadphonesReadback.Noise noise = HeadphonesReadback.noise(response(in, 0x2b, 0x2a));
         return new Observation(true, battery, noise);
     }
-    private static void send(OutputStream out, byte[] query) throws IOException { out.write(query); out.flush(); }
-    private static byte[] response(InputStream in, int service, int command) throws IOException {
+    static void send(OutputStream out, byte[] query) throws IOException { out.write(query); out.flush(); }
+    static byte[] response(InputStream in, int service, int command) throws IOException {
         for (int i = 0; i < 8; i++) {
             byte[] f = frame(in);
             if ((f[4]&255) == service && (f[5]&255) == command) return f;
@@ -46,7 +46,7 @@ final class HeadphonesProbe {
             if (count == 0) throw new IOException("Empty read");
             offset += count;
         }
-        if (data[3] != 0) throw new IOException("Unsupported fragment");
+        if (!HeadphonesReadback.valid(data)) throw new IOException("Unsupported or corrupt frame");
         return data;
     }
     private static int octet(InputStream in) throws IOException {

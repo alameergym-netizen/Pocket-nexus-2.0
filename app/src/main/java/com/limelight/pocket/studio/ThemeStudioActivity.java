@@ -566,7 +566,8 @@ public class ThemeStudioActivity extends ConsoleActivity {
             showPreview(look, getString(R.string.horizon_studio_imported));
             applyButton.requestFocus();
         } catch (HorizonLook.Invalid e) {
-            int message = e.reason == HorizonLook.Invalid.UNSUPPORTED
+            int message = e.reason == HorizonLook.Invalid.UNREADABLE ? R.string.horizon_studio_import_unreadable
+                    : e.reason == HorizonLook.Invalid.UNSUPPORTED
                     ? R.string.horizon_studio_import_unsupported : R.string.horizon_studio_import_missing;
             status.setText(message);
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show();

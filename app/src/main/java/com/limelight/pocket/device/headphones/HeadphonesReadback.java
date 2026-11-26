@@ -34,7 +34,7 @@ public final class HeadphonesReadback {
         if (!valid(frame) || u(frame[4]) != 1 || u(frame[5]) != 7) return false;
         byte[][] values = fields(frame);
         if (values == null || values[10] == null || values[10].length > 64) return false;
-        String identity = new String(values[10], java.nio.charset.StandardCharsets.UTF_8).replace("\u0000", "").trim();
+        String identity = new String(values[10], java.nio.charset.StandardCharsets.UTF_8).trim();
         // LibreBuds freebuds-7i.json modelId; not the user-renamable Bluetooth name.
         return identity.matches("[A-Za-z0-9]+-000163");
     }
@@ -57,6 +57,7 @@ public final class HeadphonesReadback {
         byte[] overall = values[1], levels = values[2], flags = values[3];
         Integer all = overall != null && overall.length == 1 ? percent(overall[0]) : null;
         Integer l = level(levels, 0), r = level(levels, 1), c = level(levels, 2);
+        if (all == null && l == null && r == null && c == null) return null;
         return new Battery(all, l, r, c, charging(flags, 0, l), charging(flags, 1, r), charging(flags, 2, c));
     }
     public static Noise noise(byte[] frame) {
@@ -77,12 +78,12 @@ public final class HeadphonesReadback {
         // Unknown flag encodings must not look like a confirmed charging state.
         return flag == 0 ? Boolean.FALSE : flag == 1 || flag == 0x80 ? Boolean.TRUE : null;
     }
-    private static boolean valid(byte[] f) {
+    static boolean valid(byte[] f) {
         return f != null && f.length >= 8 && f.length <= MAX_FRAME && u(f[0]) == 0x5a
                 && ((u(f[1]) << 8) | u(f[2])) == f.length - 5 && f[3] == 0
                 && crc16(f, f.length) == 0;
     }
-    private static byte[][] fields(byte[] f) {
+    static byte[][] fields(byte[] f) {
         byte[][] result = new byte[256][];
         int end = f.length - 2;
         for (int i = 6; i < end;) {

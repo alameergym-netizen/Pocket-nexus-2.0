@@ -14,6 +14,7 @@ import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Looper;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -31,6 +32,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 33, application = Application.class)
 public class AppWatcherTest {
+    @Before public void registerForTheFreshRobolectricApplication() throws Exception {
+        // Earlier full-Activity tests can start this process-wide watcher. Robolectric
+        // replaces the Application/receiver registry between tests, while application
+        // class statics can survive in the SDK sandbox. Match that fresh lifetime;
+        // all assertions below still use real broadcasts and the production receiver.
+        java.lang.reflect.Field started = AppWatcher.class.getDeclaredField("started");
+        started.setAccessible(true);
+        started.setBoolean(null, false);
+    }
+
     @Test public void onlyLauncherChangesCountAsSomethingShownChanging() {
         assertFalse(AppWatcher.changesWhatIsShown(null, null));
         assertFalse(AppWatcher.changesWhatIsShown("a.Main#1", "a.Main#1"));
