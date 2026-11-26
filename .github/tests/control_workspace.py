@@ -13,7 +13,15 @@ def adb(*args, timeout=25):
     return subprocess.check_output(["adb", *args], timeout=timeout, stderr=subprocess.STDOUT)
 
 def snap():
-    adb("shell", "uiautomator", "dump", "/sdcard/control-ui.xml")
+    try:
+        result = adb("shell", "uiautomator", "dump", "/sdcard/control-ui.xml")
+    except subprocess.SubprocessError as failure:
+        with (RESULTS / "hierarchy.log").open("ab") as log:
+            log.write((str(failure) + "\n").encode())
+            log.write(getattr(failure, "output", None) or b"")
+        raise
+    with (RESULTS / "hierarchy.log").open("ab") as log:
+        log.write(result + b"\n")
     xml = adb("exec-out", "cat", "/sdcard/control-ui.xml")
     (RESULTS / "last-screen.xml").write_bytes(xml)
     return ET.fromstring(xml)
@@ -251,7 +259,8 @@ if __name__ == "__main__":
         RESULTS.mkdir(exist_ok=True)
         for file, args in (("final.png", ("exec-out", "screencap", "-p")),
                            ("crash.log", ("shell", "logcat", "-b", "crash", "-d")),
-                           ("settings-focus.log", ("shell", "logcat", "-d", "-s", "NexusSettingsFocus:D", "*:S"))):
+                           ("settings-focus.log", ("shell", "logcat", "-d", "-s", "NexusSettingsFocus:D", "*:S")),
+                           ("system.log", ("shell", "logcat", "-d", "-t", "800"))):
             try:
                 (RESULTS / file).write_bytes(adb(*args, timeout=8))
             except subprocess.SubprocessError:
