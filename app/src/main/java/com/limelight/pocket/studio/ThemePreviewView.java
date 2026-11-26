@@ -34,6 +34,10 @@ public final class ThemePreviewView extends View {
     private static final int PURE = 1;
     private static final int TITANIUM = 2;
     private static final int LEGACY = 3;
+    /** The layout families drawn over the standard scenes (T01-T03). */
+    private static final int SIGNATURE = 4;
+    private static final int ATMOSPHERE = 5;
+    private static final int HORIZON = 6;
 
     /** Abstract art colours (original, muted). */
     private static final int[] ART = {0xFF3B4A6B, 0xFF6B3B4A, 0xFF3B6B5C, 0xFF6B5A3B, 0xFF4E3B6B,
@@ -139,7 +143,9 @@ public final class ThemePreviewView extends View {
         }
         int name = PocketTheme.THEMES[i].name;
         return name == R.string.horizon_theme_pure ? PURE : name == R.string.horizon_theme_titanium ? TITANIUM
-                : name == R.string.horizon_theme_legacy ? LEGACY : STANDARD;
+                : name == R.string.horizon_theme_legacy ? LEGACY : name == R.string.horizon_theme_signature ? SIGNATURE
+                : name == R.string.horizon_theme_atmosphere ? ATMOSPHERE : name == R.string.horizon_theme_horizon ? HORIZON
+                : STANDARD;
     }
 
     @Override
@@ -201,16 +207,144 @@ public final class ThemePreviewView extends View {
             legacyScene(c, l, s);
             return;
         }
-        backdrop(c, l, v, s == HOME);
-        status(c, l, v);
+        // Signature, Atmosphere and Horizon are the standard scenes with their own layers
+        family = v >= SIGNATURE ? v : STANDARD;
+        int base = v >= SIGNATURE ? STANDARD : v;
+        backdrop(c, l, base, s == HOME);
+        if (family == SIGNATURE) letterbox(c, l, s);
+        if (family == ATMOSPHERE) atmosphereLayers(c, l, s);
+        status(c, l, base);
         if (s == LIBRARY) {
-            library(c, l, v);
+            library(c, l, base);
         }
         else if (s == CONTROL) {
-            control(c, l, v);
+            control(c, l, base);
         }
         else {
-            home(c, l, v);
+            home(c, l, base);
+        }
+        if (family == SIGNATURE) signatureMarks(c, l, s);
+        if (family == HORIZON && s != CONTROL) streamCards(c, l, s);
+    }
+
+    /** The family being drawn (SIGNATURE, ATMOSPHERE, HORIZON), else STANDARD. */
+    private int family = STANDARD;
+
+    /** Where the shelf's cards start (their top edge), as shelfHome lays them out. */
+    private float shelfTop(HorizonLook l) {
+        float aspect = aspect(l.layout);
+        float scale = HorizonAppearance.cardScale(l.density, true, 540f);
+        float th = fh * (aspect < 1f ? .30f : aspect > 1.5f ? .19f : .24f) * scale;
+        return y(.94f) - th;
+    }
+
+    // ---- Nexus Signature: letterbox bars, an accent rule, a widescreen still, a black slate ----
+
+    private void letterbox(Canvas c, HorizonLook l, int s) {
+        float topBar = ft + fh * .12f;
+        float bottomBar = s == HOME ? shelfTop(l) - 16 * unit : y(.93f);
+        float edge = 18 * unit;
+        fill.setShader(null);
+        fill.setColor(0xFF000000);
+        c.drawRect(fl, ft, fl + fw, topBar, fill);
+        c.drawRect(fl, bottomBar, fl + fw, ft + fh, fill);
+        fill.setShader(new LinearGradient(0, topBar, 0, topBar + edge, 0xFF000000, 0, Shader.TileMode.CLAMP));
+        c.drawRect(fl, topBar, fl + fw, topBar + edge, fill);
+        fill.setShader(new LinearGradient(0, bottomBar, 0, bottomBar - edge, 0xFF000000, 0, Shader.TileMode.CLAMP));
+        c.drawRect(fl, bottomBar - edge, fl + fw, bottomBar, fill);
+        fill.setShader(null);
+    }
+
+    private void signatureMarks(Canvas c, HorizonLook l, int s) {
+        if (s == HOME) {
+            // The accent rule over the title
+            bar(c, x(.06f), y(.28f) - 10 * unit, 28 * unit, 2 * unit, l.accent);
+        }
+        else if (s == LIBRARY) {
+            // The detail art as a 2.39:1 still: black bands above and below it
+            RectF pane = new RectF(x(.67f), y(.15f) + 30 * unit, x(.965f), y(.93f));
+            float pad = 10 * unit;
+            RectF a = new RectF(pane.left + pad, pane.top + pad, pane.right - pad, pane.top + pad + pane.height() * .36f);
+            float still = a.width() / 2.39f;
+            float band = Math.max(0, (a.height() - still) / 2f);
+            fill.setShader(null);
+            fill.setColor(0xFF000000);
+            c.drawRect(a.left, a.top, a.right, a.top + band, fill);
+            c.drawRect(a.left, a.bottom - band, a.right, a.bottom, fill);
+        }
+    }
+
+    // ---- Nexus Atmosphere: glass layers over the art (a tray, a veil, panes) -----------------
+
+    private void glass(Canvas c, RectF b, float radius) {
+        fill.setShader(null);
+        fill.setColor(0x29FFFFFF);
+        c.drawRoundRect(b, radius, radius, fill);
+        fill.setColor(0xFF000000);
+        fill.setShader(new LinearGradient(b.left, b.top, b.left, b.top + b.height() * .4f, 0x1FFFFFFF, 0,
+                Shader.TileMode.CLAMP));
+        c.drawRoundRect(b, radius, radius, fill);
+        fill.setShader(null);
+        stroke(c, b, radius, 0x4DFFFFFF, unit);
+    }
+
+    private void atmosphereLayers(Canvas c, HorizonLook l, int s) {
+        if (s == HOME) {
+            float tray = shelfTop(l) - 16 * unit;
+            glass(c, new RectF(x(.02f), tray, x(.98f), y(.985f)), 14 * unit);
+            glass(c, new RectF(x(.045f), y(.28f) - 12 * unit, x(.06f) + fw * .34f + 14 * unit, tray - 10 * unit),
+                    14 * unit);
+        }
+        else if (s == LIBRARY) {
+            glass(c, new RectF(x(.025f), y(.15f) + 22 * unit, x(.67f) - 6 * unit, y(.965f)), 14 * unit);
+        }
+    }
+
+    // ---- Nexus Horizon: the host, session and network cards --------------------------------
+
+    private void streamCards(Canvas c, HorizonLook l, int s) {
+        float left, top, right, h;
+        boolean slim = s != HOME;
+        if (s == HOME) {
+            left = x(.52f);
+            right = x(.965f);
+            h = fh * .15f;
+            top = y(.92f) - h;
+        }
+        else {
+            // The Library: one-line cards beside the source chips
+            left = x(.47f);
+            right = x(.965f);
+            h = 18 * unit;
+            top = y(.15f);
+        }
+        drawStreamCards(c, l, left, top, right, h, slim);
+    }
+
+    private void drawStreamCards(Canvas c, HorizonLook l, float left, float top, float right, float h, boolean slim) {
+        float gap = 7 * unit;
+        float w = (right - left - 2 * gap) / 3f;
+        int[] lamps = {0xFF9CA3AF, 0xFF9CA3AF, 0xFF4ADE80};
+        for (int i = 0; i < 3; i++) {
+            float x0 = left + i * (w + gap);
+            r.set(x0, top, x0 + w, top + h);
+            fill.setShader(null);
+            fill.setColor(0xD81A2432);
+            float rad = Math.min(slim ? h / 2f : 12 * unit, h / 2f);
+            c.drawRoundRect(r, rad, rad, fill);
+            stroke(c, r, rad, i == 0 ? l.accent : 0x3DFFFFFF, (i == 0 ? 1.6f : 1f) * unit);
+            fill.setColor(lamps[i]);
+            if (slim) {
+                c.drawCircle(x0 + 9 * unit, top + h / 2f, 2.5f * unit, fill);
+                bar(c, x0 + 15 * unit, top + h / 2f - 2.5f * unit, w * .25f, 5 * unit, alpha(l.accent, 0xE6));
+                bar(c, x0 + 15 * unit + w * .3f, top + h / 2f - 2.5f * unit, w * .38f, 5 * unit, 0xE6FFFFFF);
+            }
+            else {
+                c.drawCircle(x0 + 11 * unit, top + 11 * unit, 3 * unit, fill);
+                bar(c, x0 + 18 * unit, top + 8 * unit, w * .35f, 5 * unit, alpha(l.accent, 0xE6));
+                bar(c, x0 + 9 * unit, top + h * .45f, w * .62f, 7 * unit, 0xF2FFFFFF);
+                bar(c, x0 + 9 * unit, top + h * .72f, w * .45f, 5 * unit, 0x8CFFFFFF);
+            }
         }
     }
 
@@ -612,6 +746,25 @@ public final class ThemePreviewView extends View {
         else if (v == PURE) {
             stroke(c, panel, 10 * unit, 0x59FFFFFF, unit);
         }
+        else if (family == SIGNATURE) {
+            // A near-black slate with an accent hairline
+            fill.setShader(null);
+            fill.setColor(0xF5050505);
+            c.drawRoundRect(panel, 6 * unit, 6 * unit, fill);
+            stroke(c, panel, 6 * unit, alpha(l.accent, 0x80), unit);
+        }
+        else if (family == ATMOSPHERE) {
+            // A lighter, layered pane: see-through, a light from above and a bright rim
+            fill.setShader(null);
+            fill.setColor(0xB8222B3A);
+            c.drawRoundRect(panel, 22 * unit, 22 * unit, fill);
+            fill.setColor(0xFF000000);
+            fill.setShader(new LinearGradient(panel.left, panel.top, panel.left, panel.top + panel.height() * .4f,
+                    0x1FFFFFFF, 0, Shader.TileMode.CLAMP));
+            c.drawRoundRect(panel, 22 * unit, 22 * unit, fill);
+            fill.setShader(null);
+            stroke(c, panel, 22 * unit, 0x5CFFFFFF, unit);
+        }
         else {
             panel(c, l, panel, radius(l, 80 * unit));
         }
@@ -625,6 +778,11 @@ public final class ThemePreviewView extends View {
         float tileW = (areaRight - panel.left - pad - gap * (cols - 1)) / cols;
         float tileH = Math.min(tileW * .8f, 46 * unit);
         float top = panel.top + pad + 30 * unit;
+        if (family == HORIZON) {
+            // Nexus Horizon: the stream cards under the title, the tiles below them
+            drawStreamCards(c, l, panel.left + pad, top - 4 * unit, panel.right - pad, 18 * unit, true);
+            top += 24 * unit;
+        }
         float rad = v == STANDARD ? radius(l, tileH) : v == TITANIUM ? 5 * unit : tileH / 2f;
         for (int i = 0; i < 8; i++) {
             int row = i / cols, col = i % cols;
