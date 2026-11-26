@@ -354,7 +354,8 @@ public final class UniversalLibrary {
                             }
                             else if (!com.limelight.pocket.retro.RetroLauncher.installed(app, cfg, cmd)) {
                                 w.ready = HorizonLibraryReadiness.Ready.APP_MISSING;
-                                w.needs = cmd.shortLabel();
+                                // The app to install: RetroArch for a core ("Beetle PSX"), else the emulator
+                                w.needs = cmd.isRetroArch() ? "RetroArch" : cmd.shortLabel();
                             }
                             break;
                         }

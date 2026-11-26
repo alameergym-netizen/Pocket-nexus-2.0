@@ -191,6 +191,9 @@ def main(apk):
     line = next(n.get("text") for n in resource(detail, "horizon_library_detail").iter("node")
                 if "(needs " in (n.get("text") or "") or "(no Android emulator)" in (n.get("text") or ""))
     print("ROM details: " + line, flush=True)
+    # PSX's first command is a RetroArch core: the app to install is RetroArch, not the core's name
+    assert "(needs RetroArch)" in line or "(no Android emulator)" in line or "(needs " in line and "Beetle" not in line, \
+        ("the details name the app to install", line)
     capture("02-rom-details")
     print("PASS: a ROM without its emulator is marked on its card and in its details; PC games are not",
           flush=True)
