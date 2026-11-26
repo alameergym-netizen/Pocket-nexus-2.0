@@ -1,0 +1,214 @@
+name: Horizon shared emulator APK pilot
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [horizon-foundation]
+    paths:
+      - '.github/workflows/horizon-shared-emulator-ui.yml'
+permissions:
+  contents: read
+concurrency:
+  group: horizon-shared-emulator-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Build one emulator-only APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "ndk;27.0.12077973" "cmake;3.22.1"
+          bash gradlew --no-daemon -PpocketAbis=x86_64 :app:assembleNonRoot_gameDebug
+      - name: Bind artifact to checked out revision and hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/nonRoot_game/debug/*.apk)
+          test "${#apks[@]}" -eq 1
+          mkdir -p shared-emulator-apk
+          cp "${apks[0]}" shared-emulator-apk/pocket-nexus-x86_64-debug.apk
+          cd shared-emulator-apk
+          printf '%s\n' "$GITHUB_SHA" > revision.txt
+          sha256sum pocket-nexus-x86_64-debug.apk > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: horizon-emulator-${{ github.sha }}
+          path: shared-emulator-apk/
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 7
+  ui:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - suite: accessibility
+            script: |-
+              python3 -u .github/tests/accessibility_sweep.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk" --enforce
+            minutes: 25
+            upstream: false
+            evidence: |-
+              accessibility-results/
+          - suite: atmosphere
+            script: |-
+              python3 -u .github/tests/atmosphere_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              atmosphere-ui-results/
+          - suite: clients
+            script: |-
+              python3 -u .github/tests/clients_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk" "$RUNNER_TEMP/nexus-upstream-cloud.apk"
+            minutes: 20
+            upstream: true
+            evidence: |-
+              clients-ui-results/
+          - suite: cloud-installed
+            script: |-
+              python3 -u .github/tests/media_connect_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+              python3 -u .github/tests/files_save_copy.py
+              python3 -u .github/tests/cloud_client_workspace.py installed "$RUNNER_TEMP/nexus-upstream-cloud.apk"
+            minutes: 25
+            upstream: true
+            evidence: |-
+              media-connect-ui-results/
+              files-save-copy-results/
+              cloud-client-ui-results/
+          - suite: control
+            script: |-
+              python3 -u .github/tests/control_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 25
+            upstream: false
+            evidence: |-
+              control-ui-results/
+          - suite: home
+            script: |-
+              python3 -u .github/tests/home_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+              python3 -u .github/tests/pure_oled_workspace.py
+              python3 -u .github/tests/titanium_workspace.py
+            minutes: 20
+            upstream: false
+            evidence: |-
+              home-ui-results/
+          - suite: legacy
+            script: |-
+              python3 -u .github/tests/legacy_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              legacy-ui-results/
+          - suite: library
+            script: |-
+              python3 -u .github/tests/library_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              library-ui-results/
+          - suite: library-readiness
+            script: |-
+              python3 -u .github/tests/library_readiness_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              library-readiness-ui-results/
+          - suite: media-connect
+            script: |-
+              python3 -u .github/tests/media_connect_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+              python3 -u .github/tests/files_save_copy.py
+              python3 -u .github/tests/cloud_client_workspace.py fallback "$RUNNER_TEMP/nexus-upstream-cloud.apk"
+            minutes: 25
+            upstream: false
+            evidence: |-
+              media-connect-ui-results/
+              files-save-copy-results/
+              cloud-client-ui-results/
+          - suite: signature
+            script: |-
+              python3 -u .github/tests/signature_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              signature-ui-results/
+          - suite: stream-family
+            script: |-
+              python3 -u .github/tests/stream_family_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              stream-family-ui-results/
+          - suite: theme-studio
+            script: |-
+              python3 -u .github/tests/theme_studio_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+            minutes: 20
+            upstream: false
+            evidence: |-
+              theme-studio-results/
+    name: UI / ${{ matrix.suite }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: horizon-emulator-${{ github.sha }}
+          path: shared-emulator-apk/
+      - name: Verify shared APK provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          cd shared-emulator-apk
+          test "$(cat revision.txt)" = "$GITHUB_SHA"
+          sha256sum --check SHA256SUMS
+      - name: Obtain pinned upstream client for installed-app tests
+        if: ${{ matrix.upstream }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download a0.24.3 --repo redphx/better-xcloud-android \
+            --pattern com.redphx.betterxc_0.24.3-40.apk --output "$RUNNER_TEMP/nexus-upstream-cloud.apk"
+          echo "107e9b14b014ef8a0b9cbb79ac1aac24f6c610ef168b47d6447df93e85e14ec4  $RUNNER_TEMP/nexus-upstream-cloud.apk" | sha256sum --check
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Run unchanged UI suite on isolated Android 13 emulator
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        timeout-minutes: ${{ matrix.minutes }}
+        with:
+          api-level: 33
+          arch: x86_64
+          target: default
+          ram-size: 2560M
+          heap-size: 512M
+          disk-size: 6000M
+          emulator-options: -no-window -no-snapshot -gpu guest -feature -Vulkan -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 300
+          script: ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Horizon-shared-${{ matrix.suite }}-evidence
+          path: ${{ matrix.evidence }}
+          if-no-files-found: warn
+          retention-days: 7
