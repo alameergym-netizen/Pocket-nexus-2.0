@@ -28,6 +28,16 @@ public final class HeadphonesReadback {
         private Noise(NoiseMode mode, int rawLevel) { this.mode = mode; this.rawLevel = rawLevel; }
     }
     /** Fixed queries only; no arbitrary write or vendor-setting packet generator. */
+    /** Request only the documented model field, not serial or MAC. */
+    static byte[] modelRequest() { return request(1, 7, 10); }
+    static boolean reported7iModel(byte[] frame) {
+        if (!valid(frame) || u(frame[4]) != 1 || u(frame[5]) != 7) return false;
+        byte[][] values = fields(frame);
+        if (values == null || values[10] == null || values[10].length > 64) return false;
+        String identity = new String(values[10], java.nio.charset.StandardCharsets.UTF_8).replace("\u0000", "").trim();
+        // LibreBuds freebuds-7i.json modelId; not the user-renamable Bluetooth name.
+        return identity.matches("[A-Za-z0-9]+-000163");
+    }
     public static byte[] batteryRequest() { return request(1, 8, 1, 2, 3); }
     public static byte[] noiseRequest() { return request(0x2b, 0x2a, 1); }
     private static byte[] request(int service, int command, int... types) {
