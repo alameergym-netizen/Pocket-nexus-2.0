@@ -67,6 +67,8 @@ public final class UniversalLibrary {
         public final List<Way> ways = new ArrayList<>();
         public long last;
         public long seconds;
+        /** L03: a favourite in any of its ways' stores (see HorizonFavorites). */
+        public boolean favorite;
 
         Game(String key, String title) {
             this.key = key;
@@ -220,6 +222,7 @@ public final class UniversalLibrary {
         List<String> romRoots = RetroLibrary.rememberedRoots(app);
         Map<String, String> readableRoots = new HashMap<>();
         Map<String, String> cachedRoots = new HashMap<>();
+        Map<String, RetroLibrary.Library> libs = new HashMap<>();
         Set<String> absoluteRoms = new java.util.HashSet<>();
         EsdeConfig cfg = romRoots.isEmpty() ? null : RetroLibrary.config(app);
         for (String path : romRoots) {
@@ -236,6 +239,7 @@ public final class UniversalLibrary {
             RetroLibrary.Library lib = RetroLibrary.cached(app, root);
             if (lib == null) continue;
             cachedRoots.put(canonical, path);
+            libs.put(path, lib);
             for (List<RomScanner.Rom> roms : lib.games.values()) {
                 for (RomScanner.Rom r : roms) {
                     EsdeConfig.SystemDef s = cfg.system(r.system);
@@ -298,6 +302,17 @@ public final class UniversalLibrary {
 
         List<Game> out = new ArrayList<>(games.values());
         assess(app, out);
+        for (Game g : out) {
+            List<Boolean> marks = new ArrayList<>(g.ways.size());
+            for (Way w : g.ways) {
+                try {
+                    marks.add(HorizonFavorites.marked(app, w.item, libs.get(w.item.c)));
+                } catch (RuntimeException unreadable) {
+                    marks.add(null);
+                }
+            }
+            g.favorite = HorizonFavorites.any(marks);
+        }
         for (Game g : out) {
             long t = 0;
             for (Way w : g.ways) {

@@ -81,11 +81,13 @@ public class LibraryActivity extends ConsoleActivity {
     private static final int F_PLAYING = 1;
     private static final int F_BACKLOG = 2;
     private static final int F_FINISHED = 3;
-    private static final int F_PC = 4;
-    private static final int F_ANDROID = 5;
-    private static final int F_RETRO = 6;
-    private static final int F_CLOUD = 7;
-    private static final int FIXED = 8;
+    /** L03: favourites from every provider (after the statuses, so R1 from All still reaches Playing). */
+    private static final int F_FAVORITES = 4;
+    private static final int F_PC = 5;
+    private static final int F_ANDROID = 6;
+    private static final int F_RETRO = 7;
+    private static final int F_CLOUD = 8;
+    private static final int FIXED = 9;
 
     public static void open(Activity from) {
         PocketSounds.play(from, PocketSounds.OPEN);
@@ -507,6 +509,8 @@ public class LibraryActivity extends ConsoleActivity {
                 return getString(R.string.pocket_ul_status_backlog);
             case F_FINISHED:
                 return getString(R.string.pocket_ul_status_finished);
+            case F_FAVORITES:
+                return getString(R.string.horizon_library_favorites);
             case F_PC:
                 return getString(R.string.pocket_ul_pc);
             case F_ANDROID:
@@ -533,6 +537,8 @@ public class LibraryActivity extends ConsoleActivity {
                 return GameShelf.status(this, g.key) == GameShelf.BACKLOG;
             case F_FINISHED:
                 return GameShelf.status(this, g.key) == GameShelf.FINISHED;
+            case F_FAVORITES:
+                return g.favorite;
             case F_PC:
                 return g.on(UniversalLibrary.PLATFORM_PC);
             case F_ANDROID:
@@ -989,6 +995,18 @@ public class LibraryActivity extends ConsoleActivity {
                 }).withIcon("STAR"));
         items.add(StreamMenuView.Item.submenu(getString(R.string.pocket_ul_collections), () -> collections(g))
                 .withIcon("LIST"));
+        items.add(StreamMenuView.Item.value(getString(R.string.horizon_library_favorite),
+                g.favorite ? "✓" : "", direction -> {
+                    // L03 (after Collections, which short screens must still show first): one mark for every way to play it, kept in each provider's own store
+                    final boolean now = !g.favorite;
+                    final Context app = getApplicationContext();
+                    g.favorite = now;
+                    io.execute(() -> HorizonFavorites.set(app, g, now));
+                    if (filter == F_FAVORITES) refreshCollectionOnClose = true;
+                    PocketSounds.play(this, now ? PocketSounds.TOGGLE_ON : PocketSounds.TOGGLE_OFF);
+                    cards.notifyItemChanged(heroPos);
+                    return now ? "✓" : "";
+                }).withIcon("SPARKLE"));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_hint_details), () -> {
             hideConsolePanel();
             page(g);
@@ -1228,6 +1246,7 @@ public class LibraryActivity extends ConsoleActivity {
                     b.append(b.length() > 0 ? " · " : "").append(w.badge);
                 }
             }
+            if (g.favorite) b.insert(0, "♥ ");
             h.badge.setText(b);
             HorizonLibraryReadiness.Ready ready = g.ready();
             boolean flagged = HorizonLibraryReadiness.flagged(ready);
@@ -1237,11 +1256,17 @@ public class LibraryActivity extends ConsoleActivity {
                 h.needs.setText(ready == HorizonLibraryReadiness.Ready.NO_EMULATOR
                         ? R.string.horizon_library_no_emulator : R.string.horizon_library_needs_app);
                 h.needs.setVisibility(View.VISIBLE);
-                if (Build.VERSION.SDK_INT >= 30) h.card.setStateDescription(readinessText(g));
             }
             else {
                 h.needs.setVisibility(View.GONE);
-                if (Build.VERSION.SDK_INT >= 30) h.card.setStateDescription(null);
+            }
+            if (Build.VERSION.SDK_INT >= 30) {
+                String state = flagged ? readinessText(g) : null;
+                if (g.favorite) {
+                    String fav = getString(R.string.horizon_library_favorite);
+                    state = state == null ? fav : fav + ", " + state;
+                }
+                h.card.setStateDescription(state);
             }
             int status = GameShelf.status(LibraryActivity.this, g.key);
             if (status != GameShelf.NONE) {
