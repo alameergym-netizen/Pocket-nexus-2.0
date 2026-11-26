@@ -213,6 +213,8 @@ public final class HorizonAudio {
     private static void showBluetooth(ConsoleActivity a) {
         List<StreamMenuView.Item> rows = new ArrayList<>();
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_note)));
+        addFreeBudsPairing(a, rows);
+        rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_audio_outputs)));
         boolean found = false;
         if (Build.VERSION.SDK_INT >= 23) {
             try {
@@ -248,7 +250,8 @@ public final class HorizonAudio {
         try {
             Intent libre = a.getPackageManager().getLaunchIntentForPackage("io.github.librebuds");
             if (libre != null) {
-                rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_buds_open_libre),() -> launch(a,libre)));
+                rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_buds_open_libre), () -> launch(a, libre))
+                        .withValue(installedVersion(a, "io.github.librebuds")));
             } else {
                 rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_buds_libre_missing)));
             }
@@ -257,6 +260,34 @@ public final class HorizonAudio {
                 () -> launch(a,new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_bridge_refresh),() -> showBluetooth(a)));
         a.showConsolePanel(a.getString(R.string.horizon_buds_title),null,null,rows);
+    }
+
+    private static void addFreeBudsPairing(ConsoleActivity screen, List<StreamMenuView.Item> rows) {
+        HorizonBluetoothPairing.Result result = HorizonBluetoothPairing.observeFreeBuds(screen);
+        int status;
+        switch (result) {
+            case BONDED_BY_NAME: status = R.string.horizon_buds_paired_name; break;
+            case NO_MATCH: status = R.string.horizon_buds_unpaired_name; break;
+            case RADIO_OFF: status = R.string.horizon_buds_bluetooth_off; break;
+            case NEEDS_PERMISSION: status = R.string.horizon_buds_permission_needed; break;
+            default: status = R.string.horizon_audio_unavailable; break;
+        }
+        rows.add(StreamMenuView.Item.header(screen.getString(R.string.horizon_buds_pairing)));
+        rows.add(StreamMenuView.Item.note(screen.getString(status)));
+        if (result == HorizonBluetoothPairing.Result.NEEDS_PERMISSION) {
+            rows.add(StreamMenuView.Item.action(screen.getString(R.string.horizon_buds_permission_settings),
+                    () -> HorizonPermissions.open(screen, HorizonPermissions.Capability.BLUETOOTH_DETAILS)));
+        }
+        HorizonAudioRoute.Snapshot route = HorizonAudioRoute.snapshot();
+        if (route != null) {
+            rows.add(StreamMenuView.Item.info(screen.getString(R.string.horizon_buds_current_stream), route.type < 0
+                    ? screen.getString(R.string.horizon_audio_unavailable) : outputLabel(screen, route.type, route.name)));
+        }
+    }
+
+    private static String installedVersion(Context context, String packageName) {
+        try { return context.getPackageManager().getPackageInfo(packageName, 0).versionName; }
+        catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException unavailable) { return null; }
     }
 
     private static String capability(Context c, int[] values) {

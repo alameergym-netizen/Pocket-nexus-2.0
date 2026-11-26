@@ -2128,6 +2128,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         activeWindowVideoStats.totalFramesReceived++;
         activeWindowVideoStats.totalFrames++;
+        HorizonStreamBenchmark benchmark = streamBenchmark;
+        if (benchmark != null) benchmark.recordIncomingFrame(frameNumber);
 
         if (!FRAME_RENDER_TIME_ONLY) {
             // Count time from first packet received to enqueue time as receive time
