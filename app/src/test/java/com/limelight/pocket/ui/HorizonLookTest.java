@@ -137,4 +137,19 @@ public class HorizonLookTest {
             assertEquals(text, reason, e.reason);
         }
     }
+
+    @Test
+    public void pastedAccentsMustBeReadableOnTheDarkScreens() {
+        String text = sample().toText();
+        // S10: a near-black accent would vanish as text on black and under dark text
+        expect(HorizonLook.Invalid.UNREADABLE, text.replace("accent #A8C8E8", "accent #101010"));
+        expect(HorizonLook.Invalid.UNREADABLE, text.replace("accent #A8C8E8", "accent #1E3A8A"));
+        assertTrue(HorizonLook.readableAccent(0xFF3D8BFF));
+        assertTrue(HorizonLook.readableAccent(0xFFFFFFFF));
+        assertFalse(HorizonLook.readableAccent(0xFF000000));
+        double l = HorizonLook.MIN_ACCENT_LUMINANCE;
+        assertTrue("4.5:1 on black at the limit", (l + 0.05) / 0.05 >= 4.5);
+        double ink = HorizonLook.luminance(0xFF101014);
+        assertTrue("4.5:1 for #101014 text on the accent at the limit", (l + 0.05) / (ink + 0.05) >= 4.5);
+    }
 }

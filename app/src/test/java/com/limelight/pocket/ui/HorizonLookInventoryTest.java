@@ -84,4 +84,14 @@ public class HorizonLookInventoryTest {
         // T01-T06: Signature, Atmosphere, Horizon, Pure OLED, Legacy, Titanium; Cinema shares a shelf
         assertEquals(6, own);
     }
+
+    @Test
+    public void everyBuiltInAccentIsReadable() {
+        for (int accent : PocketTheme.ACCENTS) {
+            assertTrue(Integer.toHexString(accent), HorizonLook.readableAccent(accent));
+        }
+        for (PocketTheme.Preset p : PocketTheme.THEMES) {
+            assertTrue(Integer.toHexString(p.accent), HorizonLook.readableAccent(p.accent));
+        }
+    }
 }
