@@ -165,7 +165,9 @@ def main(apk, upstream_apk):
     wait_for("built-in PC streaming is focused and described as observed", lambda t:
              focused(t, "Pocket Nexus PC streaming")
              and has(t, "Pocket Nexus runs this stream and sees its session.")
-             and has(t, "Quick Resume can return to a stream Pocket Nexus started."))
+             and has(t, "Quick Resume can return to a stream Pocket Nexus started.")
+             and has(t, "Pocket Nexus: opens it · starts its games · shows them in the Library · sees the session"
+                        " · Quick Resume"))
     wait_for("installed apps are checked, and a missing official app is not offered",
              lambda t: contains(t, "Xbox app, Not installed"))
     capture("01-wide-pc-streaming")
@@ -173,6 +175,8 @@ def main(apk, upstream_apk):
     move_focus_to("Starwire", "DPAD_DOWN")
     wait_for("research projects make no claims", lambda t: has(t, "Research only")
              and contains(t, "Nothing from it is included or available here yet")
+             and has(t, "Pocket Nexus: nothing with it yet")
+             and has(t, "Instead, when it isn't available: Pocket Nexus PC streaming")
              and has(t, "Open project page") and not has(t, "App info and permissions"))
     capture("02-research-only")
 
@@ -185,6 +189,8 @@ def main(apk, upstream_apk):
     wait_for("external apps are opened only", lambda t:
              has(t, "Pocket Nexus opens the app and cannot see whether a game is running.")
              and has(t, "Looks for: com.nvidia.geforcenow") and has(t, "Open official page")
+             and has(t, "Pocket Nexus: opens it")
+             and has(t, "Not installed: Pocket Nexus uses GeForce NOW player")
              and not has(t, "App info and permissions"))
     capture("04-missing-official-app")
 
@@ -203,7 +209,9 @@ def main(apk, upstream_apk):
         open_clients()
         move_focus_to("Better xCloud", "DPAD_DOWN")
         wait_for("installed client found with its exact version", lambda t: contains(t, "Installed · 0.24.3")
-                 and has(t, "Package: com.redphx.betterxc") and has(t, "App info and permissions"))
+                 and has(t, "Package: com.redphx.betterxc") and has(t, "App info and permissions")
+                 and has(t, "Pocket Nexus: opens it · starts its games")
+                 and has(t, "Instead, when it isn't available: Xbox Cloud Gaming player"))
         capture("06-installed-client")
         key("BUTTON_A")
         wait_for("A moves to the first action", lambda t: focused(t, "Open official page"))
