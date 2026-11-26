@@ -141,8 +141,15 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 }
             });
             tab.setOnClickListener(v -> {
+                // The tab is already laid out. Give it focus before removing the
+                // old rows, so Android cannot restore the first (Look) tab while
+                // the new row subtree still has no measured focus targets.
+                focusInSelectedTab(v);
                 selectTab(index, false);
-                focusFirstRow();
+                rowsContainer.post(() -> {
+                    if (currentTab == index && getCurrentFocus() == v
+                            && !isFinishing() && !isConsolePanelShowing()) focusFirstRow();
+                });
             });
             tabBar.addView(tab);
             tabs.add(tab);

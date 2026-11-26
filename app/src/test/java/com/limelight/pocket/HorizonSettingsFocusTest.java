@@ -1,6 +1,9 @@
 package com.limelight.pocket;
 
 import android.app.Application;
+import android.os.Looper;
+import java.util.concurrent.TimeUnit;
+import static org.robolectric.Shadows.shadowOf;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -55,6 +58,30 @@ public class HorizonSettingsFocusTest {
                 assertTrue(tabs.getChildAt(5).isSelected());
             }
         } finally { controller.destroy(); }
+    }
+
+    @Test(timeout = 60000) public void aRealWindowKeepsTheClickedTabUntilItsNewRowsCanTakeFocus() {
+        PocketPrefs.prefs(RuntimeEnvironment.getApplication()).edit()
+                .putBoolean(PocketPrefs.KEY_FIRST_RUN_DONE, true)
+                .putBoolean(PocketPrefs.KEY_ONBOARDING_PENDING, false)
+                .putInt("pocket_defaults_version", 4)
+                .putBoolean(PocketPrefs.KEY_ANIMATIONS, false)
+                .putBoolean(PocketPrefs.KEY_UI_SOUNDS, false)
+                .putBoolean(PocketPrefs.KEY_HAPTICS, false).commit();
+        ActivityController<QuickSettingsActivity> controller = Robolectric.buildActivity(QuickSettingsActivity.class).setup();
+        try {
+            QuickSettingsActivity activity = controller.get();
+            LinearLayout tabs = activity.findViewById(R.id.pocketTabs);
+            LinearLayout rows = activity.findViewById(R.id.pocketRows);
+            for (int index : new int[] {3, 5, 3}) {
+                tabs.getChildAt(index).performClick();
+                assertTrue(tabs.getChildAt(index).isSelected());
+                shadowOf(Looper.getMainLooper()).idleFor(40, TimeUnit.MILLISECONDS);
+                assertTrue(tabs.getChildAt(index).isSelected());
+                assertFalse(tabs.getChildAt(0).isSelected());
+                if (index == 3) assertTrue(contains(rows, activity.getString(R.string.horizon_eq_title)));
+            }
+        } finally { controller.pause().stop().destroy(); }
     }
 
     private static boolean contains(View view, String text) {
