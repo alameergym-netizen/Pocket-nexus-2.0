@@ -176,9 +176,8 @@ def main(apk, upstream_apk):
                         " · Quick Resume"))
     wait_for("installed apps are checked, and a missing official app is not offered",
              lambda t: contains(t, "Xbox app, Not installed"))
-    wait_for("the Library's waiting apps are named", lambda t: has(t, "Your Library is waiting for RetroArch (1)")
-             and contains(t, "RetroArch, Not installed · 1 Library game waits for it"))
-    print("PASS: the setup view names the app a Library game waits for", flush=True)
+    wait_for("the Library's waiting apps are named beside the title",
+             lambda t: has(t, "Your Library is waiting for RetroArch (1)"))
     capture("01-wide-pc-streaming")
 
     move_focus_to("Starwire", "DPAD_DOWN")
@@ -207,6 +206,12 @@ def main(apk, upstream_apk):
     wait_for("official remote play stays with the provider", lambda t: has(t, "Official site")
              and has(t, "The service manages sign-in, queues and play. Pocket Nexus only knows that it opened the service."))
     capture("05-official-web")
+    move_focus_to("RetroArch", "DPAD_DOWN")
+    wait_for("a missing client says how many Library games wait for it",
+             lambda t: contains(t, "RetroArch, Not installed · 1 Library game waits for it")
+             and has(t, "Open official page"))
+    capture("05b-waited-for-client")
+    print("PASS: the setup view names the app a Library game waits for", flush=True)
     key("BUTTON_B")
     wait_for("B returns to the same Settings row", lambda t: not clients(t) and focused(t, TITLE))
     print("PASS: modes, sessions and missing apps are labelled honestly", flush=True)
