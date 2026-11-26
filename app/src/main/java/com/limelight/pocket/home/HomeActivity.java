@@ -1972,9 +1972,10 @@ public class HomeActivity extends ConsoleActivity {
         if (!workspace) finishWorkspaceInitialFocus();
         float widthDp=screenW/d;
         float heightDp=getResources().getDisplayMetrics().heightPixels/d;
-        int brandMode=HorizonHomeStyle.brandMode(widthDp);
-        homeBrand.setText(brandMode==2?R.string.horizon_home_brand:R.string.horizon_home_mark);
-        homeBrand.setVisibility(brandMode==0?View.GONE:View.VISIBLE);
+        // S01: the original N mark (never a typed letter), with the name where there is room
+        int brandMode=com.limelight.pocket.ui.HorizonBrand.presence(widthDp);
+        homeBrand.setText(brandMode==com.limelight.pocket.ui.HorizonBrand.MARK_AND_NAME?getString(R.string.horizon_home_brand):"");
+        homeBrand.setVisibility(brandMode==com.limelight.pocket.ui.HorizonBrand.HIDDEN?View.GONE:View.VISIBLE);
         if (legacy) {
             // The pixel variant of the N mark, in the Legacy gold, before the name (or alone)
             android.graphics.drawable.Drawable mark = androidx.core.content.ContextCompat.getDrawable(this,
@@ -1990,8 +1991,18 @@ public class HomeActivity extends ConsoleActivity {
             if (brandMode != 2) homeBrand.setText("");
             homeBrand.setContentDescription(getString(R.string.horizon_home_brand));
         } else {
-            homeBrand.setCompoundDrawablesRelative(null, null, null, null);
-            homeBrand.setContentDescription(null);
+            // White on the dark status band (the band is dark in every look but Legacy's)
+            android.graphics.drawable.Drawable mark = androidx.core.content.ContextCompat.getDrawable(this,
+                    com.limelight.pocket.ui.HorizonBrandMarks.drawable(
+                            com.limelight.pocket.ui.HorizonBrand.variant(false, 0xFF000000)));
+            if (mark != null) {
+                int size = Math.round(16 * d);
+                mark.setBounds(0, 0, size, size);
+            }
+            homeBrand.setCompoundDrawablesRelative(mark, null, null, null);
+            homeBrand.setCompoundDrawablePadding(brandMode == com.limelight.pocket.ui.HorizonBrand.MARK_AND_NAME
+                    ? Math.round(7 * d) : 0);
+            homeBrand.setContentDescription(getString(R.string.horizon_home_brand));
         }
         summaryRoom=!workspace && !titanium && !legacy && HorizonHomeStyle.showSummary(widthDp,heightDp,shelf,portal);
         homeSummary.setVisibility(summaryRoom && loadedOnce?View.VISIBLE:View.GONE);
