@@ -14,4 +14,8 @@
     <!-- One way to play in the details, e.g. "Sony PlayStation (needs DuckStation)" -->
     <string name="horizon_library_way_needs">%1$s (needs %2$s)</string>
     <string name="horizon_library_way_no_emulator">%1$s (no Android emulator)</string>
+
+    <!-- L03: one favourite mark across every provider -->
+    <string name="horizon_library_favorite">Favorite</string>
+    <string name="horizon_library_favorites">Favorites</string>
 </resources>

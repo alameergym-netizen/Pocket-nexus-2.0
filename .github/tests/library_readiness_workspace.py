@@ -198,6 +198,39 @@ def main(apk):
     print("PASS: a ROM without its emulator is marked on its card and in its details; PC games are not",
           flush=True)
 
+    # L03: one favourite mark from the Library, kept in the Retro store and shown under Favorites
+    key("BUTTON_Y")
+    menu = wait_for("game options with Favorite", lambda t: has(t, "Favorite"), timeout=15)
+    row = min((n for n in menu.iter("node") if n.get("clickable") == "true" and has(n, "Favorite")),
+              key=lambda n: (bounds(n)[2] - bounds(n)[0]) * (bounds(n)[3] - bounds(n)[1]))
+    tap(row)
+    wait_for("Favorite turned on", lambda t: any(n.get("text") == "\u2713" for n in t.iter("node")), timeout=10)
+    capture("03-favorite-on")
+    key("BUTTON_B")
+    library = wait_for("the ROM's card carries the mark", lambda t: chip(card(t, RETRO)) is not None and any(
+        (n.get("text") or "").startswith("\u2665") for n in card(t, RETRO).iter("node")), timeout=15)
+    prefs = adb("shell", "run-as", PKG, "cat", "shared_prefs/" + PKG + "_preferences.xml").decode("utf-8", "replace")
+    assert "psx/AuroraRun.cue" in prefs, "the mark is kept in the Retro favourites"
+    favorites = next(n for n in library.iter("node") if n.get("clickable") == "true"
+                     and "Favorites" in (n.get("text"), n.get("content-desc")))
+    tap(favorites)
+    wait_for("Favorites shows only the marked game", lambda t: card(t, RETRO) is not None
+             and card(t, PC_GAME) is None, timeout=15)
+    capture("04-favorites-filter")
+    adb("shell", "am", "force-stop", PKG)
+    setup_device(320)
+    home = wait_for("Home after a restart", lambda t: any(
+        n.get("clickable") == "true" and "Library" in (n.get("text"), n.get("content-desc")) for n in t.iter("node")))
+    tap(next(n for n in home.iter("node") if n.get("clickable") == "true"
+             and "Library" in (n.get("text"), n.get("content-desc"))))
+    library = wait_for("Library after a restart", lambda t: card(t, RETRO) is not None)
+    tap(next(n for n in library.iter("node") if n.get("clickable") == "true"
+             and "Favorites" in (n.get("text"), n.get("content-desc"))))
+    wait_for("the favourite survives a restart", lambda t: card(t, RETRO) is not None and card(t, PC_GAME) is None,
+             timeout=15)
+    print("PASS: one favourite mark from the Library, kept in the Retro store, filtered and kept after a restart",
+          flush=True)
+
 
 if __name__ == "__main__":
     try:
