@@ -7,6 +7,8 @@ on:
       - 'app/src/main/java/com/limelight/pocket/ui/LegacyStyle.java'
       - 'app/src/main/java/com/limelight/pocket/ui/PocketTheme.java'
       - 'app/src/main/java/com/limelight/pocket/home/HomeActivity.java'
+      - 'app/src/main/java/com/limelight/pocket/home/HomeDock.java'
+      - 'app/src/main/java/com/limelight/pocket/apps/AppWatcher.java'
       - 'app/src/main/java/com/limelight/pocket/library/LibraryActivity.java'
       - 'app/src/main/java/com/limelight/pocket/global/ControlCenterActivity.java'
       - 'app/src/main/res/values/horizon_legacy.xml'
