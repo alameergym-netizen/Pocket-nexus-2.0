@@ -209,6 +209,7 @@ public class ThemeStudioActivity extends ConsoleActivity {
         buildRows();
         previewView.setLook(forScene(preview), false);
         previewView.setScene(scene, false);
+        previewView.setHero(PocketPrefs.logoScale(this), com.limelight.pocket.PocketArt.logosForNames(this), false);
         updateScenes();
         updatePreviewText();
         String want = focusKey != null && rowByKey.containsKey(focusKey) ? focusKey : appliedKey();
@@ -354,6 +355,10 @@ public class ThemeStudioActivity extends ConsoleActivity {
         workspaceRow(HorizonWorkspaceLook.LIBRARY, R.string.horizon_studio_ws_library, ThemePreviewView.LIBRARY);
         workspaceRow(HorizonWorkspaceLook.CONTROL, R.string.horizon_studio_ws_control, ThemePreviewView.CONTROL);
 
+        // T09: Home's hero title, shown live in the Home preview
+        header(R.string.horizon_studio_section_hero);
+        heroRows();
+
         header(R.string.horizon_studio_section_tools);
         final String defaultName = getString(R.string.horizon_studio_default);
         lookRow("default", defaultName, getString(R.string.horizon_studio_default_sub),
@@ -394,6 +399,44 @@ public class ThemeStudioActivity extends ConsoleActivity {
         int accent = HorizonWorkspaceLook.accent(l.accent, override(ws));
         return accent == l.accent ? l : new HorizonLook(accent, l.backdrop, l.material, l.sound, l.layout, l.focus,
                 l.density, l.corners, l.motion, l.colorArt, l.liveGlass);
+    }
+
+    private void showHero() {
+        previewView.setHero(PocketPrefs.logoScale(this), com.limelight.pocket.PocketArt.logosForNames(this), animate());
+    }
+
+    /** Logo size and logos-for-names: stored at once (as in Settings → Art), previewed on Home. */
+    private void heroRows() {
+        final boolean logos = com.limelight.pocket.PocketArt.logosForNames(this);
+        final int scale = PocketPrefs.logoScale(this);
+        LinearLayout logosRow = row("hero:logos", getString(R.string.horizon_studio_hero_logos),
+                getString(logos ? R.string.horizon_studio_on : R.string.horizon_studio_off), null);
+        LinearLayout sizeRow = row("hero:size", getString(R.string.horizon_studio_hero_size),
+                logos ? scale + "%" : getString(R.string.horizon_studio_hero_size_text), null);
+        for (LinearLayout r : new LinearLayout[]{logosRow, sizeRow}) {
+            final String key = (String) r.getTag();
+            r.setOnFocusChangeListener((v, has) -> {
+                if (has) {
+                    PocketUi.tick(this);
+                    disarmClear(key);
+                    if (scene != ThemePreviewView.HOME) showScene(ThemePreviewView.HOME);
+                }
+            });
+        }
+        logosRow.setOnClickListener(v -> {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            PocketPrefs.prefs(this).edit().putBoolean(com.limelight.pocket.PocketArt.KEY_LOGOS, !logos).apply();
+            showHero();
+            rebuildRows("hero:logos");
+        });
+        sizeRow.setOnClickListener(v -> {
+            if (!logos) return;
+            PocketSounds.play(this, PocketSounds.SELECT);
+            PocketPrefs.prefs(this).edit().putInt(PocketPrefs.KEY_LOGO_SCALE, PocketPrefs.cycleLogoScale(scale)).apply();
+            showHero();
+            rebuildRows("hero:size");
+        });
+        sizeRow.setAlpha(logos ? 1f : 0.5f);
     }
 
     /** A workspace's accent: focusing shows that workspace; A cycles "same as the look" and each accent. */
@@ -559,7 +602,9 @@ public class ThemeStudioActivity extends ConsoleActivity {
             // A full reset: the workspaces follow the look again
             android.content.SharedPreferences.Editor e = PocketPrefs.prefs(this).edit();
             for (String ws : HorizonWorkspaceLook.WORKSPACES) e.remove(HorizonWorkspaceLook.key(ws));
+            e.remove(PocketPrefs.KEY_LOGO_SCALE).remove(com.limelight.pocket.PocketArt.KEY_LOGOS);
             e.apply();
+            showHero();
         }
         applied = HorizonThemeStudio.current(this);
         preview = applied;

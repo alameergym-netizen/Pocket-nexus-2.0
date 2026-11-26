@@ -303,6 +303,23 @@ def main(apk):
     assert "horizon_accent_control" not in prefs(), "the Control workspace got an accent it was not given"
     print("PASS: a per-workspace accent is kept apart from the look", flush=True)
 
+    # T09: the hero title, previewed live on the Home scene
+    move_focus_to("Game logos for titles", "DPAD_DOWN")
+    wait_for("the hero rows show the Home scene", lambda t: contains(t, "Home preview of")
+             and has(t, "Hero logo size, 100%"))
+    move_focus_to("Hero logo size", "DPAD_DOWN")
+    key("BUTTON_A")
+    wait_prefs("the logo grows a step", lambda x: '<int name="pocket_logo_scale" value="115" />' in x)
+    wait_for("the row shows the new size", lambda t: focused(t, "Hero logo size, 115%"))
+    move_focus_to("Game logos for titles", "DPAD_UP")
+    key("BUTTON_A")
+    wait_prefs("names as text", lambda x: '<boolean name="pocket_logos_for_names" value="false" />' in x)
+    wait_for("the size row says names are text", lambda t: has(t, "Hero logo size, Names shown as text"))
+    capture("12b-hero-text")
+    key("BUTTON_A")
+    wait_prefs("logos again", lambda x: '<boolean name="pocket_logos_for_names" value="true" />' in x)
+    print("PASS: the hero logo size and logos-for-titles preview on Home and store at once", flush=True)
+
     # Copy the previewed look as text, paste it back, then close without applying
     move_focus_to("Copy preview as text", "DPAD_DOWN", limit=60)
     key("BUTTON_A")
