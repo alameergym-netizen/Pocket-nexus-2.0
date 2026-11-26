@@ -171,7 +171,9 @@ def main(apk):
     assert focused(device, "Retroid Bridge"), "Hardware diagnostics could not be reached by controller"
     tap_label(device, "Retroid Bridge")
     events = (RESULTS / "accessibility-events.log").open("wb")
-    subprocess.Popen(["timeout", "16", "adb", "shell", "uiautomator", "events"], stdout=events, stderr=subprocess.STDOUT)
+    event_process = subprocess.Popen(["timeout", "16", "adb", "shell", "uiautomator", "events"], stdout=events, stderr=subprocess.STDOUT)
+    event_process.wait(timeout=22)
+    events.close()
     bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
     capture("09-hardware-readings")
     tap_label(bridge, "Refresh readings")
@@ -214,7 +216,7 @@ if __name__ == "__main__":
                            ("settings-focus.log", ("shell", "logcat", "-d", "-s", "NexusSettingsFocus:D", "*:S")),
                            ("system.log", ("shell", "logcat", "-d", "-t", "1600")),
                            ("accessibility.txt", ("shell", "dumpsys", "accessibility")),
-                           ("activity.txt", ("shell", "dumpsys", "activity", "top")))):
+                           ("activity.txt", ("shell", "dumpsys", "activity", "top"))):
             try:
                 (RESULTS / file).write_bytes(adb(*args, timeout=8))
             except subprocess.SubprocessError:
