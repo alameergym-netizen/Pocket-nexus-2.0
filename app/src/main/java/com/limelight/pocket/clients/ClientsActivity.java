@@ -51,6 +51,9 @@ public class ClientsActivity extends ConsoleActivity {
     private final Map<String, String> versions = new HashMap<>();
     private final Map<String, View> rowById = new HashMap<>();
     private final Map<String, TextView> stateById = new HashMap<>();
+    /** U05: apps the Library's games wait for (name → games), from its readiness check. */
+    private final Map<String, Integer> waiting = new java.util.LinkedHashMap<>();
+    private TextView needed;
     /** Where the focus goes once the window has it (after any touch-mode change on arrival). */
     private View initialFocus;
     private boolean scanned;
@@ -152,10 +155,26 @@ public class ClientsActivity extends ConsoleActivity {
                     found.remove(c.id);
                 }
             }
+            // U05: which apps the Library's games are waiting for (the same check as its cards)
+            java.util.List<String> missing = new java.util.ArrayList<>();
+            try {
+                for (com.limelight.pocket.library.UniversalLibrary.Game g
+                        : com.limelight.pocket.library.UniversalLibrary.gather(app)) {
+                    if (g.ready() == com.limelight.pocket.library.HorizonLibraryReadiness.Ready.APP_MISSING) {
+                        missing.add(g.missingApp());
+                    }
+                }
+            } catch (RuntimeException unreadable) {
+                missing.clear();
+            }
+            final Map<String, Integer> wait = com.limelight.pocket.library.HorizonLibraryReadiness.waiting(missing);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) {
                     return;
                 }
+                waiting.clear();
+                waiting.putAll(wait);
+                showNeeded();
                 installed.clear();
                 installed.putAll(found);
                 versions.clear();
@@ -197,6 +216,14 @@ public class ClientsActivity extends ConsoleActivity {
         intro.setMaxLines(heightDp < 420 ? 1 : 3);
         intro.setEllipsize(TextUtils.TruncateAt.END);
         column.addView(intro);
+        needed = text("", 11, 0xFFF5B841, true);
+        needed.setId(R.id.horizon_clients_needed);
+        needed.setPadding(0, 0, 0, dp(6));
+        needed.setMaxLines(2);
+        needed.setEllipsize(TextUtils.TruncateAt.END);
+        needed.setVisibility(View.GONE);
+        column.addView(needed);
+        showNeeded();
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(split ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
@@ -408,6 +435,29 @@ public class ClientsActivity extends ConsoleActivity {
 
     // ---- Details ----------------------------------------------------------------------------
 
+    /** U05: "Your Library is waiting for RetroArch (3), DuckStation (1)", or nothing. */
+    private void showNeeded() {
+        if (needed == null) return;
+        if (waiting.isEmpty()) {
+            needed.setVisibility(View.GONE);
+            return;
+        }
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        for (Map.Entry<String, Integer> e : waiting.entrySet()) {
+            parts.add(getString(R.string.horizon_clients_needed_item, e.getKey(), e.getValue()));
+        }
+        needed.setText(getString(R.string.horizon_clients_needed, TextUtils.join(", ", parts)));
+        needed.setVisibility(View.VISIBLE);
+    }
+
+    /** How many Library games wait for this client (0: none, or it is installed). */
+    private int waitingFor(HorizonClientRegistry.Client c) {
+        for (Map.Entry<String, Integer> e : waiting.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(c.name)) return e.getValue();
+        }
+        return 0;
+    }
+
     private String state(HorizonClientRegistry.Client c) {
         if (c.mode == HorizonClientRegistry.Mode.INSTALLED_APP && !scanned) {
             return getString(R.string.horizon_clients_checking);
@@ -420,7 +470,9 @@ public class ClientsActivity extends ConsoleActivity {
                 return v != null ? getString(R.string.horizon_clients_state_installed_version, v)
                         : getString(R.string.horizon_clients_state_installed);
             case NOT_INSTALLED:
-                return getString(R.string.horizon_clients_state_missing);
+                int games = waitingFor(c);
+                return games > 0 ? getResources().getQuantityString(R.plurals.horizon_clients_state_missing_needed,
+                        games, games) : getString(R.string.horizon_clients_state_missing);
             case WEB:
                 return getString(R.string.horizon_clients_state_web);
             case ON_PC:
