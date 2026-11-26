@@ -204,7 +204,7 @@ def main(apk):
     row = min((n for n in menu.iter("node") if n.get("clickable") == "true" and has(n, "Favorite")),
               key=lambda n: (bounds(n)[2] - bounds(n)[0]) * (bounds(n)[3] - bounds(n)[1]))
     tap(row)
-    wait_for("Favorite turned on", lambda t: any(n.get("text") == "\u2713" for n in t.iter("node")), timeout=10)
+    wait_for("Favorite turned on", lambda t: any("\u2713" in (n.get("text") or "") for n in t.iter("node")), timeout=10)
     capture("03-favorite-on")
     key("BUTTON_B")
     library = wait_for("the ROM's card carries the mark", lambda t: chip(card(t, RETRO)) is not None and any(

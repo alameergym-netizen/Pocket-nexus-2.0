@@ -993,9 +993,11 @@ public class LibraryActivity extends ConsoleActivity {
                     updateHero(keep);
                     return getString(GameShelf.statusLabel(s));
                 }).withIcon("STAR"));
+        items.add(StreamMenuView.Item.submenu(getString(R.string.pocket_ul_collections), () -> collections(g))
+                .withIcon("LIST"));
         items.add(StreamMenuView.Item.value(getString(R.string.horizon_library_favorite),
                 g.favorite ? "✓" : "", direction -> {
-                    // L03: one mark for every way to play it, kept in each provider's own store
+                    // L03 (after Collections, which short screens must still show first): one mark for every way to play it, kept in each provider's own store
                     final boolean now = !g.favorite;
                     final Context app = getApplicationContext();
                     g.favorite = now;
@@ -1005,8 +1007,6 @@ public class LibraryActivity extends ConsoleActivity {
                     cards.notifyItemChanged(heroPos);
                     return now ? "✓" : "";
                 }).withIcon("SPARKLE"));
-        items.add(StreamMenuView.Item.submenu(getString(R.string.pocket_ul_collections), () -> collections(g))
-                .withIcon("LIST"));
         items.add(StreamMenuView.Item.action(getString(R.string.pocket_hint_details), () -> {
             hideConsolePanel();
             page(g);
