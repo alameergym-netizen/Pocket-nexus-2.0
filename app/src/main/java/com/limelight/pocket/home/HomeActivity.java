@@ -204,6 +204,7 @@ public class HomeActivity extends ConsoleActivity {
     private final java.util.Map<TextView, Typeface> originalType = new java.util.HashMap<>();
     private LinearLayout telemetry;
     private TextView titaniumBattery, titaniumThermal, titaniumDisplay;
+    private com.limelight.pocket.device.headphones.HeadphonesHomeChip headphonesChip;
     private final Runnable refreshTelemetry = new Runnable() {
         @Override public void run() {
             if (!titanium || !resumed) return;
@@ -286,6 +287,10 @@ public class HomeActivity extends ConsoleActivity {
         setContentView(R.layout.activity_home);
         d = getResources().getDisplayMetrics().density;
         SectionBar.attach(this, SectionBar.HOME);
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            headphonesChip=new com.limelight.pocket.device.headphones.HeadphonesHomeChip(this,
+                    () -> resumed && !isBooting() && (ambient==null || !ambient.showing()));
+        }
         row = findViewById(R.id.homeRow);
         source = findViewById(R.id.homeSource);
         sourceRow = findViewById(R.id.homeSourceRow);
@@ -429,10 +434,12 @@ public class HomeActivity extends ConsoleActivity {
         });
         resumed = true;
         if (fontGeneration != com.limelight.pocket.ui.PocketFonts.generation()) {
-            // T09: the typeface changed: every text on Home is built with it again
+            // T09: the typeface changed: every text on Home is built with it again. This comes
+            // before the headphones chip starts reading, so a recreate never leaves a read behind.
             recreate();
             return;
         }
+        if(headphonesChip!=null) headphonesChip.resume();
         if (layout != null && (horizonDensity != com.limelight.pocket.ui.HorizonAppearance.density(this)
                 || horizonCorners != com.limelight.pocket.ui.HorizonAppearance.corners(this)
                 || pureOled != com.limelight.pocket.ui.PocketTheme.pureOled(this)
@@ -471,6 +478,7 @@ public class HomeActivity extends ConsoleActivity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        if(headphonesChip!=null) headphonesChip.pause();
         main.removeCallbacks(refreshTelemetry);
         main.removeCallbacks(refreshStreamDeck);
         main.removeCallbacks(streamDeckSoon);

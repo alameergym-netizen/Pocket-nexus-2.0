@@ -1247,6 +1247,14 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         if (consolePanel != null) consolePanel.replaceCurrentPage(original, items);
     }
 
+    public boolean isConsolePageCurrent(List<StreamMenuView.Item> items) {
+        return consolePanel != null && consolePanel.isCurrentPage(items);
+    }
+
+    public boolean refreshConsolePage(List<StreamMenuView.Item> original, List<StreamMenuView.Item> items) {
+        return consolePanel != null && consolePanel.refreshLivePage(original, items);
+    }
+
     public void hideConsolePanel() {
         if (consolePanel != null) {
             consolePanel.hide();

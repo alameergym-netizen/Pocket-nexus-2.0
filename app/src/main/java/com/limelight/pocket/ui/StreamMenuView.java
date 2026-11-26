@@ -653,6 +653,31 @@ public class StreamMenuView extends FrameLayout {
         render(0);
     }
 
+    /** A page-specific asynchronous observer must never publish into another page. */
+    public boolean isCurrentPage(List<Item> items) {
+        return showing && !stack.isEmpty() && page().items == items;
+    }
+
+    /** Refresh a live panel without restarting the selection or animating the whole list. */
+    public boolean refreshLivePage(List<Item> original, List<Item> items) {
+        if (!isCurrentPage(original)) return false;
+        Page previous = page();
+        Page next = new Page(previous.title, items, previous.columns);
+        next.selected = -1;
+        if (previous.selected >= 0 && previous.selected < previous.items.size()) {
+            String label = previous.items.get(previous.selected).title;
+            for (int i = 0; i < items.size(); i++) {
+                if (!items.get(i).header && label.equals(items.get(i).title)) {
+                    next.selected = i;
+                    break;
+                }
+            }
+        }
+        stack.set(stack.size() - 1, next);
+        render(-2);
+        return true;
+    }
+
     private boolean pop() {
         if (stack.size() <= 1) {
             return false;
@@ -708,9 +733,9 @@ public class StreamMenuView extends FrameLayout {
         pill.setVisibility(INVISIBLE);
         // Place the pill once rows have a size, without sliding from the old page
         pillRetries = 0;
-        list.post(() -> updateSelection(false, false));
+        list.post(() -> { if (showing && page() == page) updateSelection(false, direction == -2); });
 
-        if (animated()) {
+        if (animated() && direction != -2) {
             // The rows arrive one after another, from the side the page came from
             listFrame.animate().cancel();
             listFrame.setAlpha(1f);
