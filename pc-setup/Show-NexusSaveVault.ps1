@@ -67,7 +67,7 @@ foreach ($name in @('Exact game name', 'Ludusavi executable', 'Local vault folde
 $history = New-Object System.Windows.Forms.ListBox
 $history.Dock = 'Fill'
 $history.HorizontalScrollbar = $true
-$history.AccessibleName = 'Save snapshots for this game'
+$history.AccessibleName = 'Save snapshots'
 $history.DisplayMember = 'Label'
 $layout.Controls.Add($history, 0, 4)
 $layout.SetColumnSpan($history, 3)
@@ -77,7 +77,7 @@ $details.ReadOnly = $true
 $details.Dock = 'Fill'
 $details.ScrollBars = 'Vertical'
 $details.AccessibleName = 'Save Vault operation result'
-$details.Text = 'Choose a vault and enter a game name. Select Load history to view its saved snapshots.'
+$details.Text = 'Choose a vault and select Load history to see all snapshots. Enter an exact game name to filter.'
 $layout.Controls.Add($details, 0, 5)
 $layout.SetColumnSpan($details, 3)
 
@@ -112,17 +112,25 @@ foreach ($action in @(
         $game = $fields[0].Text.Trim()
         $exe = $fields[1].Text
         $vault = $fields[2].Text
-        if (-not $game) { $details.Text = 'Enter the exact game name as shown in Ludusavi.'; return }
+        if ($kind -in @('Preview', 'Backup') -and -not $game) { $details.Text = 'Enter the exact game name as shown in Ludusavi.'; return }
         if ($kind -in @('Preview', 'Backup', 'RestorePreview') -and -not $exe) { $details.Text = 'Choose the Ludusavi executable.'; return }
         if ($kind -ne 'Preview' -and -not $vault) { $details.Text = 'Choose a local vault folder.'; return }
         $arguments = @{ Game = $game }
         switch ($kind) {
             'Preview' { $arguments.Ludusavi = $exe; $arguments.Action = 'Backup' }
             'Backup' { $arguments.Ludusavi = $exe; $arguments.VaultDirectory = $vault }
-            'History' { $arguments.VaultDirectory = $vault }
+            'History' {
+                $history.Items.Clear()
+                $arguments.VaultDirectory = $vault
+                if (-not $game) {
+                    $arguments.Remove('Game')
+                    $arguments.AllGames = $true
+                }
+            }
             { $_ -in @('Verify', 'RestorePreview', 'RecoverCopy') } {
                 if (-not $history.SelectedItem) { $details.Text = 'Select a snapshot from the history first.'; return }
                 $arguments.VaultDirectory = $vault
+                $arguments.Game = $history.SelectedItem.Game
                 $arguments.VerifySnapshot = $history.SelectedItem.Snapshot
                 if ($kind -eq 'RestorePreview') { $arguments.Ludusavi = $exe }
                 if ($kind -eq 'RecoverCopy') {
@@ -172,13 +180,16 @@ $timer.add_Tick({
             'Preview' { $details.Text = "Game: $($result.Game)`r`nFiles: $($result.Files)   Registry keys: $($result.RegistryKeys)`r`nLudusavi result: $($result.Decision) / $($result.Change)" }
             'Backup' { $details.Text = "Verified backup created`r`n$($result.Directory)`r`nFiles: $($result.Files)   Registry keys: $($result.RegistryKeys)`r`nSelect Load history to see the new snapshot." }
             'History' {
-                $history.Items.Clear()
-                foreach ($entry in $result) {
-                    [void]$history.Items.Add([pscustomobject]@{
-                        Snapshot = $entry.Snapshot
-                        Label = $entry.CreatedUtc.ToLocalTime().ToString('G') + '   ' + $entry.Snapshot
-                    })
-                }
+                $history.BeginUpdate()
+                try {
+                    foreach ($entry in $result) {
+                        [void]$history.Items.Add([pscustomobject]@{
+                            Snapshot = $entry.Snapshot
+                            Game = $entry.Game
+                            Label = $entry.Game + '   ' + $entry.CreatedUtc.ToLocalTime().ToString('G') + '   ' + $entry.Snapshot
+                        })
+                    }
+                } finally { $history.EndUpdate() }
                 $details.Text = if ($result.Count) { "$($result.Count) matching snapshots. Select one to verify its files." } else { 'No matching snapshots in this vault.' }
             }
             'Verify' { $details.Text = "Both snapshot files verified with SHA-256`r`n$($result.Snapshot)`r`n" + ($result.Checksums -join "`r`n") }
