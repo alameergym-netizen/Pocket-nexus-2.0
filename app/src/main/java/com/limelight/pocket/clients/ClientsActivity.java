@@ -54,7 +54,7 @@ public class ClientsActivity extends ConsoleActivity {
     /** U05: apps the Library's games wait for (name → games), from its readiness check. */
     private final Map<String, Integer> waiting = new java.util.LinkedHashMap<>();
     private TextView needed;
-    /** The waiting line costs the list no rows: the intro gives up its extra lines (or, compact, its place). */
+    /** The waiting line costs the list no rows: beside the title when wide, in the intro's place when short. */
     private TextView intro;
     private boolean compact;
     /** Where the focus goes once the window has it (after any touch-mode change on arrival). */
@@ -213,8 +213,14 @@ public class ClientsActivity extends ConsoleActivity {
 
         TextView title = text(getString(R.string.horizon_clients_title), 19, 0xFFFFFFFF, true);
         ViewCompat.setAccessibilityHeading(title, true);
-        column.addView(title);
-        compact = heightDp < 420;
+        // U05: on a wide screen the waiting line sits beside the title, costing the list no rows
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        titleRow.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        column.addView(titleRow);
+        compact = !split && heightDp < 420;
         intro = text(getString(R.string.horizon_clients_intro), 11, 0xA3FFFFFF, false);
         intro.setPadding(0, dp(2), 0, dp(heightDp < 420 ? 6 : 10));
         intro.setMaxLines(heightDp < 420 ? 1 : 3);
@@ -222,11 +228,17 @@ public class ClientsActivity extends ConsoleActivity {
         column.addView(intro);
         needed = text("", 11, 0xFFF5B841, true);
         needed.setId(R.id.horizon_clients_needed);
-        needed.setPadding(0, 0, 0, dp(6));
         needed.setMaxLines(1);
         needed.setEllipsize(TextUtils.TruncateAt.END);
         needed.setVisibility(View.GONE);
-        column.addView(needed);
+        if (split) {
+            needed.setGravity(Gravity.END);
+            needed.setPadding(dp(16), 0, 0, 0);
+            titleRow.addView(needed, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        } else {
+            needed.setPadding(0, 0, 0, dp(6));
+            column.addView(needed);
+        }
         showNeeded();
 
         LinearLayout body = new LinearLayout(this);
@@ -446,13 +458,12 @@ public class ClientsActivity extends ConsoleActivity {
             needed.setVisibility(View.GONE);
             if (intro != null) {
                 intro.setVisibility(View.VISIBLE);
-                intro.setMaxLines(compact ? 1 : 3);
             }
             return;
         }
         if (intro != null) {
+            // Narrow and short: the waiting line takes the intro's place; otherwise the intro stays
             intro.setVisibility(compact ? View.GONE : View.VISIBLE);
-            intro.setMaxLines(1);
         }
         java.util.List<String> parts = new java.util.ArrayList<>();
         for (Map.Entry<String, Integer> e : waiting.entrySet()) {
