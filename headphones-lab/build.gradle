@@ -5,11 +5,11 @@ android {
     namespace 'com.pocketnexus.headphones.lab'
     compileSdk 36
     defaultConfig {
-        applicationId 'com.pocketnexus.headphones.lab'
+        applicationId 'com.pocketnexus.headphones.lab.v2'
         minSdk 31
         targetSdk 34
-        versionCode 1
-        versionName '0.1-test'
+        versionCode 2
+        versionName '0.2-test'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11

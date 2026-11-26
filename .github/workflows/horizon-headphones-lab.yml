@@ -44,15 +44,15 @@ jobs:
           mkdir -p lab-output
           mapfile -t apks < <(find headphones-lab/build/outputs/apk/debug -name '*.apk')
           test "${#apks[@]}" -eq 1
-          cp "${apks[0]}" lab-output/Nexus-Headphones-Lab.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs lab-output/Nexus-Headphones-Lab.apk
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging lab-output/Nexus-Headphones-Lab.apk | grep -F "package: name='com.pocketnexus.headphones.lab'"
-          (cd lab-output && sha256sum Nexus-Headphones-Lab.apk > SHA256SUMS.txt)
+          cp "${apks[0]}" lab-output/Nexus-Headphones-Lab-v0.2.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs lab-output/Nexus-Headphones-Lab-v0.2.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging lab-output/Nexus-Headphones-Lab-v0.2.apk | grep -F "package: name='com.pocketnexus.headphones.lab.v2'"
+          (cd lab-output && sha256sum Nexus-Headphones-Lab-v0.2.apk > SHA256SUMS.txt)
           git rev-parse HEAD > lab-output/REVISION.txt
           cp headphones-lab/README.md lab-output/TEST-GUIDE.md
       - uses: actions/upload-artifact@v4
         with:
-          name: Nexus-Headphones-Lab
+          name: Nexus-Headphones-Lab-v0.2
           path: lab-output/
           if-no-files-found: error
           retention-days: 7
