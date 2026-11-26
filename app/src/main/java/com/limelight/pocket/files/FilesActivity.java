@@ -663,8 +663,15 @@ public class FilesActivity extends Activity {
         if (one) {
             File selected = files.get(0);
             items.add(StreamMenuView.Item.action(getString(R.string.pocket_rename), () -> rename(selected)));
-            if (selected.isFile()) {
-                if (VerifiedSaveCopy.isBackup(selected)) {
+            if (selected.isDirectory()) {
+                items.add(StreamMenuView.Item.action(getString(R.string.horizon_save_folder_create),
+                        () -> saveFolder(selected, null)));
+                items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_folder_limits)));
+            } else if (selected.isFile()) {
+                if (VerifiedSaveFolder.isBackup(selected)) {
+                    items.add(StreamMenuView.Item.action(getString(R.string.horizon_save_folder_preview),
+                            () -> previewFolderRestore(selected)));
+                } else if (VerifiedSaveCopy.isBackup(selected)) {
                     items.add(StreamMenuView.Item.action(getString(R.string.horizon_preview_save_restore),
                             () -> previewSaveRestore(selected)));
                 } else {
@@ -853,6 +860,61 @@ public class FilesActivity extends Activity {
             int message = restore
                     ? (complete ? R.string.horizon_save_restore_done : R.string.horizon_save_restore_failed)
                     : (complete ? R.string.horizon_save_backup_done : R.string.horizon_save_backup_failed);
+            main.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                if (into.equals(dir)) load(into, null);
+            });
+        });
+    }
+
+    private void previewFolderRestore(File selected) {
+        File folder = selected.getParentFile();
+        long request = ++restorePreviewGeneration;
+        Toast.makeText(this, R.string.pocket_files_working, Toast.LENGTH_SHORT).show();
+        io.execute(() -> {
+            try {
+                VerifiedSaveFolder.Preview backup = VerifiedSaveFolder.preview(selected);
+                main.post(() -> {
+                    if (!canShowRestorePreview(request, folder)) return;
+                    List<StreamMenuView.Item> items = new ArrayList<>();
+                    items.add(StreamMenuView.Item.info(getString(R.string.horizon_save_folder_name), backup.name));
+                    items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_folder_items, backup.files, backup.directories)));
+                    items.add(StreamMenuView.Item.info(getString(R.string.horizon_save_payload_size),
+                            Formatter.formatFileSize(this, backup.size)));
+                    items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_digest, backup.digest)));
+                    items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_folder_keep_both)));
+                    items.add(StreamMenuView.Item.note(getString(R.string.horizon_save_folder_limits)));
+                    items.add(StreamMenuView.Item.action(getString(R.string.horizon_save_folder_restore),
+                            () -> saveFolder(selected, backup)));
+                    menu.show(getString(R.string.horizon_save_folder_preview),
+                            getString(R.string.horizon_save_folder_format), null, items);
+                });
+            } catch (IOException | SecurityException error) {
+                main.post(() -> {
+                    if (canShowRestorePreview(request, folder)) {
+                        Toast.makeText(this, R.string.horizon_save_folder_failed, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
+    }
+
+    private void saveFolder(File selected, VerifiedSaveFolder.Preview backup) {
+        File into = selected.getParentFile();
+        File cache = getCacheDir();
+        Toast.makeText(this, R.string.pocket_files_working, Toast.LENGTH_SHORT).show();
+        io.execute(() -> {
+            boolean complete = false;
+            try {
+                if (backup == null) VerifiedSaveFolder.create(selected, into, cache);
+                else VerifiedSaveFolder.restore(selected, into, cache, backup);
+                complete = true;
+            } catch (IOException | SecurityException error) {
+                // The only published result is a verified separate archive or folder.
+            }
+            int message = !complete ? R.string.horizon_save_folder_failed : backup == null
+                    ? R.string.horizon_save_folder_created : R.string.horizon_save_folder_recovered;
             main.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show();

@@ -237,8 +237,28 @@ public final class PocketPrefs {
         return prefs(context).getInt(KEY_USB_BITRATE, DEFAULT_USB_BITRATE_KBPS);
     }
 
+    /**
+     * Whether things move: the user's Animations setting, unless Android's own "Remove
+     * animations" is on (animator duration scale 0), which every screen then honours too (S10:
+     * reduced motion), not only the animations Android scales by itself.
+     */
     public static boolean animationsEnabled(Context context) {
+        return animationsPreferred(context) && systemMotionAllowed(context);
+    }
+
+    /** The user's own Animations setting, as the Look tab shows it. */
+    public static boolean animationsPreferred(Context context) {
         return prefs(context).getBoolean(KEY_ANIMATIONS, true);
+    }
+
+    /** False when Android's "Remove animations" (animator duration scale 0) is on. */
+    public static boolean systemMotionAllowed(Context context) {
+        try {
+            return android.provider.Settings.Global.getFloat(context.getContentResolver(),
+                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f;
+        } catch (RuntimeException unreadable) {
+            return true;
+        }
     }
 
     public static int uiScalePercent(Context context) {

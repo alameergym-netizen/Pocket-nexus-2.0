@@ -46,6 +46,13 @@ Secure host status (development)
     and stream paths use their existing connections. Keep the plaintext control port private.
 
 Playnite game list (development)
+  - Nexus Host dashboard > Playnite Library shows the manual export, with name filtering,
+    Refresh, Open details and Start in Playnite for entries installed at export time.
+  - Each action rechecks the complete export and sends only its selected game GUID through
+    Playnite's documented URI handler. A changed export must be refreshed first.
+    A sent request does not prove the game started; check Playnite for progress or errors.
+  - Refresh reads the snapshot, not the live Playnite database. Export again after installing
+    or removing games. This local window adds no handheld or network launch permissions.
   - Copy the playnite folder from this archive into Playnite's Extensions folder and restart
     Playnite. The installed configuration usually uses %APPDATA%\Playnite\Extensions.
   - Open Playnite's main menu > Extensions > Pocket Nexus > Export visible games to Nexus Host.

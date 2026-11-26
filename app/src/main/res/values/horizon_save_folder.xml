@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="horizon_save_folder_create">Back up save folder</string>
+    <string name="horizon_save_folder_preview">Preview folder restore</string>
+    <string name="horizon_save_folder_restore">Restore separate folder here</string>
+    <string name="horizon_save_folder_format">Nexus save folder backup</string>
+    <string name="horizon_save_folder_limits">Close the game or emulator first. Folder backups keep up to 256 MiB and 2,048 items.</string>
+    <string name="horizon_save_folder_name">Original folder</string>
+    <string name="horizon_save_folder_items">Files: %1$d · Folders: %2$d</string>
+    <string name="horizon_save_folder_keep_both">Restore creates a separate folder and keeps the current saves. A new name is chosen when needed.</string>
+    <string name="horizon_save_folder_created">Verified folder backup created</string>
+    <string name="horizon_save_folder_recovered">Verified folder copy recovered. Current saves were kept.</string>
+    <string name="horizon_save_folder_failed">The folder backup could not be verified. Current saves were kept.</string>
+</resources>

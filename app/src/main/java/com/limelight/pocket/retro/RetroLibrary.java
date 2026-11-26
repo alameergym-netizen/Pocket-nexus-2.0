@@ -641,6 +641,17 @@ public final class RetroLibrary {
         return lib.esdeFavs.contains(rom.key()) && !favs.contains("-" + rom.key());
     }
 
+    /**
+     * This app's own mark for a ROM (by {@link RomScanner.Rom#key()}): TRUE when marked, FALSE
+     * when explicitly unmarked (also hiding ES-DE's favourite), null when never set here.
+     */
+    public static Boolean favoriteMark(Context context, String romKey) {
+        Set<String> favs = PocketPrefs.prefs(context).getStringSet(KEY_FAVS, Collections.<String>emptySet());
+        if (favs.contains(romKey)) return Boolean.TRUE;
+        if (favs.contains("-" + romKey)) return Boolean.FALSE;
+        return null;
+    }
+
     public static void setFavorite(Context context, RomScanner.Rom rom, boolean on) {
         Set<String> favs = new HashSet<>(PocketPrefs.prefs(context).getStringSet(KEY_FAVS, Collections.<String>emptySet()));
         favs.remove(rom.key());

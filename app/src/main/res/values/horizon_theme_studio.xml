@@ -49,4 +49,6 @@
     <string name="horizon_studio_preview_desc">%1$s preview of %2$s. %3$s</string>
     <string name="horizon_studio_motion_off">Still artwork</string>
     <string name="horizon_studio_motion_on">Moving artwork</string>
+    <!-- S10: a pasted look whose accent is too dark to read on the dark screens -->
+    <string name="horizon_studio_import_unreadable">That accent is too dark to read on Pocket Nexus\'s dark screens (it needs 4.5:1 contrast). Nothing changed.</string>
 </resources>
