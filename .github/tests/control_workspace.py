@@ -212,12 +212,42 @@ def main(apk):
     device = wait_for("System settings", lambda t: has(t, "Compatibility stream start"))
     # Tapping System focuses its first row. D-pad focus scrolls the actual Settings
     # container to each next row, independent of display size and touch-scroll inertia.
-    for _ in range(50):
+    traversal_deadline = time.monotonic() + 300
+    for step in range(50):
         if focused(device, "Retroid Bridge"):
             break
-        key("DPAD_DOWN")
+        if time.monotonic() >= traversal_deadline:
+            raise AssertionError("Controller traversal exceeded its observation budget")
+        before = [(n.get("text"), n.get("content-desc"), n.get("resource-id"))
+                  for n in device.iter("node") if n.get("focused") == "true"]
+        print("System D-pad step %d from %r" % (step + 1, before), flush=True)
+        key("DPAD_DOWN")  # Exactly one real input; only the observation may be repeated.
         time.sleep(0.2)
-        device = snap()
+        observed = None
+        deadline = min(traversal_deadline, time.monotonic() + 45)
+        while time.monotonic() < deadline:
+            try:
+                # Avoid a stale XML file or a lingering remote dump on observation failure.
+                adb("shell", "rm", "-f", "/sdcard/control-ui.xml", timeout=5)
+                adb("shell", "timeout", "12", "uiautomator", "dump", "/sdcard/control-ui.xml", timeout=18)
+                xml = adb("exec-out", "cat", "/sdcard/control-ui.xml", timeout=5)
+                (RESULTS / "last-screen.xml").write_bytes(xml)
+                candidate = ET.fromstring(xml)
+                after = [(n.get("text"), n.get("content-desc"), n.get("resource-id"))
+                         for n in candidate.iter("node") if n.get("focused") == "true"]
+                if after and (after != before or focused(candidate, "Retroid Bridge")):
+                    observed = candidate
+                    print("System D-pad step %d reached %r" % (step + 1, after), flush=True)
+                    break
+            except (ET.ParseError, subprocess.SubprocessError) as failure:
+                with (RESULTS / "hierarchy.log").open("ab") as log:
+                    log.write(("step %d: %s\n" % (step + 1, failure)).encode())
+                    log.write(getattr(failure, "output", None) or b"")
+            time.sleep(0.4)
+        if observed is None:
+            capture("system-dpad-stalled-%02d" % (step + 1))
+            raise AssertionError("No fresh changed focus after one D-pad input at step %d" % (step + 1))
+        device = observed
     assert focused(device, "Retroid Bridge"), "Hardware diagnostics could not be reached by controller"
     tap_label(device, "Retroid Bridge")
     bridge = wait_for("sampled hardware observations", lambda t: has(t, "Sampled at") and has(t, "Refresh readings"))
