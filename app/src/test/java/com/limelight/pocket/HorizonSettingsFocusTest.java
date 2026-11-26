@@ -31,6 +31,15 @@ public class HorizonSettingsFocusTest {
                 .putBoolean(PocketPrefs.KEY_ANIMATIONS, false)
                 .putBoolean(PocketPrefs.KEY_UI_SOUNDS, false)
                 .putBoolean(PocketPrefs.KEY_HAPTICS, false).commit();
+        java.util.Timer trace = new java.util.Timer("settings-fixture-stacks", true);
+        trace.schedule(new java.util.TimerTask() {
+            @Override public void run() {
+                for (java.util.Map.Entry<Thread, StackTraceElement[]> entry : Thread.getAllStackTraces().entrySet()) {
+                    System.out.println("SETTINGS THREAD " + entry.getKey().getName() + " " + entry.getKey().getState());
+                    for (StackTraceElement frame : entry.getValue()) System.out.println("    at " + frame);
+                }
+            }
+        }, 20000);
         System.out.println("Settings fixture: creating the view tree");
         ActivityController<QuickSettingsActivity> controller = Robolectric.buildActivity(QuickSettingsActivity.class).create();
         System.out.println("Settings fixture: Activity created");
@@ -58,7 +67,7 @@ public class HorizonSettingsFocusTest {
                 tabs.getChildAt(5).performClick();
                 assertTrue(tabs.getChildAt(5).isSelected());
             }
-        } finally { controller.destroy(); }
+        } finally { trace.cancel(); controller.destroy(); }
     }
 
     private static boolean contains(View view, String text) {
