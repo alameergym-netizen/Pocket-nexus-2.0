@@ -115,6 +115,7 @@ jobs:
             horizon-windows.log
             dist/Nexus-Save-Vault.png
             dist/Nexus-Playnite-Library.png
+            dist/Nexus-Host-*.png
             dist/Nexus-Save-Queue.png
           if-no-files-found: warn
           retention-days: 7

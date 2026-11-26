@@ -64,4 +64,36 @@ try {
     & (Join-Path (Split-Path -Parent $PSScriptRoot) 'Show-NexusPlayniteLibrary.ps1') -DataDirectory $directory
     if (-not $state.Done) { throw $state.Failure }
     Write-Host 'PASS: real Windows Playnite library selection, installed gating, filter, invalidation, missing-export recovery and close.'
+
+    # Load the production dashboard function without starting helper/network servers.
+    $here = Split-Path -Parent $PSScriptRoot
+    $DataDir = $directory
+    $script:hostDashboard = $null
+    $script:companionOk = $false
+    function Get-HostDashboardText { 'Synthetic status for the native dashboard layout check.' }
+    $tokens = $null; $parseErrors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $here 'PocketNexus-PC.ps1'), [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Host script has parse errors.' }
+    $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Show-HostDashboard' }, $true)
+    Invoke-Expression $definition.Extent.Text
+    foreach ($size in @(@(720, 420), @(560, 360))) {
+        Show-HostDashboard
+        $dashboard = $script:hostDashboard
+        try {
+            $dashboard.ClientSize = New-Object Drawing.Size($size[0], $size[1])
+            [Windows.Forms.Application]::DoEvents()
+            $actions = $dashboard.Controls[0].GetControlFromPosition(0, 3)
+            if (-not ($actions.Controls | Where-Object Text -eq 'Playnite Library')) { throw 'The dashboard library entry is absent.' }
+            foreach ($action in $actions.Controls) {
+                if (-not $actions.ClientRectangle.Contains($action.Bounds)) { throw "Dashboard action clipped at $($size[0]): $($action.Text)" }
+            }
+            $file = Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Screenshot))) "Nexus-Host-$($size[0]).png"
+            $bitmap = New-Object Drawing.Bitmap($dashboard.Width, $dashboard.Height)
+            try {
+                $dashboard.DrawToBitmap($bitmap, (New-Object Drawing.Rectangle(0, 0, $dashboard.Width, $dashboard.Height)))
+                $bitmap.Save($file, [Drawing.Imaging.ImageFormat]::Png)
+            } finally { $bitmap.Dispose() }
+        } finally { $dashboard.Close(); $dashboard.Dispose() }
+    }
+    Write-Host 'PASS: production dashboard keeps every action visible at wide and compact sizes.'
 } finally { $timer.Dispose(); [IO.Directory]::Delete($directory, $true) }

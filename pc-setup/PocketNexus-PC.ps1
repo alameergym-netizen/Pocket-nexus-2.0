@@ -2403,7 +2403,7 @@ function Show-HostDashboard {
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 42)))
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 30)))
     [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 64)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)))
     $heading = New-Object System.Windows.Forms.Label
     $heading.Text = "NEXUS HOST"
     $heading.Font = New-Object System.Drawing.Font("Segoe UI", 21, [System.Drawing.FontStyle]::Bold)
@@ -2427,6 +2427,7 @@ function Show-HostDashboard {
     $actions = New-Object System.Windows.Forms.FlowLayoutPanel
     $actions.Dock = "Fill"
     $actions.WrapContents = $true
+    $actions.AutoSize = $true
     foreach ($label in @("Refresh", "Copy pairing PIN", "Vibepollo status", "GPU telemetry", "Playnite Library", "Save Vault", "Close")) {
         $button = New-Object System.Windows.Forms.Button
         $button.Text = $label
