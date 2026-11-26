@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Headphones Center presentation (ui/headphones). The transport's strings stay with it. -->
+<resources>
+    <item name="horizon_hp_device" type="id"/>
+    <item name="horizon_hp_status" type="id"/>
+    <item name="horizon_hp_left" type="id"/>
+    <item name="horizon_hp_case" type="id"/>
+    <item name="horizon_hp_right" type="id"/>
+    <item name="horizon_hp_mode_awareness" type="id"/>
+    <item name="horizon_hp_mode_off" type="id"/>
+    <item name="horizon_hp_mode_anc" type="id"/>
+    <item name="horizon_hp_levels" type="id"/>
+    <item name="horizon_hp_level_adaptive" type="id"/>
+    <item name="horizon_hp_level_light" type="id"/>
+    <item name="horizon_hp_level_balanced" type="id"/>
+    <item name="horizon_hp_level_deep" type="id"/>
+    <item name="horizon_hp_allow" type="id"/>
+    <item name="horizon_hp_refresh" type="id"/>
+    <item name="horizon_hp_choose" type="id"/>
+    <item name="horizon_hp_bluetooth" type="id"/>
+    <item name="horizon_hp_freshness" type="id"/>
+
+    <string name="horizon_hp_no_device">Looking for your earbuds</string>
+    <string name="horizon_hp_left">Left</string>
+    <string name="horizon_hp_case">Case</string>
+    <string name="horizon_hp_right">Right</string>
+    <string name="horizon_hp_battery">%1$d percent</string>
+    <string name="horizon_hp_battery_charging">%1$d percent, charging</string>
+    <string name="horizon_hp_battery_unknown">not reported</string>
+
+    <string name="horizon_hp_noise">Noise control</string>
+    <string name="horizon_hp_mode_awareness">Awareness</string>
+    <string name="horizon_hp_mode_off">Off</string>
+    <string name="horizon_hp_mode_anc">ANC</string>
+    <string name="horizon_hp_anc_earbud">Level set on earbuds</string>
+    <string name="horizon_hp_levels">ANC levels · %1$s</string>
+    <string name="horizon_hp_levels_open">ANC levels · %1$s  ▴</string>
+    <string name="horizon_hp_levels_cd">ANC levels, current %1$s</string>
+    <string name="horizon_hp_expanded">expanded</string>
+    <string name="horizon_hp_collapsed">collapsed</string>
+    <string name="horizon_hp_level_adaptive">Adaptive</string>
+    <string name="horizon_hp_level_light">Light</string>
+    <string name="horizon_hp_level_balanced">Balanced</string>
+    <string name="horizon_hp_level_deep">Deep</string>
+
+    <string name="horizon_hp_state_active">active, reported by the earbuds</string>
+    <string name="horizon_hp_state_applying">applying</string>
+    <string name="horizon_hp_state_off">not active</string>
+    <string name="horizon_hp_state_wait">wait for the current command</string>
+    <string name="horizon_hp_state_unread">unavailable until the earbuds report their mode</string>
+
+    <string name="horizon_hp_allow">Allow Nearby devices</string>
+    <string name="horizon_hp_refresh">Refresh</string>
+    <string name="horizon_hp_choose">Device</string>
+    <string name="horizon_hp_bluetooth">Bluetooth</string>
+
+    <string name="horizon_hp_phase_detecting">Looking through paired devices…</string>
+    <string name="horizon_hp_phase_unsupported">Needs Android 12 or newer to read earbuds</string>
+    <string name="horizon_hp_phase_permission">Allow Nearby devices to read your earbuds</string>
+    <string name="horizon_hp_phase_not_paired">Pair your earbuds in Bluetooth first</string>
+    <string name="horizon_hp_phase_choose">Choose your earbuds from the paired devices</string>
+    <string name="horizon_hp_phase_reading">Reading the earbuds…</string>
+    <string name="horizon_hp_phase_live">Connected · live from the earbuds</string>
+    <string name="horizon_hp_phase_applying">Applying %1$s…</string>
+    <string name="horizon_hp_phase_unverified">Connected, but this model can\'t be controlled here</string>
+    <string name="horizon_hp_phase_unreachable">No answer · take the earbuds out of the case</string>
+    <string name="horizon_hp_phase_paused">Paused while another screen is open</string>
+
+    <string name="horizon_hp_fresh_none">Not read yet · refreshes on its own</string>
+    <string name="horizon_hp_fresh_now">Updated just now · refreshes on its own</string>
+    <string name="horizon_hp_fresh_ago">Updated %1$s ago · refreshes on its own</string>
+    <string name="horizon_hp_fresh_paused">Refreshing resumes when you return</string>
+</resources>
