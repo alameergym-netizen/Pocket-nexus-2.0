@@ -46,6 +46,8 @@ public final class HeadphonesPanel {
     private boolean levels, choosing, reading, stopped, ready, auto=true, writing, suspended, cancelled;
     private boolean discoveryAttempted;
     private int busyRetries;
+    private boolean manualChoosing;
+    private long nextDiscovery;
     private long nextRead;
     private String status="Detecting paired audio devices…";
     private String lastCommand="";
@@ -107,10 +109,11 @@ public final class HeadphonesPanel {
                 reading=false;
                 if(!alive()) { discoveryAttempted=false; return; }
                 candidates=result;
+                nextDiscovery=android.os.SystemClock.elapsedRealtime()+REFRESH_MS;
                 if(error!=null) status=error;
                 else {
                     Candidate automatic=inventory.automatic();
-                    if(automatic!=null) { choose(automatic); return; }
+                    if(automatic!=null && !manualChoosing) { choose(automatic); return; }
                     status=result.isEmpty()?"Pair your earbuds in Android Bluetooth first":"Select paired earbuds to verify model";
                     choosing=true;
                 }
@@ -120,7 +123,7 @@ public final class HeadphonesPanel {
     }
     private void choose(Candidate c) {
         if(!alive() || reading || session!=null) return;
-        selected=c.device; choosing=false; auto=true; ready=false; busyRetries=0; battery=null; noise=null; lastCommand="";
+        selected=c.device; choosing=false; manualChoosing=false; auto=true; ready=false; busyRetries=0; battery=null; noise=null; lastCommand="";
         start(null);
     }
     private void start(HeadphonesNoiseControl.Selection selection) {
@@ -150,7 +153,8 @@ public final class HeadphonesPanel {
                 suspended=false; publish();
                 if(selected==null && !reading) discover();
             }
-            if(!discoveryAttempted && permitted() && selected==null && !reading) discover();
+            if(permitted() && selected==null && !reading && !manualChoosing &&
+                    (!discoveryAttempted || (auto && android.os.SystemClock.elapsedRealtime()>=nextDiscovery))) discover();
             if(session!=null) {
                 HeadphonesBluetooth.Result r=session.result();
                 if(r.status!=HeadphonesBluetooth.Status.READING) {
@@ -199,7 +203,7 @@ public final class HeadphonesPanel {
         r.add(StreamMenuView.Item.repeatable("Refresh now",()->{ if(selected==null) discover(); else {auto=true;start(null);} }));
         if(session!=null) r.add(StreamMenuView.Item.repeatable("Cancel",()->{ cancelled=true; if(session!=null)session.cancel(); auto=false; ready=false; }));
         r.add(StreamMenuView.Item.repeatable("Auto refresh",()->{auto=!auto;nextRead=android.os.SystemClock.elapsedRealtime();publish();}).withValue(auto?"On":"Off"));
-        r.add(StreamMenuView.Item.repeatable("Choose paired device",()->{if(session==null&&!reading){choosing=!choosing;publish();}}));
+        r.add(StreamMenuView.Item.repeatable("Choose paired device",()->{if(session==null&&!reading){choosing=!choosing;manualChoosing=choosing;publish();}}));
         if(choosing) for(Candidate c:candidates) {
             String suffix="";
             try { String addr=c.device.getAddress(); suffix=addr.substring(Math.max(0,addr.length()-5)); } catch(RuntimeException ignored){}
