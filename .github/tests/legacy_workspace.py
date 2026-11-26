@@ -140,6 +140,49 @@ def check_size(prefix, density, font_scale):
     wait_for(prefix + " Control closes", lambda t: not has(t, "Nexus Control"))
 
 
+def churn_package():
+    """A system app that can be switched off and on to send package-changed broadcasts."""
+    listed = {line.strip()[len("package:"):] for line in
+              adb("shell", "pm", "list", "packages").decode("utf-8", "replace").splitlines()
+              if line.strip().startswith("package:")}
+    for candidate in ("com.android.camera2", "com.android.deskclock", "com.android.calendar",
+                      "com.android.contacts", "com.android.gallery3d"):
+        if candidate in listed:
+            return candidate
+    return None
+
+
+def dock_taps_survive_package_churn():
+    """Quick Access must open on the first tap while other apps change (the reported flake:
+    every package broadcast used to rebuild every dock button)."""
+    pkg = churn_package()
+    if pkg is None:
+        print("No system app available to toggle; package churn step skipped", flush=True)
+        return
+    loop = subprocess.Popen(["adb", "shell", "for i in $(seq 1 80); do pm disable-user --user 0 %s >/dev/null 2>&1; "
+                             "pm enable %s >/dev/null 2>&1; done" % (pkg, pkg)],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1)
+    try:
+        for attempt in range(1, 6):
+            home = wait_for("Home before dock tap %d" % attempt, legacy_home)
+            tile = next(n for n in home.iter("node") if n.get("clickable") == "true"
+                        and "Library" in (n.get("text"), n.get("content-desc")))
+            tap(tile)
+            wait_for("a single tap opens Library during package churn (%d)" % attempt,
+                     lambda t: resource(t, "horizon_library_grid") is not None, timeout=20)
+            key("BUTTON_B")
+        wait_for("Home after the churn", legacy_home)
+    finally:
+        loop.terminate()
+        try:
+            loop.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            loop.kill()
+        adb("shell", "pm", "enable", pkg)
+    print("PASS: five single dock taps open Library while %s is switched off and on" % pkg, flush=True)
+
+
 def main(apk):
     RESULTS.mkdir(exist_ok=True)
     adb("install", "-g", apk, timeout=180)
@@ -178,6 +221,7 @@ def main(apk):
             time.sleep(0.5)
     check_size("01-wide", 320, "1.0")
     print("PASS: Legacy Home, Library and Control at the handheld size", flush=True)
+    dock_taps_survive_package_churn()
     check_size("02-compact-130", 480, "1.3")
     print("PASS: Legacy Home, Library and Control at a compact size with 130% text", flush=True)
 

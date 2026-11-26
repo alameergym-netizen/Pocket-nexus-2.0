@@ -745,10 +745,15 @@ public class LibraryActivity extends ConsoleActivity {
         meta.setText(m);
         StringBuilder w = new StringBuilder();
         for (UniversalLibrary.Way way : g.ways) {
-            if (w.indexOf(way.label) >= 0) {
+            // S03: a way that can't start says why ("PSX (needs DuckStation)")
+            String label = way.ready == HorizonLibraryReadiness.Ready.APP_MISSING && way.needs != null
+                    ? getString(R.string.horizon_library_way_needs, way.label, way.needs)
+                    : way.ready == HorizonLibraryReadiness.Ready.NO_EMULATOR
+                    ? getString(R.string.horizon_library_way_no_emulator, way.label) : way.label;
+            if (w.indexOf(label) >= 0) {
                 continue;
             }
-            w.append(w.length() > 0 ? "  ·  " : "").append(way.label);
+            w.append(w.length() > 0 ? "  ·  " : "").append(label);
         }
         ways.setText(g.ways.size() > 1 ? getString(R.string.pocket_ul_plays_on_many, w) : w);
         if (launchSources != null) {
@@ -1060,6 +1065,16 @@ public class LibraryActivity extends ConsoleActivity {
         }
     }
 
+    /** What a game that can't start is waiting for, in words. */
+    private String readinessText(UniversalLibrary.Game g) {
+        if (g.ready() == HorizonLibraryReadiness.Ready.NO_EMULATOR) {
+            return getString(R.string.horizon_library_no_android_emulator);
+        }
+        String app = g.missingApp();
+        return app != null ? getString(R.string.horizon_library_needs_named, app)
+                : getString(R.string.horizon_library_needs_an_app);
+    }
+
     private final class Cards extends RecyclerView.Adapter<Cards.Holder> {
         final class Holder extends RecyclerView.ViewHolder {
             final FrameLayout card;
@@ -1067,15 +1082,19 @@ public class LibraryActivity extends ConsoleActivity {
             final TextView name;
             final TextView badge;
             final View dot;
+            /** S03: the game can't start as things are (its app isn't installed...). */
+            final TextView needs;
             String key;
 
-            Holder(FrameLayout frame, FrameLayout card, ImageView cover, TextView name, TextView badge, View dot) {
+            Holder(FrameLayout frame, FrameLayout card, ImageView cover, TextView name, TextView badge, View dot,
+                   TextView needs) {
                 super(frame);
                 this.card = card;
                 this.cover = cover;
                 this.name = name;
                 this.badge = badge;
                 this.dot = dot;
+                this.needs = needs;
             }
         }
 
@@ -1140,8 +1159,22 @@ public class LibraryActivity extends ConsoleActivity {
             FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(dp(10), dp(10), Gravity.TOP | Gravity.END);
             dlp.setMargins(0, dp(7), dp(7), 0);
             card.addView(dot, dlp);
+            TextView needs = text(8.5f, titanium ? Typeface.MONOSPACE : PocketFonts.bold(), 0xFF1A1206);
+            needs.setId(R.id.horizon_library_needs);
+            needs.setLetterSpacing(0.04f);
+            needs.setPadding(dp(6), dp(2), dp(6), dp(2));
+            needs.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            GradientDrawable nb = new GradientDrawable();
+            nb.setCornerRadius(legacy ? 0 : dp(6));
+            nb.setColor(0xF2F5B841);
+            needs.setBackground(nb);
+            FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+            nlp.setMargins(dp(6), dp(6), dp(20), 0);
+            if (titanium) nlp.setMarginStart(dp(57));
+            needs.setVisibility(View.GONE);
+            card.addView(needs, nlp);
             frame.addView(card, new FrameLayout.LayoutParams(-1, -2));
-            final Holder h = new Holder(frame, card, cover, name, badge, dot);
+            final Holder h = new Holder(frame, card, cover, name, badge, dot, needs);
             FocusGlow.apply(card, radius, false, pureOled || titanium || legacy ? 1f : 1.08f, (v, has) -> {
                 if (has) {
                     int p = h.getBindingAdapterPosition();
@@ -1196,6 +1229,20 @@ public class LibraryActivity extends ConsoleActivity {
                 }
             }
             h.badge.setText(b);
+            HorizonLibraryReadiness.Ready ready = g.ready();
+            boolean flagged = HorizonLibraryReadiness.flagged(ready);
+            // The card keeps its title as its name; a screen reader hears what it waits for as
+            // its state (Android 11+), and everyone sees the chip
+            if (flagged) {
+                h.needs.setText(ready == HorizonLibraryReadiness.Ready.NO_EMULATOR
+                        ? R.string.horizon_library_no_emulator : R.string.horizon_library_needs_app);
+                h.needs.setVisibility(View.VISIBLE);
+                if (Build.VERSION.SDK_INT >= 30) h.card.setStateDescription(readinessText(g));
+            }
+            else {
+                h.needs.setVisibility(View.GONE);
+                if (Build.VERSION.SDK_INT >= 30) h.card.setStateDescription(null);
+            }
             int status = GameShelf.status(LibraryActivity.this, g.key);
             if (status != GameShelf.NONE) {
                 GradientDrawable dot = new GradientDrawable();
