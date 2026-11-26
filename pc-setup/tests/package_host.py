@@ -12,6 +12,8 @@ FILES = (
     "pc-setup/NexusSecureHost.cs",
     "pc-setup/NexusVibepollo.cs",
     "pc-setup/NexusGpuTelemetry.cs",
+    "pc-setup/NexusPlayniteCatalog.cs",
+    "pc-setup/Show-NexusPlayniteLibrary.ps1",
     "pc-setup/README.txt",
     "pc-setup/Test-NexusUpgrade.ps1",
     "pc-setup/Stage-NexusHostDev.ps1",

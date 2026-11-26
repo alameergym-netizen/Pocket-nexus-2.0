@@ -12,7 +12,8 @@ final class HorizonHomeStyle {
         int b=((accent&255)*(100-w)+255*w)/100;
         return 0xFF000000 | r<<16 | g<<8 | b;
     }
-    static int brandMode(float widthDp) { return widthDp>=940?2:widthDp>=680?1:0; }
+    /** S01: one rule for the brand (see HorizonBrand.presence). */
+    static int brandMode(float widthDp) { return com.limelight.pocket.ui.HorizonBrand.presence(widthDp); }
     static boolean showSummary(float widthDp,float heightDp,boolean shelf,boolean portal) {
         return shelf && !portal && widthDp>=720 && heightDp>=400;
     }

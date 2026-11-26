@@ -3,7 +3,9 @@ package com.limelight.pocket.clients;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The clients, hosts and sources in the project registry (docs/CLIENTS_AND_SOURCES.md), with
@@ -46,6 +48,24 @@ public final class HorizonClientRegistry {
         NONE
     }
 
+    /** What Pocket Nexus itself does with a client (derived from its mode and session, or declared). */
+    public enum Capability {
+        /** Pocket Nexus starts it: its own player, the installed app, or the official site. */
+        OPENS,
+        /** Pocket Nexus starts a chosen game in it directly. */
+        STARTS_GAMES,
+        /** Can send a title link when the selected installed app resolves ACTION_VIEW; otherwise opens the app. */
+        CONDITIONAL_GAME_LINK,
+        /** Its games appear in Pocket Nexus's Library and on Home. */
+        LIBRARY,
+        /** Pocket Nexus sees the session: the stream it runs, or Android's media controls. */
+        SEES_SESSION,
+        /** Quick Resume returns to it. */
+        RESUMES,
+        /** Pocket Nexus connects to it on the PC. */
+        CONNECTS
+    }
+
     /** What the user can do with it on this handheld right now. */
     public enum Availability { BUILT_IN, INSTALLED, NOT_INSTALLED, WEB, ON_PC, RESEARCH_ONLY, UNVERIFIED }
 
@@ -61,6 +81,10 @@ public final class HorizonClientRegistry {
         public final String link;
         /** Exact package names, or "family.*" for a package and its variants. */
         private final List<String> packages;
+        /** Declared on top of what the mode and session give: starting games, the Library. */
+        private final Set<Capability> declared = EnumSet.noneOf(Capability.class);
+        /** The client Pocket Nexus offers instead when this one isn't available (its id); null: none. */
+        private String fallback;
 
         Client(String id, String name, Group group, Mode mode, Session session, boolean resume, String link,
                String... packages) {
@@ -72,6 +96,41 @@ public final class HorizonClientRegistry {
             this.resume = resume;
             this.link = link;
             this.packages = Collections.unmodifiableList(Arrays.asList(packages));
+        }
+
+        /** Declares what isn't implied by the mode and session (used while building {@link #ALL}). */
+        Client does(Capability... extra) {
+            declared.addAll(Arrays.asList(extra));
+            return this;
+        }
+
+        /** Names the built-in or installed client offered when this one isn't available. */
+        Client fallsBackTo(String clientId) {
+            fallback = clientId;
+            return this;
+        }
+
+        /** The id of the client offered instead, or null. */
+        public String fallback() {
+            return fallback;
+        }
+
+        /** Everything Pocket Nexus does with it, from its mode, session and declarations. */
+        public Set<Capability> capabilities() {
+            Set<Capability> out = EnumSet.noneOf(Capability.class);
+            boolean available = mode == Mode.BUILT_IN || mode == Mode.INSTALLED_APP || mode == Mode.OFFICIAL_WEB;
+            if (available && group != Group.SOURCES) out.add(Capability.OPENS);
+            if (available && (session == Session.OBSERVED || session == Session.MEDIA_CONTROLS)) {
+                out.add(Capability.SEES_SESSION);
+            }
+            if (available && resume) out.add(Capability.RESUMES);
+            if (mode == Mode.PC_HOST) out.add(Capability.CONNECTS);
+            if (available) out.addAll(declared);
+            return Collections.unmodifiableSet(out);
+        }
+
+        public boolean can(Capability c) {
+            return capabilities().contains(c);
         }
 
         public List<String> packages() {
@@ -133,37 +192,41 @@ public final class HorizonClientRegistry {
     public static final List<Client> ALL = Collections.unmodifiableList(Arrays.asList(
             // PC streaming
             new Client("nexus-pc-stream", "Pocket Nexus PC streaming", Group.PC_STREAMING, Mode.BUILT_IN,
-                    Session.OBSERVED, true, GH + "moonlight-stream/moonlight-android"),
+                    Session.OBSERVED, true, GH + "moonlight-stream/moonlight-android")
+                    .does(Capability.STARTS_GAMES, Capability.LIBRARY),
             new Client("starwire", "Starwire", Group.PC_STREAMING, Mode.RESEARCH, Session.NONE, false,
-                    GH + "SicarioGaming/Starwire"),
+                    GH + "SicarioGaming/Starwire").fallsBackTo("nexus-pc-stream"),
             new Client("moonlight-x", "Moonlight X", Group.PC_STREAMING, Mode.RESEARCH, Session.NONE, false,
-                    GH + "MoreOrLessSoftware/moonlight-android"),
+                    GH + "MoreOrLessSoftware/moonlight-android").fallsBackTo("nexus-pc-stream"),
             new Client("kast", "KAST", Group.PC_STREAMING, Mode.RESEARCH, Session.NONE, false,
-                    GH + "MikalaiKryvusha/KAST"),
+                    GH + "MikalaiKryvusha/KAST").fallsBackTo("nexus-pc-stream"),
             new Client("aurora", "Aurora Android", Group.PC_STREAMING, Mode.RESEARCH, Session.NONE, false,
-                    GH + "Koloses/aurora-android"),
+                    GH + "Koloses/aurora-android").fallsBackTo("nexus-pc-stream"),
             new Client("vibemis", "Vibemis (Android)", Group.PC_STREAMING, Mode.UNRESOLVED, Session.NONE, false,
                     GH + "ineedmypills/Vibemis"),
             new Client("ariane", "Ariane", Group.PC_STREAMING, Mode.UNRESOLVED, Session.NONE, false, null),
             // Cloud gaming
             new Client("xcloud-player", "Xbox Cloud Gaming player", Group.CLOUD, Mode.BUILT_IN,
-                    Session.PROVIDER_MANAGED, false, "https://www.xbox.com/play"),
+                    Session.PROVIDER_MANAGED, false, "https://www.xbox.com/play")
+                    .does(Capability.STARTS_GAMES, Capability.LIBRARY),
             new Client("xbox-app", "Xbox app", Group.CLOUD, Mode.INSTALLED_APP, Session.OPENED_ONLY, false,
-                    "https://www.xbox.com/play", "com.gamepass", "com.microsoft.xboxone.smartglass"),
+                    "https://www.xbox.com/play", "com.gamepass", "com.microsoft.xboxone.smartglass")
+                    .fallsBackTo("xcloud-player"),
             new Client("better-xcloud", "Better xCloud", Group.CLOUD, Mode.INSTALLED_APP, Session.OPENED_ONLY, false,
-                    GH + "redphx/better-xcloud-android", "com.redphx.betterxc"),
+                    GH + "redphx/better-xcloud-android", "com.redphx.betterxc")
+                    .does(Capability.CONDITIONAL_GAME_LINK).fallsBackTo("xcloud-player"),
             new Client("xstreaming", "XStreaming", Group.CLOUD, Mode.INSTALLED_APP, Session.OPENED_ONLY, false,
-                    GH + "Geocld/XStreaming", "com.xstreaming"),
+                    GH + "Geocld/XStreaming", "com.xstreaming").fallsBackTo("xcloud-player"),
             new Client("gfn-player", "GeForce NOW player", Group.CLOUD, Mode.BUILT_IN, Session.PROVIDER_MANAGED,
                     false, "https://play.geforcenow.com"),
             new Client("gfn-app", "GeForce NOW app", Group.CLOUD, Mode.INSTALLED_APP, Session.OPENED_ONLY, false,
-                    "https://www.nvidia.com/en-us/geforce-now/", "com.nvidia.geforcenow"),
+                    "https://www.nvidia.com/en-us/geforce-now/", "com.nvidia.geforcenow").fallsBackTo("gfn-player"),
             new Client("boosteroid-player", "Boosteroid player", Group.CLOUD, Mode.BUILT_IN,
                     Session.PROVIDER_MANAGED, false, "https://cloud.boosteroid.com"),
             new Client("boosteroid-app", "Boosteroid app", Group.CLOUD, Mode.INSTALLED_APP, Session.OPENED_ONLY,
-                    false, "https://boosteroid.com/", "com.boosteroid.streaming"),
+                    false, "https://boosteroid.com/", "com.boosteroid.streaming").fallsBackTo("boosteroid-player"),
             new Client("greenlight", "Greenlight", Group.CLOUD, Mode.RESEARCH, Session.NONE, false,
-                    GH + "unknownskl/greenlight"),
+                    GH + "unknownskl/greenlight").fallsBackTo("xcloud-player"),
             // Your consoles
             new Client("xbox-remote", "Xbox Remote Play", Group.CONSOLE, Mode.OFFICIAL_WEB, Session.PROVIDER_MANAGED,
                     false, "https://www.xbox.com/en-US/consoles/remote-play"),
@@ -171,10 +234,11 @@ public final class HorizonClientRegistry {
                     "https://www.playstation.com/en-us/support/games/playstation-remote-play-on-mobile-devices/",
                     "com.playstation.remoteplay"),
             new Client("chiaki-ng", "Chiaki-ng", Group.CONSOLE, Mode.RESEARCH, Session.NONE, false,
-                    GH + "streetpea/chiaki-ng"),
+                    GH + "streetpea/chiaki-ng").fallsBackTo("ps-remote"),
             // PC games on the handheld
             new Client("gamenative", "GameNative", Group.LOCAL_PC, Mode.INSTALLED_APP, Session.OPENED_ONLY, false,
-                    GH + "utkarshdalal/GameNative", "app.gamenative.*"),
+                    GH + "utkarshdalal/GameNative", "app.gamenative.*")
+                    .does(Capability.STARTS_GAMES, Capability.LIBRARY),
             new Client("gamehub", "GameHub", Group.LOCAL_PC, Mode.INSTALLED_APP, Session.OPENED_ONLY, false,
                     "https://gamehub.xiaoji.com", "com.xiaoji.egggame"),
             new Client("winlator", "Winlator", Group.LOCAL_PC, Mode.INSTALLED_APP, Session.OPENED_ONLY, false,

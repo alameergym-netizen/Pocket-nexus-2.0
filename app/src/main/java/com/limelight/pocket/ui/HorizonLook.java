@@ -96,6 +96,8 @@ public final class HorizonLook {
     public static final class Invalid extends Exception {
         public static final int NOT_A_LOOK = 0;
         public static final int UNSUPPORTED = 1;
+        /** S10: the accent can't be read on the dark screens (or dark text on it). */
+        public static final int UNREADABLE = 2;
         public final int reason;
 
         Invalid(int reason, String detail) {
@@ -135,7 +137,11 @@ public final class HorizonLook {
         if (values.size() != KEYS.length) {
             throw new Invalid(Invalid.UNSUPPORTED, "missing");
         }
-        HorizonLook look = new HorizonLook(color(values.get("accent")), values.get("backdrop"),
+        int accent = color(values.get("accent"));
+        if (!readableAccent(accent)) {
+            throw new Invalid(Invalid.UNREADABLE, "accent contrast");
+        }
+        HorizonLook look = new HorizonLook(accent, values.get("backdrop"),
                 values.get("material"), values.get("sound"), values.get("layout"), values.get("focus"),
                 level(values.get("density")), level(values.get("corners")), flag(values.get("motion")),
                 flag(values.get("color-art")), flag(values.get("live-glass")));
@@ -143,6 +149,29 @@ public final class HorizonLook {
             throw new Invalid(Invalid.UNSUPPORTED, "value");
         }
         return look;
+    }
+
+    /**
+     * The darkest accent Pocket Nexus can use (WCAG relative luminance). The accent is drawn as
+     * text and focus rings on near-black screens, and near-black text is drawn on accent faces.
+     * At 0.2 both reach 4.5:1: (0.2 + 0.05) / 0.05 = 5.0 on black, and (0.2 + 0.05) / (0.0052 +
+     * 0.05) = 4.5 under #101014. Every built-in accent is far lighter.
+     */
+    public static final double MIN_ACCENT_LUMINANCE = 0.2;
+
+    public static boolean readableAccent(int color) {
+        return luminance(color) >= MIN_ACCENT_LUMINANCE;
+    }
+
+    /** WCAG relative luminance of an opaque colour. */
+    public static double luminance(int color) {
+        return 0.2126 * channel((color >> 16) & 0xFF) + 0.7152 * channel((color >> 8) & 0xFF)
+                + 0.0722 * channel(color & 0xFF);
+    }
+
+    private static double channel(int v) {
+        double c = v / 255.0;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
     private static int color(String value) throws Invalid {
