@@ -21,7 +21,6 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: actions/setup-java@v4
-        id: java
         with:
           distribution: temurin
           java-version: '17'
@@ -47,8 +46,9 @@ jobs:
           sha256sum pocket-nexus-x86_64-debug.apk > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: horizon-emulator-${{ github.sha }}-${{ github.run_attempt }}
+          name: horizon-emulator-${{ github.sha }}
           path: shared-emulator-apk/
+          overwrite: true
           if-no-files-found: error
           retention-days: 7
   ui:
@@ -61,21 +61,31 @@ jobs:
       matrix:
         include:
           - suite: accessibility
+            script: |-
+              python3 -u .github/tests/accessibility_sweep.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk" --enforce
             minutes: 25
             upstream: false
             evidence: |-
               accessibility-results/
           - suite: atmosphere
+            script: |-
+              python3 -u .github/tests/atmosphere_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
             minutes: 20
             upstream: false
             evidence: |-
               atmosphere-ui-results/
           - suite: clients
+            script: |-
+              python3 -u .github/tests/clients_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk" "$RUNNER_TEMP/nexus-upstream-cloud.apk"
             minutes: 20
             upstream: true
             evidence: |-
               clients-ui-results/
           - suite: cloud-installed
+            script: |-
+              python3 -u .github/tests/media_connect_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+              python3 -u .github/tests/files_save_copy.py
+              python3 -u .github/tests/cloud_client_workspace.py installed "$RUNNER_TEMP/nexus-upstream-cloud.apk"
             minutes: 25
             upstream: true
             evidence: |-
@@ -83,26 +93,40 @@ jobs:
               files-save-copy-results/
               cloud-client-ui-results/
           - suite: control
+            script: |-
+              python3 -u .github/tests/control_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
             minutes: 25
             upstream: false
             evidence: |-
               control-ui-results/
           - suite: home
+            script: |-
+              python3 -u .github/tests/home_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+              python3 -u .github/tests/pure_oled_workspace.py
+              python3 -u .github/tests/titanium_workspace.py
             minutes: 20
             upstream: false
             evidence: |-
               home-ui-results/
           - suite: legacy
+            script: |-
+              python3 -u .github/tests/legacy_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
             minutes: 20
             upstream: false
             evidence: |-
               legacy-ui-results/
           - suite: library
+            script: |-
+              python3 -u .github/tests/library_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
             minutes: 20
             upstream: false
             evidence: |-
               library-ui-results/
           - suite: media-connect
+            script: |-
+              python3 -u .github/tests/media_connect_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
+              python3 -u .github/tests/files_save_copy.py
+              python3 -u .github/tests/cloud_client_workspace.py fallback "$RUNNER_TEMP/nexus-upstream-cloud.apk"
             minutes: 25
             upstream: false
             evidence: |-
@@ -110,16 +134,22 @@ jobs:
               files-save-copy-results/
               cloud-client-ui-results/
           - suite: signature
+            script: |-
+              python3 -u .github/tests/signature_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
             minutes: 20
             upstream: false
             evidence: |-
               signature-ui-results/
           - suite: stream-family
+            script: |-
+              python3 -u .github/tests/stream_family_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
             minutes: 20
             upstream: false
             evidence: |-
               stream-family-ui-results/
           - suite: theme-studio
+            script: |-
+              python3 -u .github/tests/theme_studio_workspace.py "$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
             minutes: 20
             upstream: false
             evidence: |-
@@ -132,7 +162,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
-          name: horizon-emulator-${{ github.sha }}-${{ github.run_attempt }}
+          name: horizon-emulator-${{ github.sha }}
           path: shared-emulator-apk/
       - name: Verify shared APK provenance
         shell: bash
@@ -157,8 +187,6 @@ jobs:
       - name: Run unchanged UI suite on isolated Android 13 emulator
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         timeout-minutes: ${{ matrix.minutes }}
-        env:
-          NEXUS_UI_SUITE: ${{ matrix.suite }}
         with:
           api-level: 33
           arch: x86_64
@@ -169,55 +197,7 @@ jobs:
           emulator-options: -no-window -no-snapshot -gpu guest -feature -Vulkan -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
           emulator-boot-timeout: 300
-          script: |
-            bash -euo pipefail <<'NEXUS_UI'
-            APK="$GITHUB_WORKSPACE/shared-emulator-apk/pocket-nexus-x86_64-debug.apk"
-            case "$NEXUS_UI_SUITE" in
-                accessibility)
-                  python3 -u .github/tests/accessibility_sweep.py "$APK" --enforce
-                  ;;
-                atmosphere)
-                  python3 -u .github/tests/atmosphere_workspace.py "$APK"
-                  ;;
-                clients)
-                  python3 -u .github/tests/clients_workspace.py "$APK" "$RUNNER_TEMP/nexus-upstream-cloud.apk"
-                  ;;
-                cloud-installed)
-                  python3 -u .github/tests/media_connect_workspace.py "$APK"
-                  python3 -u .github/tests/files_save_copy.py
-                  python3 -u .github/tests/cloud_client_workspace.py installed "$RUNNER_TEMP/nexus-upstream-cloud.apk"
-                  ;;
-                control)
-                  python3 -u .github/tests/control_workspace.py "$APK"
-                  ;;
-                home)
-                  python3 -u .github/tests/home_workspace.py "$APK"
-                  python3 -u .github/tests/pure_oled_workspace.py
-                  python3 -u .github/tests/titanium_workspace.py
-                  ;;
-                legacy)
-                  python3 -u .github/tests/legacy_workspace.py "$APK"
-                  ;;
-                library)
-                  python3 -u .github/tests/library_workspace.py "$APK"
-                  ;;
-                media-connect)
-                  python3 -u .github/tests/media_connect_workspace.py "$APK"
-                  python3 -u .github/tests/files_save_copy.py
-                  python3 -u .github/tests/cloud_client_workspace.py fallback "$RUNNER_TEMP/nexus-upstream-cloud.apk"
-                  ;;
-                signature)
-                  python3 -u .github/tests/signature_workspace.py "$APK"
-                  ;;
-                stream-family)
-                  python3 -u .github/tests/stream_family_workspace.py "$APK"
-                  ;;
-                theme-studio)
-                  python3 -u .github/tests/theme_studio_workspace.py "$APK"
-                  ;;
-                *) echo "Unknown UI suite" >&2; exit 1 ;;
-            esac
-            NEXUS_UI
+          script: ${{ matrix.script }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
