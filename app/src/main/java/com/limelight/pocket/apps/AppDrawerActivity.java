@@ -1063,7 +1063,8 @@ public class AppDrawerActivity extends ConsoleActivity {
         @Override
         public void onBindViewHolder(@NonNull final Tile h, int position) {
             final App a = shown.get(position);
-            final String key = a.pkg + "|" + com.limelight.pocket.PocketArt.version();
+            final String key = a.pkg + "|" + com.limelight.pocket.PocketArt.version() + "|"
+                    + com.limelight.pocket.ui.HorizonIconStyle.cacheTag(AppDrawerActivity.this);
             h.pkg = a.pkg;
             h.key = key;
             h.name.setText(a.label);
@@ -1131,6 +1132,11 @@ public class AppDrawerActivity extends ConsoleActivity {
             Bitmap pickedIcon = decode(com.limelight.pocket.PocketArt.file(this, AndroidLibrary.UUID, id,
                     com.limelight.pocket.PocketArt.ICON), size);
             Drawable icon = pickedIcon == null ? getPackageManager().getApplicationIcon(pkg) : null;
+            // T09: the chosen icon style (Themed needs the app's own monochrome icon)
+            if (icon != null && com.limelight.pocket.ui.HorizonIconStyle.draw(c, icon, size,
+                    com.limelight.pocket.ui.HorizonIconStyle.current(this), PocketPrefs.accentColor(this))) {
+                return out;
+            }
             if (icon != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     && icon instanceof android.graphics.drawable.AdaptiveIconDrawable) {
                 android.graphics.drawable.AdaptiveIconDrawable adaptive = (android.graphics.drawable.AdaptiveIconDrawable) icon;

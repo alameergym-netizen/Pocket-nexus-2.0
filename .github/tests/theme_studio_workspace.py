@@ -321,6 +321,18 @@ def main(apk):
     wait_prefs("logos again", lambda x: '<boolean name="pocket_logos_for_names" value="true" />' in x)
     print("PASS: the hero logo size and logos-for-titles preview on Home and store at once", flush=True)
 
+    # T09: the App Drawer's icon style, shown with this app's own icon on the row
+    move_focus_to("App icons", "DPAD_DOWN")
+    wait_for("icons start as full tiles", lambda t: focused(t, "App icons, Full tile"))
+    key("BUTTON_A")
+    wait_prefs("themed icons", lambda x: '<string name="horizon_icon_style">themed</string>' in x)
+    wait_for("the row says themed", lambda t: focused(t, "App icons, Themed"))
+    key("BUTTON_A")
+    wait_prefs("classic icons", lambda x: '<string name="horizon_icon_style">classic</string>' in x)
+    key("BUTTON_A")
+    wait_prefs("full tiles again", lambda x: '<string name="horizon_icon_style">full</string>' in x)
+    print("PASS: the app icon style cycles and is stored", flush=True)
+
     # Copy the previewed look as text, paste it back, then close without applying
     move_focus_to("Copy preview as text", "DPAD_DOWN", limit=60)
     key("BUTTON_A")

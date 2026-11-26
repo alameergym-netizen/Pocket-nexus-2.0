@@ -358,6 +358,7 @@ public class ThemeStudioActivity extends ConsoleActivity {
         // T09: Home's hero title, shown live in the Home preview
         header(R.string.horizon_studio_section_hero);
         heroRows();
+        iconRow();
 
         header(R.string.horizon_studio_section_tools);
         final String defaultName = getString(R.string.horizon_studio_default);
@@ -437,6 +438,42 @@ public class ThemeStudioActivity extends ConsoleActivity {
             rebuildRows("hero:size");
         });
         sizeRow.setAlpha(logos ? 1f : 0.5f);
+    }
+
+    /** T09: the App Drawer's icon style, with this app's own icon drawn in it on the row. */
+    private void iconRow() {
+        final String style = com.limelight.pocket.ui.HorizonIconStyle.current(this);
+        int name = com.limelight.pocket.ui.HorizonIconStyle.THEMED.equals(style) ? R.string.horizon_studio_icons_themed
+                : com.limelight.pocket.ui.HorizonIconStyle.CLASSIC.equals(style) ? R.string.horizon_studio_icons_classic
+                : R.string.horizon_studio_icons_full;
+        LinearLayout row = row("icons", getString(R.string.horizon_studio_icons), getString(name), null);
+        android.widget.ImageView sample = new android.widget.ImageView(this);
+        sample.setImageBitmap(com.limelight.pocket.ui.HorizonIconStyle.sample(this, style, dp(28)));
+        sample.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        sample.setClipToOutline(true);
+        sample.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dp(6));
+            }
+        });
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(dp(28), dp(28));
+        slp.setMarginEnd(dp(10));
+        row.addView(sample, 0, slp);
+        // The rule behind Themed, for anyone who asks (TalkBack reads it after the row)
+        androidx.core.view.ViewCompat.setTooltipText(row, getString(R.string.horizon_studio_icons_note));
+        row.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                PocketUi.tick(this);
+                disarmClear("icons");
+            }
+        });
+        row.setOnClickListener(v -> {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            PocketPrefs.prefs(this).edit().putString(com.limelight.pocket.ui.HorizonIconStyle.KEY,
+                    com.limelight.pocket.ui.HorizonIconStyle.next(style)).apply();
+            rebuildRows("icons");
+        });
     }
 
     /** A workspace's accent: focusing shows that workspace; A cycles "same as the look" and each accent. */
@@ -602,7 +639,8 @@ public class ThemeStudioActivity extends ConsoleActivity {
             // A full reset: the workspaces follow the look again
             android.content.SharedPreferences.Editor e = PocketPrefs.prefs(this).edit();
             for (String ws : HorizonWorkspaceLook.WORKSPACES) e.remove(HorizonWorkspaceLook.key(ws));
-            e.remove(PocketPrefs.KEY_LOGO_SCALE).remove(com.limelight.pocket.PocketArt.KEY_LOGOS);
+            e.remove(PocketPrefs.KEY_LOGO_SCALE).remove(com.limelight.pocket.PocketArt.KEY_LOGOS)
+                    .remove(com.limelight.pocket.ui.HorizonIconStyle.KEY);
             e.apply();
             showHero();
         }
