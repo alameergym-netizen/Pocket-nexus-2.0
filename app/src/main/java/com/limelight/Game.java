@@ -3173,6 +3173,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         items.add(StreamMenuView.Item.submenu(audioRouteTitle, () -> streamMenu.push(audioRouteTitle,
                 com.limelight.pocket.device.HorizonAudio.streamRouteRows(this))).withIcon("INFO"));
 
+        final String headphonesTitle = getString(R.string.horizon_headphones_center);
+        items.add(StreamMenuView.Item.submenu(headphonesTitle,
+                () -> com.limelight.pocket.device.headphones.HeadphonesPanel.open(this, streamMenu))
+                .withIcon("VOLUME_UP"));
+
         items.add(StreamMenuView.Item.header(getString(R.string.pocket_sm_header_quality)));
         if (horizonCompatibility) {
             items.add(StreamMenuView.Item.info(getString(R.string.horizon_compatibility_start),
