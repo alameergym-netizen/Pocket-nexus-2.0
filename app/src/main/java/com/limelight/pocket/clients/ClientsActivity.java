@@ -54,7 +54,7 @@ public class ClientsActivity extends ConsoleActivity {
     /** U05: apps the Library's games wait for (name → games), from its readiness check. */
     private final Map<String, Integer> waiting = new java.util.LinkedHashMap<>();
     private TextView needed;
-    /** On a compact screen the waiting line takes the intro's place, so the list keeps its rows. */
+    /** The waiting line costs the list no rows: the intro gives up its extra lines (or, compact, its place). */
     private TextView intro;
     private boolean compact;
     /** Where the focus goes once the window has it (after any touch-mode change on arrival). */
@@ -223,7 +223,7 @@ public class ClientsActivity extends ConsoleActivity {
         needed = text("", 11, 0xFFF5B841, true);
         needed.setId(R.id.horizon_clients_needed);
         needed.setPadding(0, 0, 0, dp(6));
-        needed.setMaxLines(compact ? 1 : 2);
+        needed.setMaxLines(1);
         needed.setEllipsize(TextUtils.TruncateAt.END);
         needed.setVisibility(View.GONE);
         column.addView(needed);
@@ -444,10 +444,16 @@ public class ClientsActivity extends ConsoleActivity {
         if (needed == null) return;
         if (waiting.isEmpty()) {
             needed.setVisibility(View.GONE);
-            if (intro != null) intro.setVisibility(View.VISIBLE);
+            if (intro != null) {
+                intro.setVisibility(View.VISIBLE);
+                intro.setMaxLines(compact ? 1 : 3);
+            }
             return;
         }
-        if (compact && intro != null) intro.setVisibility(View.GONE);
+        if (intro != null) {
+            intro.setVisibility(compact ? View.GONE : View.VISIBLE);
+            intro.setMaxLines(1);
+        }
         java.util.List<String> parts = new java.util.ArrayList<>();
         for (Map.Entry<String, Integer> e : waiting.entrySet()) {
             parts.add(getString(R.string.horizon_clients_needed_item, e.getKey(), e.getValue()));
