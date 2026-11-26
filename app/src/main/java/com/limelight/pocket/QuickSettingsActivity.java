@@ -1367,8 +1367,11 @@ public class QuickSettingsActivity extends ConsoleActivity {
                 () -> PocketPrefs.introAnimation(this),
                 value -> prefs().edit().putBoolean(PocketPrefs.KEY_INTRO, value).apply());
 
-        addToggle(getString(R.string.pocket_set_animations), getString(R.string.pocket_set_animations_sub),
-                () -> PocketPrefs.animationsEnabled(this),
+        // The user's own setting; when Android's "Remove animations" is on, the row says why
+        // nothing moves (S10: reduced motion is honoured everywhere)
+        addToggle(getString(R.string.pocket_set_animations), PocketPrefs.systemMotionAllowed(this)
+                        ? getString(R.string.pocket_set_animations_sub) : getString(R.string.horizon_motion_system_off),
+                () -> PocketPrefs.animationsPreferred(this),
                 value -> prefs().edit().putBoolean(PocketPrefs.KEY_ANIMATIONS, value).apply());
 
         if (com.limelight.pocket.ui.LiveGlass.supported()) {
