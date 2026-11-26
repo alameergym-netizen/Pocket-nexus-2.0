@@ -109,6 +109,8 @@ public final class HorizonAudio {
         rows.add(StreamMenuView.Item.note(a.getString(R.string.horizon_audio_snapshot)));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_route_title),
                 () -> showStreamRoute(a)));
+        rows.add(StreamMenuView.Item.submenu(a.getString(R.string.horizon_headphones_center),
+                () -> com.limelight.pocket.device.headphones.HeadphonesPanel.open(a)).withIcon("VOLUME_UP"));
         rows.add(StreamMenuView.Item.action(a.getString(R.string.horizon_buds_title),
                 () -> showBluetooth(a)));
         rows.add(StreamMenuView.Item.header(a.getString(R.string.horizon_audio_fx_title)));

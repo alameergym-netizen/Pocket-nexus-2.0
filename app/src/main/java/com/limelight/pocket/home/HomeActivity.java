@@ -204,6 +204,7 @@ public class HomeActivity extends ConsoleActivity {
     private final java.util.Map<TextView, Typeface> originalType = new java.util.HashMap<>();
     private LinearLayout telemetry;
     private TextView titaniumBattery, titaniumThermal, titaniumDisplay;
+    private com.limelight.pocket.device.headphones.HeadphonesHomeChip headphonesChip;
     private final Runnable refreshTelemetry = new Runnable() {
         @Override public void run() {
             if (!titanium || !resumed) return;
@@ -286,6 +287,14 @@ public class HomeActivity extends ConsoleActivity {
         setContentView(R.layout.activity_home);
         d = getResources().getDisplayMetrics().density;
         SectionBar.attach(this, SectionBar.HOME);
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            headphonesChip=new com.limelight.pocket.device.headphones.HeadphonesHomeChip(this,
+                    () -> resumed && !isBooting() && (ambient==null || !ambient.showing()));
+            // Down from the chip, or the chip going away while focused, returns to the hero
+            headphonesChip.setExit(() -> {
+                if (play != null && play.isShown()) play.requestFocus();
+            });
+        }
         row = findViewById(R.id.homeRow);
         source = findViewById(R.id.homeSource);
         sourceRow = findViewById(R.id.homeSourceRow);
@@ -429,10 +438,12 @@ public class HomeActivity extends ConsoleActivity {
         });
         resumed = true;
         if (fontGeneration != com.limelight.pocket.ui.PocketFonts.generation()) {
-            // T09: the typeface changed: every text on Home is built with it again
+            // T09: the typeface changed: every text on Home is built with it again. This comes
+            // before the headphones chip starts reading, so a recreate never leaves a read behind.
             recreate();
             return;
         }
+        if(headphonesChip!=null) headphonesChip.resume();
         if (layout != null && (horizonDensity != com.limelight.pocket.ui.HorizonAppearance.density(this)
                 || horizonCorners != com.limelight.pocket.ui.HorizonAppearance.corners(this)
                 || pureOled != com.limelight.pocket.ui.PocketTheme.pureOled(this)
@@ -471,6 +482,7 @@ public class HomeActivity extends ConsoleActivity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        if(headphonesChip!=null) headphonesChip.pause();
         main.removeCallbacks(refreshTelemetry);
         main.removeCallbacks(refreshStreamDeck);
         main.removeCallbacks(streamDeckSoon);
@@ -2146,7 +2158,10 @@ public class HomeActivity extends ConsoleActivity {
             }
             if (keyCode == (portalRow ? KeyEvent.KEYCODE_DPAD_DOWN : KeyEvent.KEYCODE_DPAD_UP)
                     && event.getAction() == KeyEvent.ACTION_DOWN) {
-                return true; // nothing on the other side but the tabs (L1 / R1) or the hints
+                // Up from the hero reaches the headphones battery chip when it shows; otherwise
+                // nothing is on the other side but the tabs (L1 / R1) or the hints
+                if (!portalRow && headphonesChip != null) headphonesChip.focus();
+                return true;
             }
             if (keyCode == (workspace && row.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT) && v == play && event.getAction() == KeyEvent.ACTION_DOWN
                     && layout != null && layout.arrange != com.limelight.pocket.ui.Layouts.SHELF) {

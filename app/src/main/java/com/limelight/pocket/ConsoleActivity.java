@@ -1247,6 +1247,38 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         if (consolePanel != null) consolePanel.replaceCurrentPage(original, items);
     }
 
+    /** Opens the console panel with a whole view as its page (the Headphones Center). */
+    public void showConsoleView(String title, String subtitle, android.view.View content) {
+        PocketUi.setBackdropBlur(blurTarget(), true);
+        consolePanel().showView(title != null ? title : "", subtitle != null ? subtitle : "", content,
+                hintA(this, R.string.pocket_hint_select), hintB(this, R.string.pocket_hint_back));
+    }
+
+    /** Pushes a whole view as a sub page of the open console panel. */
+    public void pushConsoleView(String title, android.view.View content) {
+        if (consolePanel != null && consolePanel.isShowing()) consolePanel.pushView(title, content);
+    }
+
+    public boolean isConsoleViewCurrent(android.view.View content) {
+        return consolePanel != null && consolePanel.isCurrentView(content);
+    }
+
+    public boolean consoleHoldsView(android.view.View content) {
+        return consolePanel != null && consolePanel.holdsView(content);
+    }
+
+    public boolean popConsolePage() {
+        return consolePanel != null && consolePanel.popPage();
+    }
+
+    public boolean isConsolePageCurrent(List<StreamMenuView.Item> items) {
+        return consolePanel != null && consolePanel.isCurrentPage(items);
+    }
+
+    public boolean refreshConsolePage(List<StreamMenuView.Item> original, List<StreamMenuView.Item> items) {
+        return consolePanel != null && consolePanel.refreshLivePage(original, items);
+    }
+
     public void hideConsolePanel() {
         if (consolePanel != null) {
             consolePanel.hide();
