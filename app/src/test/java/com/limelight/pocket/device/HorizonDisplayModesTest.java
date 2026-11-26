@@ -9,6 +9,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
+import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.util.ReflectionHelpers.ClassParameter;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -32,16 +34,10 @@ public class HorizonDisplayModesTest {
 
     @Test public void preservesFractionalRatesAndSeparatesSeamlessAlternativesFromAllModes() {
         Display display = mock(Display.class);
-        Display.Mode active = mock(Display.Mode.class);
-        Display.Mode sameResolution = mock(Display.Mode.class);
-        Display.Mode alternateResolution = mock(Display.Mode.class);
+        Display.Mode active = mode(1, 1920, 1080, 59.94f, 60f, 60f, Float.NaN);
+        Display.Mode sameResolution = mode(2, 1920, 1080, 60f);
+        Display.Mode alternateResolution = mode(3, 1280, 720, 120f);
         when(display.getMode()).thenReturn(active);
-        when(active.getPhysicalWidth()).thenReturn(1920);
-        when(active.getPhysicalHeight()).thenReturn(1080);
-        when(active.getRefreshRate()).thenReturn(59.94f);
-        when(active.getAlternativeRefreshRates()).thenReturn(new float[]{60f, 60f, Float.NaN});
-        when(sameResolution.getRefreshRate()).thenReturn(60f);
-        when(alternateResolution.getRefreshRate()).thenReturn(120f);
         when(display.getSupportedModes()).thenReturn(new Display.Mode[]{alternateResolution, active, sameResolution, active});
         HorizonDisplayModes reported = HorizonDisplayModes.read(display);
         assertEquals("1920 × 1080 · 59.94 Hz", reported.active);
@@ -52,15 +48,22 @@ public class HorizonDisplayModesTest {
 
     @Test public void distinguishesAnEmptyAlternativeListFromAnUnavailableQuery() {
         Display display = mock(Display.class);
-        Display.Mode active = mock(Display.Mode.class);
+        Display.Mode active = mode(1, 1920, 1080, 60f);
         when(display.getMode()).thenReturn(active);
-        when(active.getAlternativeRefreshRates()).thenReturn(new float[0]);
         when(display.getSupportedModes()).thenThrow(new IllegalStateException());
         HorizonDisplayModes empty = HorizonDisplayModes.read(display);
         assertEquals("", empty.seamless);
         assertNull(empty.supported);
 
-        when(active.getAlternativeRefreshRates()).thenThrow(new IllegalStateException());
+        when(display.getMode()).thenThrow(new IllegalStateException());
         assertNull(HorizonDisplayModes.read(display).seamless);
+    }
+
+    // The system creates Mode objects. Use the API 33 framework constructor in this fixture.
+    private static Display.Mode mode(int id, int width, int height, float rate, float... alternatives) {
+        return ReflectionHelpers.callConstructor(Display.Mode.class,
+                ClassParameter.from(int.class, id), ClassParameter.from(int.class, width),
+                ClassParameter.from(int.class, height), ClassParameter.from(float.class, rate),
+                ClassParameter.from(float[].class, alternatives));
     }
 }
