@@ -306,8 +306,9 @@ def main(apk):
     # T09: the hero title, previewed live on the Home scene
     move_focus_to("Game logos for titles", "DPAD_DOWN")
     wait_for("the hero rows show the Home scene", lambda t: contains(t, "Home preview of")
-             and has(t, "Hero logo size, 100%"))
+             and focused(t, "Game logos for titles, On"))
     move_focus_to("Hero logo size", "DPAD_DOWN")
+    wait_for("the logo starts at its usual size", lambda t: focused(t, "Hero logo size, 100%"))
     key("BUTTON_A")
     wait_prefs("the logo grows a step", lambda x: '<int name="pocket_logo_scale" value="115" />' in x)
     wait_for("the row shows the new size", lambda t: focused(t, "Hero logo size, 115%"))
