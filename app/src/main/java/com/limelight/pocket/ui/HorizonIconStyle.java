@@ -109,7 +109,7 @@ public final class HorizonIconStyle {
         Drawable icon;
         try {
             icon = context.getPackageManager().getApplicationIcon(context.getPackageName());
-        } catch (RuntimeException e) {
+        } catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException e) {
             return out;
         }
         if (!draw(c, icon, size, style, PocketPrefs.accentColor(context))) {
