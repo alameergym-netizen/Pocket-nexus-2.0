@@ -2,6 +2,7 @@ package com.limelight.pocket.streaming;
 
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.nvstream.http.LimelightCryptoProvider;
 import com.limelight.nvstream.http.PairingManager;
 
 import org.junit.Test;
@@ -12,13 +13,14 @@ import org.robolectric.annotation.Config;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 33)
 public class HostCodecDetailsTest {
     private ComputerDetails parse(String mask) throws Exception {
         NvHTTP http = new NvHTTP(new ComputerDetails.AddressTuple("127.0.0.1", 47989), 47984,
-                "fixture", null, null);
+                "fixture", null, mock(LimelightCryptoProvider.class));
         String report = "<root status_code=\"200\"><uniqueid>host</uniqueid><hostname>My PC</hostname>"
                 + "<HttpsPort>47984</HttpsPort><ExternalPort>47989</ExternalPort><PairStatus>1</PairStatus>"
                 + "<state>SUNSHINE_SERVER_FREE</state>"
