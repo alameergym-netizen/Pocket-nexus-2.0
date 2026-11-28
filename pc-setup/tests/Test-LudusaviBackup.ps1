@@ -85,4 +85,25 @@ try {
         throw 'FAILED: unknown game did not fail'
     } catch { if ($_.Exception.Message -notlike '*could not find*') { throw } }
     Check (@(Get-ChildItem -LiteralPath $vault -Force).Count -eq 2) 'failure leaves no unfinished or additional backup'
+
+    $slots = Join-Path $fixture 'Slot saves'
+    [void][IO.Directory]::CreateDirectory($slots)
+    for ($i = 0; $i -lt 256; $i++) {
+        [IO.File]::WriteAllBytes((Join-Path $slots ("slot-{0:D3}.sav" -f $i)), (New-Object byte[] ($i + 1)))
+    }
+    $slotPattern = $slots.Replace('\', '/') + '/*.sav'
+    [IO.File]::WriteAllText((Join-Path $config 'config.yaml'), "customGames:`n  - name: Slot Game`n    files:`n      - $slotPattern`n", $utf8)
+    $multiple = & $candidate @params -Game 'Slot Game'
+    Check ($multiple.Files -eq 256 -and $multiple.RegistryKeys -eq 0) 'every slot passes Ludusavi backup and restore preview'
+    $slotArchive = @(Get-ChildItem -LiteralPath $multiple.Directory -Recurse -Filter '*.zip')
+    $snapshot = [IO.Compression.ZipFile]::OpenRead($slotArchive[0].FullName)
+    try {
+        $entries = @($snapshot.Entries | Where-Object { $_.Name -like '*.sav' } | Sort-Object Name)
+        Check ($entries.Count -eq 256) 'the published archive contains every slot'
+        for ($i = 0; $i -lt $entries.Count; $i++) {
+            if ($entries[$i].Name -cne ("slot-{0:D3}.sav" -f $i) -or $entries[$i].Length -ne $i + 1) {
+                throw 'Published slot names or lengths differ from the source files.'
+            }
+        }
+    } finally { $snapshot.Dispose() }
 } finally { [IO.Directory]::Delete($fixture, $true) }
