@@ -24,6 +24,20 @@ Controller mappings that must stay unchanged:
 - [ ] **Typeface:** Settings → Look → Typeface (Inter, System, Condensed) changes Home text after returning to Home. Nothing overflows at 130% font scale.
 - [ ] **Workspace accents:** set Library accent to Ice. The Library's focus, section bar and rings turn ice, while Home, Settings and Nexus Control keep the look's accent. Applying the Default look clears the override.
 
+## Theme Studio additions (#156)
+- [ ] **Home hero:** with "Game logos for titles" off, Home shows names in plain type. "Hero logo size" at 150 % enlarges the hero logo on Home after returning to it.
+- [ ] **App icons:** in the App Drawer, Themed shows monochrome icons in the accent for apps that ship one, and every other app keeps its colours. Classic shows circles on dark tiles. Full looks as before.
+
+## Headphones Center with FreeBuds 7i (#162)
+- [ ] With the earbuds paired and in the ears, opening the Center from Nexus Control recognises "HUAWEI FreeBuds 7i" without a manual choice. Left, Case and Right show the same levels as the earbuds' own report.
+- [ ] Awareness, Off and ANC each change the earbuds, and only the mode the earbuds report is filled. ANC keeps the level chosen on the earbuds. Adaptive, Light, Balanced and Deep each apply and read back.
+- [ ] Changing the mode on the earbuds themselves (a long press) shows in the Center within about 15 s, with no button pressed.
+- [ ] Earbuds back in the case, Bluetooth off, or Nearby devices denied: the status says so in plain words and no mode is filled.
+- [ ] Controller: focus opens on the active mode; the D-pad walks the modes and ANC levels; A applies; B leaves without sending anything. Touch does the same.
+- [ ] The same Center opens from Home (Up from the hero to the "Buds" chip, then A), from Settings → Device and Audio, and from the in-stream menu. B returns the stream with no button reaching the game.
+- [ ] Leaving the Center mid-command, or pressing Home, cancels the command, and the earbuds stay on a mode they report.
+- [ ] TalkBack reads each mode with its state, and each battery as one item (for example "Case, 40 percent, charging").
+
 ## Accessibility and motion (#141 and earlier)
 - [ ] Android "Remove animations" on: Home, Library and Studio crossfades stop, and the Look tab's Animations row explains why.
 - [ ] TalkBack: every row in Library, Clients and Studio announces its name and state. Headings are announced as headings.

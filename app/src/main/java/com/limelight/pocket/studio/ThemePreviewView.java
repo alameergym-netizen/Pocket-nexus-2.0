@@ -89,6 +89,21 @@ public final class ThemePreviewView extends View {
         invalidate();
     }
 
+    /** T09: Home's hero title as set (logo size in percent; a logo or the game's name in text). */
+    private int heroLogo = 100;
+    private boolean heroLogos = true;
+
+    public void setHero(int logoPercent, boolean logos, boolean animate) {
+        int p = Math.max(50, Math.min(200, logoPercent));
+        if (p == heroLogo && logos == heroLogos) {
+            return;
+        }
+        startFade(animate);
+        heroLogo = p;
+        heroLogos = logos;
+        invalidate();
+    }
+
     public void setScene(int next, boolean animate) {
         int s = Math.max(HOME, Math.min(CONTROL, next));
         if (s == scene) {
@@ -1024,7 +1039,16 @@ public final class ThemePreviewView extends View {
     // ---- Pieces ---------------------------------------------------------------------------
 
     private void heroText(Canvas c, HorizonLook l, float left, float top) {
-        bar(c, left, top, fw * .34f, fh * .065f, 0xF2FFFFFF);
+        if (heroLogos) {
+            // The logo, at its set size (kept inside the screen), growing upward from its baseline
+            float k = heroLogo / 100f;
+            float w = Math.min(fw * .34f * k, fw * .96f - left);
+            float h = fh * .065f * k;
+            bar(c, left, top + fh * .065f - h, w, h, 0xF2FFFFFF);
+        } else {
+            // The name in plain type: a thinner, longer line
+            bar(c, left, top + fh * .02f, fw * .3f, fh * .04f, 0xF2FFFFFF);
+        }
         bar(c, left, top + fh * .1f, fw * .22f, fh * .03f, 0x8CFFFFFF);
         bar(c, left, top + fh * .145f, fw * .16f, fh * .03f, 0x59FFFFFF);
         play(c, l, left, top + fh * .21f, fw * .13f, fh * .08f);
