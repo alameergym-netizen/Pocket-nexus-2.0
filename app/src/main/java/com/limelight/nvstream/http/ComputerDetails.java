@@ -3,6 +3,7 @@ package com.limelight.nvstream.http;
 import androidx.annotation.NonNull;
 
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -81,6 +82,27 @@ public class ComputerDetails {
     public String runningGameUUID;
     public String rawAppList;
     public boolean nvidiaServer;
+    long advertisedCodecModes;
+
+    // ServerCodecModeSupport bits from Koloses/moonlight-common-c, ab77ee4, src/Limelight.h.
+    // These describe the host encoder. They are separate from local VIDEO_FORMAT_* or negotiated state.
+    private static final long HOST_H264 = 0x00000001 | 0x00040000;
+    private static final long HOST_HEVC = 0x00000100 | 0x00000200 | 0x00080000 | 0x00100000;
+    private static final long HOST_AV1 = 0x00010000 | 0x00020000 | 0x00200000 | 0x00400000;
+    private static final long HOST_PYROWAVE = 0x00800000 | 0x01000000 | 0x02000000 | 0x04000000;
+
+    String advertisedCodecs() {
+        if (state != State.ONLINE) return "Unavailable while offline or unknown";
+        if (advertisedCodecModes <= 0 || advertisedCodecModes > 0xffffffffL) return "None reported";
+        List<String> families = new ArrayList<>(5);
+        if ((advertisedCodecModes & HOST_H264) != 0) families.add("H.264");
+        if ((advertisedCodecModes & HOST_HEVC) != 0) families.add("HEVC");
+        if ((advertisedCodecModes & HOST_AV1) != 0) families.add("AV1");
+        if ((advertisedCodecModes & HOST_PYROWAVE) != 0) families.add("PyroWave (no Nexus decoder)");
+        long other = advertisedCodecModes & ~(HOST_H264 | HOST_HEVC | HOST_AV1 | HOST_PYROWAVE);
+        if (other != 0) families.add("Other flags 0x" + Long.toHexString(other));
+        return android.text.TextUtils.join(", ", families);
+    }
 
     // VDisplay info
     public boolean vDisplaySupported = false;
@@ -159,6 +181,7 @@ public class ComputerDetails {
         this.runningGameId = details.runningGameId;
         this.runningGameUUID = details.runningGameUUID;
         this.nvidiaServer = details.nvidiaServer;
+        this.advertisedCodecModes = details.advertisedCodecModes;
         this.rawAppList = details.rawAppList;
 
         this.vDisplayDriverReady = details.vDisplayDriverReady;
@@ -223,6 +246,7 @@ public class ComputerDetails {
 
         return "Name: " + name + "\n" +
                 "State: " + state + "\n" +
+                "Host-advertised video codecs: " + advertisedCodecs() + "\n" +
                 "Active Address: " + activeAddress + "\n" +
                 "UUID: " + uuid + "\n" +
                 "\nPermissions: " + permissionsStr + "\n" +

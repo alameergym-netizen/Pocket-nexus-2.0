@@ -435,6 +435,12 @@ public class NvHTTP {
         }
 
         details.serverCommands = getServerCmds(serverInfo);
+        try {
+            details.advertisedCodecModes = getServerCodecModeSupport(serverInfo);
+        } catch (NumberFormatException malformed) {
+            // An optional diagnostic must not make an otherwise reachable PC disappear.
+            details.advertisedCodecModes = 0;
+        }
 
         details.pairState = getPairState(serverInfo);
         details.runningGameId = getCurrentGame(serverInfo);

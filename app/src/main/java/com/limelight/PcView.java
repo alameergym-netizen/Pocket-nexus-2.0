@@ -214,7 +214,25 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
     private final static int PAIR_ID_OTP = 21;
 
     private void initializeViews() {
+        // The activity owns its options panel for its lifetime. A configuration change
+        // reinflates the PC workspace but must keep that same panel attached above it.
+        ViewGroup content = findViewById(android.R.id.content);
+        com.limelight.pocket.ui.StreamMenuView options = null;
+        for (int i = 0; content != null && i < content.getChildCount(); i++) {
+            View child = content.getChildAt(i);
+            if (child instanceof com.limelight.pocket.ui.StreamMenuView) {
+                options = (com.limelight.pocket.ui.StreamMenuView) child;
+                break;
+            }
+        }
         setContentView(R.layout.activity_pc_view);
+        if (options != null) {
+            ViewGroup newContent = findViewById(android.R.id.content);
+            newContent.addView(options);
+            if (options.isShowing()) {
+                com.limelight.pocket.ui.PocketUi.setBackdropBlur(findViewById(R.id.pocketRoot), true);
+            }
+        }
 
         UiHelper.notifyNewRootView(this);
 
@@ -701,6 +719,14 @@ public class PcView extends ConsoleActivity implements CarouselAdapter.Listener,
         menu.add(Menu.NONE, TEST_NETWORK_ID, 5, getResources().getString(R.string.pcview_menu_test_network));
         menu.add(Menu.NONE, DELETE_ID, 6, getResources().getString(R.string.pcview_menu_delete_pc));
         menu.add(Menu.NONE, VIEW_DETAILS_ID, 7,  getResources().getString(R.string.pcview_menu_details));
+    }
+
+    @Override
+    protected void onConsolePanelClosed() {
+        super.onConsolePanelClosed();
+        // The console options page uses the same frozen snapshot as Android's context
+        // menu. Its B dismissal does not call onContextMenuClosed().
+        startComputerUpdates();
     }
 
     @Override
