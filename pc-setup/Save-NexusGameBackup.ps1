@@ -31,12 +31,20 @@ function Confirm-SameSelection($Written, $Readback) {
     if ($Written.Files.Count -ne $Readback.Files.Count -or $Written.Registry.Count -ne $Readback.Registry.Count) {
         throw 'The backup and restore preview cover different save items.'
     }
-    foreach ($original in $Written.Files) {
-        $found = $Readback.Files | Where-Object { $_.Name -ceq $original.Name -and $_.Value.bytes -eq $original.Value.bytes }
-        if (-not $found) { throw 'A saved file could not be read back at its recorded size.' }
+    $fileSizes = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+    foreach ($file in $Readback.Files) {
+        $fileSizes.Add($file.Name, $file.Value.bytes)
     }
+    foreach ($original in $Written.Files) {
+        $size = $null
+        if (-not $fileSizes.TryGetValue($original.Name, [ref]$size) -or $size -ne $original.Value.bytes) {
+            throw 'A saved file could not be read back at its recorded size.'
+        }
+    }
+    $registryKeys = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($key in $Readback.Registry) { [void]$registryKeys.Add($key.Name) }
     foreach ($original in $Written.Registry) {
-        if ($original.Name -cnotin $Readback.Registry.Name) { throw 'A saved registry key could not be read back.' }
+        if (-not $registryKeys.Contains($original.Name)) { throw 'A saved registry key could not be read back.' }
     }
 }
 
