@@ -2,6 +2,7 @@ package com.limelight.binding.input;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.ComponentName;
 import android.os.Looper;
 import android.util.SparseArray;
 
@@ -43,6 +44,10 @@ public class ControllerSourceOwnershipTest {
 
     @Before public void setUp() {
         activity = Robolectric.buildActivity(Activity.class).setup();
+        // Generic Android hardware has no NVIDIA accessory service. Robolectric otherwise
+        // fabricates a successful connection with a null binder when the looper advances.
+        shadowOf(activity.get().getApplication()).declareComponentUnbindable(
+                new ComponentName("com.nvidia.blakepairing", "com.nvidia.blakepairing.AccessoryService"));
         connection = mock(NvConnection.class);
         handler = new ControllerHandler(activity.get(), connection, null, new PreferenceConfiguration());
         physical = ReflectionHelpers.getField(handler, "inputDeviceContexts");
