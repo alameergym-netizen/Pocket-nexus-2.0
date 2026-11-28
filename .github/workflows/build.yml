@@ -55,7 +55,7 @@ jobs:
         run: |
           export NEXUS_ROBOLECTRIC_DIR="$RUNNER_TEMP/nexus-robolectric"
           set -o pipefail
-          ./gradlew --no-daemon --stacktrace testNonRoot_gameDebugUnitTest --tests 'com.limelight.pocket.*' --tests 'com.limelight.binding.audio.HorizonStreamEqualizerTest' --tests 'com.limelight.binding.audio.HorizonAudioOutputTest' 2>&1 | tee horizon-tests.log
+          ./gradlew --no-daemon --stacktrace testNonRoot_gameDebugUnitTest --tests 'com.limelight.pocket.*' --tests 'com.limelight.binding.audio.HorizonStreamEqualizerTest' --tests 'com.limelight.binding.audio.HorizonAudioOutputTest' --tests 'com.limelight.binding.input.ControllerSourceOwnershipTest' 2>&1 | tee horizon-tests.log
       - name: Upload diagnostics even if the build or tests fail
         if: always()
         uses: actions/upload-artifact@v4

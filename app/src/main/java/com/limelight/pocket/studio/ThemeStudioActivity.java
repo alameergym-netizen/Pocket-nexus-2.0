@@ -28,6 +28,7 @@ import com.limelight.pocket.PocketPrefs;
 import com.limelight.pocket.PocketSounds;
 import com.limelight.pocket.ui.HorizonLook;
 import com.limelight.pocket.ui.HorizonThemeStudio;
+import com.limelight.pocket.ui.HorizonWorkspaceLook;
 import com.limelight.pocket.ui.Layouts;
 import com.limelight.pocket.ui.PocketFonts;
 import com.limelight.pocket.ui.PocketTheme;
@@ -206,8 +207,9 @@ public class ThemeStudioActivity extends ConsoleActivity {
         summary.setMaxLines(heightDp < 420 ? 2 : 3);
         setContentView(root);
         buildRows();
-        previewView.setLook(preview, false);
+        previewView.setLook(forScene(preview), false);
         previewView.setScene(scene, false);
+        previewView.setHero(PocketPrefs.logoScale(this), com.limelight.pocket.PocketArt.logosForNames(this), false);
         updateScenes();
         updatePreviewText();
         String want = focusKey != null && rowByKey.containsKey(focusKey) ? focusKey : appliedKey();
@@ -348,6 +350,16 @@ public class ThemeStudioActivity extends ConsoleActivity {
             }
         }
 
+        // T08: the Library and Nexus Control can keep their own accent on top of the look
+        header(R.string.horizon_studio_section_workspaces);
+        workspaceRow(HorizonWorkspaceLook.LIBRARY, R.string.horizon_studio_ws_library, ThemePreviewView.LIBRARY);
+        workspaceRow(HorizonWorkspaceLook.CONTROL, R.string.horizon_studio_ws_control, ThemePreviewView.CONTROL);
+
+        // T09: Home's hero title, shown live in the Home preview
+        header(R.string.horizon_studio_section_hero);
+        heroRows();
+        iconRow();
+
         header(R.string.horizon_studio_section_tools);
         final String defaultName = getString(R.string.horizon_studio_default);
         lookRow("default", defaultName, getString(R.string.horizon_studio_default_sub),
@@ -361,6 +373,135 @@ public class ThemeStudioActivity extends ConsoleActivity {
                 this::exportPreview);
         actionRow("import", getString(R.string.horizon_studio_import), getString(R.string.horizon_studio_import_sub),
                 this::importLook);
+    }
+
+    private static final int[] ACCENT_NAMES = {R.string.pocket_accent_white, R.string.pocket_accent_ice,
+            R.string.pocket_accent_mint, R.string.pocket_accent_lilac, R.string.pocket_accent_rose,
+            R.string.pocket_accent_amber, R.string.pocket_accent_coral, R.string.pocket_accent_lime,
+            R.string.pocket_accent_cyan, R.string.pocket_accent_violet, R.string.pocket_accent_neon,
+            R.string.pocket_accent_portal};
+
+    private int override(String workspace) {
+        return PocketPrefs.prefs(this).getInt(HorizonWorkspaceLook.key(workspace), 0);
+    }
+
+    private String accentName(int color) {
+        for (int i = 0; i < PocketTheme.ACCENTS.length && i < ACCENT_NAMES.length; i++) {
+            if (PocketTheme.ACCENTS[i] == (color | 0xFF000000)) return getString(ACCENT_NAMES[i]);
+        }
+        return String.format(java.util.Locale.ROOT, "#%06X", color & 0xFFFFFF);
+    }
+
+    /** The scene's workspace: its own accent, if it keeps one, over the look being shown. */
+    private HorizonLook forScene(HorizonLook l) {
+        String ws = scene == ThemePreviewView.LIBRARY ? HorizonWorkspaceLook.LIBRARY
+                : scene == ThemePreviewView.CONTROL ? HorizonWorkspaceLook.CONTROL : null;
+        if (l == null || ws == null) return l;
+        int accent = HorizonWorkspaceLook.accent(l.accent, override(ws));
+        return accent == l.accent ? l : new HorizonLook(accent, l.backdrop, l.material, l.sound, l.layout, l.focus,
+                l.density, l.corners, l.motion, l.colorArt, l.liveGlass);
+    }
+
+    private void showHero() {
+        previewView.setHero(PocketPrefs.logoScale(this), com.limelight.pocket.PocketArt.logosForNames(this), animate());
+    }
+
+    /** Logo size and logos-for-names: stored at once (as in Settings → Art), previewed on Home. */
+    private void heroRows() {
+        final boolean logos = com.limelight.pocket.PocketArt.logosForNames(this);
+        final int scale = PocketPrefs.logoScale(this);
+        LinearLayout logosRow = row("hero:logos", getString(R.string.horizon_studio_hero_logos),
+                getString(logos ? R.string.horizon_studio_on : R.string.horizon_studio_off), null);
+        LinearLayout sizeRow = row("hero:size", getString(R.string.horizon_studio_hero_size),
+                logos ? scale + "%" : getString(R.string.horizon_studio_hero_size_text), null);
+        for (LinearLayout r : new LinearLayout[]{logosRow, sizeRow}) {
+            final String key = (String) r.getTag();
+            r.setOnFocusChangeListener((v, has) -> {
+                if (has) {
+                    PocketUi.tick(this);
+                    disarmClear(key);
+                    if (scene != ThemePreviewView.HOME) showScene(ThemePreviewView.HOME);
+                }
+            });
+        }
+        logosRow.setOnClickListener(v -> {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            PocketPrefs.prefs(this).edit().putBoolean(com.limelight.pocket.PocketArt.KEY_LOGOS, !logos).apply();
+            showHero();
+            rebuildRows("hero:logos");
+        });
+        sizeRow.setOnClickListener(v -> {
+            if (!logos) return;
+            PocketSounds.play(this, PocketSounds.SELECT);
+            PocketPrefs.prefs(this).edit().putInt(PocketPrefs.KEY_LOGO_SCALE, PocketPrefs.cycleLogoScale(scale)).apply();
+            showHero();
+            rebuildRows("hero:size");
+        });
+        sizeRow.setAlpha(logos ? 1f : 0.5f);
+    }
+
+    /** T09: the App Drawer's icon style, with this app's own icon drawn in it on the row. */
+    private void iconRow() {
+        final String style = com.limelight.pocket.ui.HorizonIconStyle.current(this);
+        int name = com.limelight.pocket.ui.HorizonIconStyle.THEMED.equals(style) ? R.string.horizon_studio_icons_themed
+                : com.limelight.pocket.ui.HorizonIconStyle.CLASSIC.equals(style) ? R.string.horizon_studio_icons_classic
+                : R.string.horizon_studio_icons_full;
+        LinearLayout row = row("icons", getString(R.string.horizon_studio_icons), getString(name), null);
+        android.widget.ImageView sample = new android.widget.ImageView(this);
+        sample.setImageBitmap(com.limelight.pocket.ui.HorizonIconStyle.sample(this, style, dp(28)));
+        sample.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        sample.setClipToOutline(true);
+        sample.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dp(6));
+            }
+        });
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(dp(28), dp(28));
+        slp.setMarginEnd(dp(10));
+        row.addView(sample, 0, slp);
+        // The rule behind Themed, for anyone who asks (TalkBack reads it after the row)
+        androidx.core.view.ViewCompat.setTooltipText(row, getString(R.string.horizon_studio_icons_note));
+        row.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                PocketUi.tick(this);
+                disarmClear("icons");
+            }
+        });
+        row.setOnClickListener(v -> {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            PocketPrefs.prefs(this).edit().putString(com.limelight.pocket.ui.HorizonIconStyle.KEY,
+                    com.limelight.pocket.ui.HorizonIconStyle.next(style)).apply();
+            rebuildRows("icons");
+        });
+    }
+
+    /** A workspace's accent: focusing shows that workspace; A cycles "same as the look" and each accent. */
+    private void workspaceRow(String workspace, int title, int sceneIndex) {
+        final String key = "workspace:" + workspace;
+        final int current = override(workspace);
+        String value = current == 0 ? getString(R.string.horizon_studio_ws_follow) : accentName(current);
+        LinearLayout row = row(key, getString(title), value,
+                HorizonWorkspaceLook.accent(applied.accent, current));
+        row.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                PocketUi.tick(this);
+                disarmClear(key);
+                if (scene != sceneIndex) showScene(sceneIndex);
+            }
+        });
+        row.setOnClickListener(v -> {
+            PocketSounds.play(this, PocketSounds.SELECT);
+            int next = HorizonWorkspaceLook.next(current, PocketTheme.ACCENTS);
+            if (next == 0) {
+                PocketPrefs.prefs(this).edit().remove(HorizonWorkspaceLook.key(workspace)).apply();
+            }
+            else {
+                PocketPrefs.prefs(this).edit().putInt(HorizonWorkspaceLook.key(workspace), next).apply();
+            }
+            previewView.setLook(forScene(preview), animate());
+            rebuildRows(key);
+        });
     }
 
     private interface LookSource {
@@ -465,13 +606,14 @@ public class ThemeStudioActivity extends ConsoleActivity {
         }
         preview = look;
         previewName = name;
-        previewView.setLook(look, animate());
+        previewView.setLook(forScene(look), animate());
         updatePreviewText();
     }
 
     private void showScene(int index) {
         scene = Math.max(ThemePreviewView.HOME, Math.min(ThemePreviewView.CONTROL, index));
         previewView.setScene(scene, animate());
+        previewView.setLook(forScene(preview), animate());
         updateScenes();
         updatePreviewText();
     }
@@ -493,6 +635,15 @@ public class ThemeStudioActivity extends ConsoleActivity {
             return;
         }
         PocketSounds.reload(this);
+        if (preview.equals(HorizonLook.defaults())) {
+            // A full reset: the workspaces follow the look again
+            android.content.SharedPreferences.Editor e = PocketPrefs.prefs(this).edit();
+            for (String ws : HorizonWorkspaceLook.WORKSPACES) e.remove(HorizonWorkspaceLook.key(ws));
+            e.remove(PocketPrefs.KEY_LOGO_SCALE).remove(com.limelight.pocket.PocketArt.KEY_LOGOS)
+                    .remove(com.limelight.pocket.ui.HorizonIconStyle.KEY);
+            e.apply();
+            showHero();
+        }
         applied = HorizonThemeStudio.current(this);
         preview = applied;
         Toast.makeText(this, R.string.horizon_studio_done, Toast.LENGTH_SHORT).show();

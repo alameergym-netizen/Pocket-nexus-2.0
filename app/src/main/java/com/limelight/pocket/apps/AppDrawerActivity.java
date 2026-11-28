@@ -1063,7 +1063,8 @@ public class AppDrawerActivity extends ConsoleActivity {
         @Override
         public void onBindViewHolder(@NonNull final Tile h, int position) {
             final App a = shown.get(position);
-            final String key = a.pkg + "|" + com.limelight.pocket.PocketArt.version();
+            final String key = a.pkg + "|" + com.limelight.pocket.PocketArt.version() + "|"
+                    + com.limelight.pocket.ui.HorizonIconStyle.cacheTag(AppDrawerActivity.this);
             h.pkg = a.pkg;
             h.key = key;
             h.name.setText(a.label);
@@ -1131,57 +1132,72 @@ public class AppDrawerActivity extends ConsoleActivity {
             Bitmap pickedIcon = decode(com.limelight.pocket.PocketArt.file(this, AndroidLibrary.UUID, id,
                     com.limelight.pocket.PocketArt.ICON), size);
             Drawable icon = pickedIcon == null ? getPackageManager().getApplicationIcon(pkg) : null;
-            if (icon != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    && icon instanceof android.graphics.drawable.AdaptiveIconDrawable) {
-                android.graphics.drawable.AdaptiveIconDrawable adaptive = (android.graphics.drawable.AdaptiveIconDrawable) icon;
-                // Its layers are drawn a quarter bigger on each side: the part a launcher shows
-                // in its circle fills the whole tile instead
-                int grow = Math.round(size * 0.25f);
-                Drawable back = adaptive.getBackground();
-                Drawable front = adaptive.getForeground();
-                if (back != null) {
-                    back.setBounds(-grow, -grow, size + grow, size + grow);
-                    back.draw(c);
-                }
-                else {
-                    c.drawColor(0xFF2A2A31);
-                }
-                if (front != null) {
-                    front.setBounds(-grow, -grow, size + grow, size + grow);
-                    front.draw(c);
-                }
-                return out;
-            }
-            Bitmap flat = pickedIcon;
-            if (flat == null && icon != null) {
-                int px = Math.round(size * 0.62f);
-                flat = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
-                icon.setBounds(0, 0, px, px);
-                icon.draw(new Canvas(flat));
-            }
-            if (flat == null) {
-                return null;
-            }
-            int base = average(flat);
-            float[] hsv = new float[3];
-            Color.colorToHSV(base, hsv);
-            hsv[1] = Math.min(1f, hsv[1] * 1.1f);
-            hsv[2] = Math.max(0.2f, Math.min(0.46f, hsv[2] * 0.6f));
-            int deep = Color.HSVToColor(hsv);
-            hsv[2] = Math.min(0.7f, hsv[2] * 1.65f);
-            int light = Color.HSVToColor(hsv);
-            android.graphics.Paint bg = new android.graphics.Paint();
-            bg.setShader(new android.graphics.LinearGradient(0, 0, size * 0.6f, size, light, deep,
-                    android.graphics.Shader.TileMode.CLAMP));
-            c.drawRect(0, 0, size, size, bg);
-            float s = size * 0.62f;
-            float l = (size - s) / 2f;
-            c.drawBitmap(flat, null, new android.graphics.RectF(l, l, l + s, l + s),
-                    new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG | android.graphics.Paint.ANTI_ALIAS_FLAG));
-            return out;
+            return iconTile(this, out, icon, pickedIcon, size);
         } catch (PackageManager.NameNotFoundException | RuntimeException | OutOfMemoryError e) {
             return null;
         }
+    }
+
+    /**
+     * An app's own icon on its tile (out, size x size): in the chosen icon style when that style
+     * applies (T09), else full bleed for an adaptive icon, else a flat icon or a picked one on a
+     * tile in its own colours. Null when there is nothing to draw.
+     */
+    static Bitmap iconTile(android.content.Context context, Bitmap out, Drawable icon, Bitmap pickedIcon, int size) {
+        Canvas c = new Canvas(out);
+        // T09: the chosen icon style (Themed needs the app's own monochrome icon)
+        if (icon != null && com.limelight.pocket.ui.HorizonIconStyle.draw(c, icon, size,
+                com.limelight.pocket.ui.HorizonIconStyle.current(context), PocketPrefs.accentColor(context))) {
+            return out;
+        }
+        if (icon != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && icon instanceof android.graphics.drawable.AdaptiveIconDrawable) {
+            android.graphics.drawable.AdaptiveIconDrawable adaptive = (android.graphics.drawable.AdaptiveIconDrawable) icon;
+            // Its layers are drawn a quarter bigger on each side: the part a launcher shows
+            // in its circle fills the whole tile instead
+            int grow = Math.round(size * 0.25f);
+            Drawable back = adaptive.getBackground();
+            Drawable front = adaptive.getForeground();
+            if (back != null) {
+                back.setBounds(-grow, -grow, size + grow, size + grow);
+                back.draw(c);
+            }
+            else {
+                c.drawColor(0xFF2A2A31);
+            }
+            if (front != null) {
+                front.setBounds(-grow, -grow, size + grow, size + grow);
+                front.draw(c);
+            }
+            return out;
+        }
+        Bitmap flat = pickedIcon;
+        if (flat == null && icon != null) {
+            int px = Math.round(size * 0.62f);
+            flat = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
+            icon.setBounds(0, 0, px, px);
+            icon.draw(new Canvas(flat));
+        }
+        if (flat == null) {
+            return null;
+        }
+        int base = average(flat);
+        float[] hsv = new float[3];
+        Color.colorToHSV(base, hsv);
+        hsv[1] = Math.min(1f, hsv[1] * 1.1f);
+        hsv[2] = Math.max(0.2f, Math.min(0.46f, hsv[2] * 0.6f));
+        int deep = Color.HSVToColor(hsv);
+        hsv[2] = Math.min(0.7f, hsv[2] * 1.65f);
+        int light = Color.HSVToColor(hsv);
+        android.graphics.Paint bg = new android.graphics.Paint();
+        bg.setShader(new android.graphics.LinearGradient(0, 0, size * 0.6f, size, light, deep,
+                android.graphics.Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, size, size, bg);
+        float s = size * 0.62f;
+        float l = (size - s) / 2f;
+        c.drawBitmap(flat, null, new android.graphics.RectF(l, l, l + s, l + s),
+                new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG | android.graphics.Paint.ANTI_ALIAS_FLAG));
+        return out;
     }
 
     private static Bitmap decode(java.io.File f, int target) {

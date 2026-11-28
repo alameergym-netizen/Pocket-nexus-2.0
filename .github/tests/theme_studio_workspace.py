@@ -284,6 +284,55 @@ def main(apk):
     wait_prefs("custom look 1 cleared", lambda x: "horizon_look_slot_0" not in x)
     print("PASS: custom look save and confirmed clear", flush=True)
 
+    # T08: the Library keeps its own accent; Nexus Control still follows the look
+    move_focus_to("Library accent", "DPAD_DOWN", limit=60)
+    wait_for("the Library row shows the Library scene, following the look", lambda t:
+             contains(t, "Library preview of") and has(t, "Library accent, Same as the look"))
+    key("BUTTON_A")
+    wait_prefs("the Library keeps white", lambda x: '<int name="horizon_accent_library" value="-1" />' in x)
+    wait_for("the row names the Library's accent", lambda t: focused(t, "Library accent, White"))
+    key("BUTTON_A")
+    wait_prefs("the Library keeps ice", lambda x: '<int name="horizon_accent_library" value="-6301441" />' in x)
+    wait_for("the row names the next accent", lambda t: has(t, "Library accent, Ice")
+             and contains(t, "Library preview of"))
+    capture("12a-library-accent")
+    assert WHITE_ACCENT in prefs(), "a workspace accent changed the look's accent"
+    move_focus_to("Nexus Control accent", "DPAD_DOWN")
+    wait_for("Nexus Control follows the look", lambda t: contains(t, "Control preview of")
+             and has(t, "Nexus Control accent, Same as the look"))
+    assert "horizon_accent_control" not in prefs(), "the Control workspace got an accent it was not given"
+    print("PASS: a per-workspace accent is kept apart from the look", flush=True)
+
+    # T09: the hero title, previewed live on the Home scene
+    move_focus_to("Game logos for titles", "DPAD_DOWN")
+    wait_for("the hero rows show the Home scene", lambda t: contains(t, "Home preview of")
+             and focused(t, "Game logos for titles, On"))
+    move_focus_to("Hero logo size", "DPAD_DOWN")
+    wait_for("the logo starts at its usual size", lambda t: focused(t, "Hero logo size, 100%"))
+    key("BUTTON_A")
+    wait_prefs("the logo grows a step", lambda x: '<int name="pocket_logo_scale" value="115" />' in x)
+    wait_for("the row shows the new size", lambda t: focused(t, "Hero logo size, 115%"))
+    move_focus_to("Game logos for titles", "DPAD_UP")
+    key("BUTTON_A")
+    wait_prefs("names as text", lambda x: '<boolean name="pocket_logos_for_names" value="false" />' in x)
+    wait_for("the size row says names are text", lambda t: has(t, "Hero logo size, Names shown as text"))
+    capture("12b-hero-text")
+    key("BUTTON_A")
+    wait_prefs("logos again", lambda x: '<boolean name="pocket_logos_for_names" value="true" />' in x)
+    print("PASS: the hero logo size and logos-for-titles preview on Home and store at once", flush=True)
+
+    # T09: the App Drawer's icon style, shown with this app's own icon on the row
+    move_focus_to("App icons", "DPAD_DOWN")
+    wait_for("icons start as full tiles", lambda t: focused(t, "App icons, Full tile"))
+    key("BUTTON_A")
+    wait_prefs("themed icons", lambda x: '<string name="horizon_icon_style">themed</string>' in x)
+    wait_for("the row says themed", lambda t: focused(t, "App icons, Themed"))
+    key("BUTTON_A")
+    wait_prefs("classic icons", lambda x: '<string name="horizon_icon_style">classic</string>' in x)
+    key("BUTTON_A")
+    wait_prefs("full tiles again", lambda x: '<string name="horizon_icon_style">full</string>' in x)
+    print("PASS: the app icon style cycles and is stored", flush=True)
+
     # Copy the previewed look as text, paste it back, then close without applying
     move_focus_to("Copy preview as text", "DPAD_DOWN", limit=60)
     key("BUTTON_A")
